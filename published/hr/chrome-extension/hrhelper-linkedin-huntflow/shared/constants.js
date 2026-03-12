@@ -37,6 +37,9 @@
   g.__HRH__.OPTIONS_THEME_KEY = "hrhelper_options_theme";
   g.__HRH__.DEFAULT_THEME = "system";
 
+  /** Ширина плавающего виджета (LinkedIn и HH экосистема — единая), 350px */
+  g.__HRH__.FLOATING_WIDGET_WIDTH = 350;
+
   /** Тайминги для debounce и задержек (DRY, единый источник правды) */
   g.__HRH__.TIMING = {
     DEBOUNCE_MUTATION: 100,

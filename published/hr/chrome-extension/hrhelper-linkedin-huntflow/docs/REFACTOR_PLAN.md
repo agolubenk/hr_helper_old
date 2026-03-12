@@ -13,8 +13,8 @@
 | 1.1 | Добавить debounce в MutationObserver | content.js, content-resume.js, content-calendar.js, content-meet.js | ✅ |
 | 1.2 | Общие константы таймингов (TIMING) и утилита debounce | shared/constants.js, shared/utils/debounce.js | ✅ |
 | 1.3 | Оптимизировать chrome.storage.get (batch reads) | popup.js, content.js, content-resume.js, content-huntflow.js | ✅ |
-| 1.4 | Lazy loading виджетов (создавать по требованию) | content.js, content-resume.js, content-huntflow.js | 🔲 |
-| 1.5 | Заменить scroll-листенеры на IntersectionObserver | content.js, popup.js (где есть скролл) | 🔲 |
+| 1.4 | Lazy loading виджетов (создавать по требованию) | content.js, content-resume.js, content-huntflow.js | ✅ |
+| 1.5 | Заменить scroll-листенеры на IntersectionObserver | content.js, popup.js (где есть скролл) | ⏭️ нет целевых мест |
 
 ---
 
@@ -24,9 +24,9 @@
 
 | # | Задача | Детали | Статус |
 |---|--------|--------|--------|
-| 2.1 | content.js → модули по контексту | modules/linkedin-profile.js, linkedin-search.js, linkedin-messaging.js; динамический импорт по pageType | 🔲 |
-| 2.2 | popup.js → Strategy (вкладки) | tabs/linkedin-tab.js, huntflow-tab.js, calendar-tab.js, analytics-tab.js | 🔲 |
-| 2.3 | Вынести CSS из HTML | options.html, popup.html → options.css, popup.css | 🔲 |
+| 2.1 | content.js → модули по контексту | modules/linkedin-profile.js, linkedin-messaging.js (linkedin-search.js — при появлении страницы поиска) | ✅ |
+| 2.2 | popup.js → Strategy (вкладки) | tabs/registry.js, tabs/meet-tab.js (linkedin/calendar/huntflow — далее) | 🔶 |
+| 2.3 | Вынести CSS из HTML | options.html, popup.html → options.css, popup.css | ✅ |
 | 2.4 | Virtual scrolling для длинных списков | popup.js (вакансии, кандидаты) | 🔲 |
 
 ---
@@ -83,4 +83,23 @@
 
 **1.3 batch storage (popup.js):** функция `getFloatingHiddenStates()` — один вызов `chrome.storage.local.get` для всех ключей видимости плавающих окон; при открытии попапа — параллельный `Promise.all` (sync: active pages, local: floating hidden); результат передаётся в `update*Toggle(preloaded)`.
 
-Далее по плану: 1.4 (lazy loading), 1.5 (IntersectionObserver).
+---
+
+## Версия 1.4.10 (18.03.2026)
+
+- **HH экосистема (content-resume.js):** нормализация ответа candidate-info (`normalizeCandidatePayload`) — ФИО, контакты и дополнительные поля всегда отображаются в плавающем окне (поддержка формата ответа с `data` и без).
+- **HH экосистема:** кнопки «Пригласить» и «Отказать» в одной строке; в карточках вакансий — кнопка копирования ссылки; в шапке плавающего окна — кнопка «Открыть кандидата в Huntflow в новой вкладке» (иконка внешней ссылки) вместо кнопки чата.
+- **Попап (popup.js):** обработка ошибки «Could not establish connection. Receiving end does not exist» в `openMeetAll()` при недоступности контент-скрипта (вкладка закрыта или не Meet).
+
+**1.4 lazy loading (content.js):** плавающий виджет LinkedIn создаётся только по требованию: вызов `insertFloatingWidget()` убран из `ensureButtons()`; виджет создаётся в `refreshButtonForCurrentProfile()` после определения контекста (загрузка, «укажи ссылку», кэш, ответ API). В `ensureButtons()` при наличии уже созданного виджета вызывается только `updateFloatingWidget()`. content-resume.js и content-huntflow.js уже создают виджеты по требованию (при первом показе данных).
+
+**1.5 IntersectionObserver:** в content.js и popup.js целевых scroll-листенеров не найдено; замена отложена до появления сценариев «подгрузка при скролле».
+
+**Фаза 2 (продолжение):**
+- **2.3 (12.03.2026):** Стили вынесены из `popup.html` и `options.html` в отдельные файлы `popup.css` и `options.css`; в HTML оставлена только ссылка `<link rel="stylesheet" href="popup.css" />` / `options.css`. Улучшена поддерживаемость и подготовка к сборке (Фаза 4).
+
+**2.1 (модули content.js):** Добавлены `modules/linkedin-profile.js` (findActionContainer, findCoverContainer, findActivitySection, looksLikeProfileActionArea, findAllMoreButtons) и `modules/linkedin-messaging.js` (extractThreadIdFromMessageButton, saveThreadMappingToBackend, captureProfileToThreadMapping, getProfileLinkFromMessaging, findMessagingComposer). Модули подключаются в manifest до content.js; content.js делегирует вызовы через алиасы. Динамический импорт по pageType — в Фазе 4 (сборка).
+
+**2.2 (Strategy для вкладок popup):** Введён реестр контекстов и модуль Meet. Добавлены `tabs/registry.js` (getBlockId, getTabName, isLinkedInBlock) и `tabs/meet-tab.js` (updateMeetUI, setMeetNoDataUI). В popup.js используются getBlockId/isLinkedInBlock для выбора блока и вызов HRH.tabs.meet.updateMeetUI/setMeetNoDataUI при контексте Meet. Подключение: tabs/registry.js и tabs/meet-tab.js в popup.html до popup.js. Остальные вкладки (linkedin, calendar, huntflow) можно выносить по тому же шаблону.
+
+Далее по плану: продолжение 2.2 (linkedin-tab, calendar-tab) или 2.4 (virtual scrolling).

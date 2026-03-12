@@ -25,7 +25,6 @@
 
   const DATA_ATTR = 'data-hrhelper-candidate-info';
   const BY_LINK_ATTR = 'data-hrhelper-by-link';
-  const BLOCK_CLASS = 'hrhelper-candidate-block';
   const RESUME_STORAGE_KEY = 'hrhelper_resume_state';
   const FLOATING_ATTR = 'data-hrhelper-resume-floating';
   const FLOATING_POS_KEY = 'hrhelper_resume_floating_pos';
@@ -184,10 +183,20 @@
     });
   }
 
-  function formatRow(label, value, valueBold) {
-    if (value == null || value === '') return '';
-    const valHtml = valueBold ? `<strong>${escapeHtml(String(value))}</strong>` : escapeHtml(String(value));
-    return `<div class="${BLOCK_CLASS}-row"><span class="${BLOCK_CLASS}-label">${escapeHtml(label)}:</span> <span class="${BLOCK_CLASS}-value">${valHtml}</span></div>`;
+  /** Добавить кандидата (по huntflow_url, для HH можно передать resume_url) на вакансию */
+  async function addToVacancyResume(huntflowUrl, vacancyId, resumeUrl) {
+    try {
+      const body = { huntflow_url: huntflowUrl, vacancy_id: vacancyId };
+      if (resumeUrl && (resumeUrl = (resumeUrl || '').trim())) body.resume_url = resumeUrl;
+      const res = await apiFetch('/api/v1/huntflow/linkedin-applicants/add-to-vacancy/', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => null);
+      return res.ok && data && data.success ? data : null;
+    } catch (_) {
+      return null;
+    }
   }
 
   function escapeHtml(s) {
@@ -218,58 +227,6 @@
       throw new Error("[HRHelper] shared/api/status.js not loaded (fetchStatusMulti missing)");
     }
     return shared({ huntflowUrl: huntflowUrl }).then((data) => (data && !data.error ? data : null));
-  }
-
-  /**
-   * Строит блок: заголовок (ФИО), контакты, список вакансий (вакансия — статус — дата; для отказа + причина).
-   * @param {Object} candidateInfo - full_name, phone, email, telegram, communication
-   * @param {Array} vacancies - [{ vacancy_name, status_name, last_change_at, status_type, rejection_reason_name }]
-   * @param {Object} opts - showIfEmpty
-   */
-  function buildBlock(candidateInfo, vacancies, opts) {
-    opts = opts || {};
-    const info = candidateInfo || {};
-    const comm = info.communication;
-    const isCommTelegram = comm && /t\.me|telegram/i.test(String(comm));
-
-    const contactRows = [
-      formatRow('Телефон', info.phone),
-      formatRow('Email', info.email),
-      formatRow('Telegram', info.telegram),
-      formatRow('Где ведётся коммуникация', !isCommTelegram ? comm : null),
-    ].filter(Boolean);
-
-    const vacancyItems = (vacancies || []).map((v) => {
-      const name = v.vacancy_name || '—';
-      const status = v.status_name || '—';
-      const date = formatDate(v.last_change_at);
-      const isRejected = v.status_type === 'rejected' && v.rejection_reason_name;
-      const statusPart = isRejected ? `${status} (${v.rejection_reason_name})` : status;
-      return `${escapeHtml(name)} — ${escapeHtml(statusPart)} — ${escapeHtml(date)}`;
-    });
-
-    const hasContent = info.full_name || contactRows.length > 0 || vacancyItems.length > 0;
-    if (!hasContent && !opts.showIfEmpty) return null;
-
-    const headerHtml = info.full_name
-      ? `<div class="${BLOCK_CLASS}-header">${escapeHtml(info.full_name)}</div>`
-      : '';
-
-    const contactsHtml = contactRows.length > 0
-      ? `<div class="${BLOCK_CLASS}-contacts">${contactRows.join('')}</div>`
-      : '';
-
-    const vacancyListHtml = vacancyItems.length > 0
-      ? `<div class="${BLOCK_CLASS}-vacancies"><div class="${BLOCK_CLASS}-vacancies-title">Вакансии</div><ul class="${BLOCK_CLASS}-vacancies-list">${vacancyItems.map((t) => `<li>${t}</li>`).join('')}</ul></div>`
-      : '';
-
-    const bodyHtml = headerHtml + contactsHtml + vacancyListHtml || `<div class="${BLOCK_CLASS}-row"><span class="${BLOCK_CLASS}-value">Связано с Huntflow</span></div>`;
-
-    const html = `<div class="${BLOCK_CLASS}" ${DATA_ATTR}=""><div class="${BLOCK_CLASS}-body">${bodyHtml}</div></div>`;
-
-    const wrap = document.createElement('div');
-    wrap.innerHTML = html.trim();
-    return wrap.firstChild;
   }
 
   function makeResumeWidgetDraggable(wrapper) {
@@ -382,7 +339,9 @@
       .hrhelper-resume-floating-widget .hrhelper-resume-floating-body,
       .hrhelper-resume-floating-widget .hrhelper-resume-floating-body * { color: var(--hrhelper-text) !important; }
       .hrhelper-resume-floating-widget .hrhelper-resume-floating-edit,
-      .hrhelper-resume-floating-widget .hrhelper-resume-floating-contact,
+      .hrhelper-resume-floating-widget .hrhelper-resume-floating-open-huntflow,
+      .hrhelper-resume-floating-widget .hrhelper-resume-floating-add-vacancy,
+      .hrhelper-resume-floating-widget .hrhelper-resume-floating-toggle,
       .hrhelper-resume-floating-widget .hrhelper-resume-floating-switch-service,
       .hrhelper-resume-floating-widget button[style*="border-radius:4px"] { background: var(--hrhelper-btn-bg) !important; color: var(--hrhelper-muted) !important; border-color: var(--hrhelper-border) !important; }
       .hrhelper-resume-floating-widget input,
@@ -396,7 +355,7 @@
         --hrhelper-danger: #f85149; --hrhelper-danger-bg: rgba(248,81,73,.15); --hrhelper-success: #3fb950; --hrhelper-success-bg: rgba(63,185,80,.15);
         --hrhelper-card-active-bg: rgba(88,166,255,.08); --hrhelper-card-active-border: rgba(88,166,255,.35); --hrhelper-card-rejected-bg: rgba(248,81,73,.15); --hrhelper-card-rejected-border: rgba(248,81,73,.4); --hrhelper-card-archived-bg: #21262d; --hrhelper-card-archived-border: rgba(255,255,255,.12);
       }
-      .hrhelper-resume-vacancy-card { padding: 8px 10px; border-radius: 8px; border: 1px solid var(--hrhelper-card-active-border); background: var(--hrhelper-card-active-bg); margin-bottom: 6px; font-size: 12px; display: flex; align-items: flex-start; gap: 10px; }
+      .hrhelper-resume-vacancy-card { padding: 6px 8px; border-radius: 8px; border: 1px solid var(--hrhelper-card-active-border); background: var(--hrhelper-card-active-bg); margin-bottom: 4px; font-size: 12px; display: flex; align-items: flex-start; gap: 8px; }
       .hrhelper-resume-vacancy-card-rejected { border-color: var(--hrhelper-card-rejected-border); background: var(--hrhelper-card-rejected-bg); }
       .hrhelper-resume-vacancy-card-archived { border-color: var(--hrhelper-card-archived-border); background: var(--hrhelper-card-archived-bg); }
       .hrhelper-resume-vacancy-card .hrhelper-resume-vacancy-line1 { margin-bottom: 2px; color: var(--hrhelper-text); font-weight: 600; }
@@ -408,19 +367,19 @@
       .hrhelper-resume-floating-widget.hrhelper-theme-dark .hrhelper-resume-vacancy-card .hrhelper-resume-vacancy-line1 { color: #e6edf3 !important; }
       .hrhelper-resume-floating-widget.hrhelper-theme-dark .hrhelper-resume-vacancy-card .hrhelper-resume-vacancy-line2 { color: #8b949e !important; }
       .hrhelper-resume-floating-widget.hrhelper-theme-dark .hrhelper-resume-vacancy-btn { background: rgba(88,166,255,.18) !important; border-color: rgba(88,166,255,.4) !important; color: #58a6ff !important; }
-      .hrhelper-resume-additional-wrap { margin-bottom: 10px; }
-      .hrhelper-resume-additional-header { width: 100%; text-align: left; font-weight: 700; margin-bottom: 4px; font-size: 13px; background: none; border: none; padding: 4px 0; cursor: pointer; display: flex; align-items: center; gap: 6px; color: var(--hrhelper-muted); }
+      .hrhelper-resume-additional-wrap { margin-bottom: 4px; }
+      .hrhelper-resume-additional-header { width: 100%; text-align: left; font-weight: 700; margin-bottom: 2px; font-size: 13px; background: none; border: none; padding: 2px 0; cursor: pointer; display: flex; align-items: center; gap: 6px; color: var(--hrhelper-muted); }
       .hrhelper-resume-additional-header .hrhelper-toggle-icon { font-size: 12px; }
-      .hrhelper-resume-additional-body { margin-left: 0; font-size: 11px; margin-bottom: 8px; padding: 8px; background: var(--hrhelper-btn-bg); border-radius: 6px; }
-      .hrhelper-resume-additional-body .hrhelper-additional-row { margin-bottom: 4px; }
+      .hrhelper-resume-additional-body { margin-left: 0; font-size: 11px; margin-bottom: 4px; padding: 6px; background: var(--hrhelper-btn-bg); border-radius: 6px; }
+      .hrhelper-resume-additional-body .hrhelper-additional-row { margin-bottom: 2px; }
       .hrhelper-resume-additional-body .hrhelper-additional-label { color: var(--hrhelper-muted); }
       .hrhelper-resume-additional-body .hrhelper-additional-value { color: var(--hrhelper-text); }
-      .hrhelper-resume-contacts-title { font-weight: 700; margin-bottom: 6px; font-size: 13px; color: var(--hrhelper-muted); }
-      .hrhelper-resume-contact-row { margin-bottom: 4px; }
+      .hrhelper-resume-contacts-title { font-weight: 700; margin-bottom: 4px; font-size: 13px; color: var(--hrhelper-muted); }
+      .hrhelper-resume-contact-row { margin-bottom: 2px; }
       .hrhelper-resume-contact-row .hrhelper-contact-label { color: var(--hrhelper-muted); }
       .hrhelper-resume-contact-row .hrhelper-contact-value { color: var(--hrhelper-text); }
-      .hrhelper-resume-labels-title { font-weight: 700; margin-bottom: 4px; font-size: 13px; color: var(--hrhelper-muted); }
-      .hrhelper-resume-labels-wrap { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+      .hrhelper-resume-labels-title { font-weight: 700; margin-bottom: 2px; font-size: 13px; color: var(--hrhelper-muted); }
+      .hrhelper-resume-labels-wrap { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px; }
       .hrhelper-resume-tag { padding: 2px 8px; border-radius: 4px; font-size: 11px; background: var(--hrhelper-card-active-bg); color: var(--hrhelper-accent); border: 1px solid var(--hrhelper-card-active-border); }
       .hrhelper-resume-floating-widget.hrhelper-theme-dark .hrhelper-resume-tag { background: rgba(88,166,255,.08); color: #58a6ff; border-color: rgba(88,166,255,.35); }
       .hrhelper-resume-fallback { color: var(--hrhelper-muted); }
@@ -443,12 +402,13 @@
     wrapper.setAttribute(FLOATING_ATTR, '1');
     wrapper.className = 'hrhelper-resume-floating-widget';
     const baseShadow = '0 4px 16px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05)';
+    const widgetWidth = (HRH.FLOATING_WIDGET_WIDTH != null ? HRH.FLOATING_WIDGET_WIDTH : 320);
     wrapper.style.cssText = `
       position: fixed;
       top: 60px;
       right: 12px;
       z-index: 99999;
-      width: 320px;
+      width: ${widgetWidth}px;
       min-width: 0;
       max-height: calc(100vh - 168px);
       border-radius: 12px;
@@ -515,48 +475,74 @@
     switchServiceBtn.addEventListener('mouseenter', () => { switchServiceBtn.style.background = 'var(--hrhelper-border,rgba(0,0,0,.1))'; });
     switchServiceBtn.addEventListener('mouseleave', () => { switchServiceBtn.style.background = 'var(--hrhelper-btn-bg,rgba(0,0,0,.05))'; });
     header.appendChild(switchServiceBtn);
-    const contactBtn = document.createElement('button');
-    contactBtn.type = 'button';
-    contactBtn.className = 'hrhelper-resume-floating-contact';
-    contactBtn.title = 'Открыть контакт (Telegram, WhatsApp и т.д.)';
-    contactBtn.setAttribute('aria-label', 'Открыть контакт');
-    contactBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>';
-    contactBtn.style.cssText = 'width:24px;height:24px;border:none;background:var(--hrhelper-btn-bg,rgba(0,0,0,.05));border-radius:4px;cursor:pointer;color:var(--hrhelper-muted,#666);flex-shrink:0;display:none;padding:0;align-items:center;justify-content:center;';
-    contactBtn.addEventListener('mouseenter', () => { contactBtn.style.background = 'var(--hrhelper-border,rgba(0,0,0,.1))'; });
-    contactBtn.addEventListener('mouseleave', () => { contactBtn.style.background = 'var(--hrhelper-btn-bg,rgba(0,0,0,.05))'; });
-    header.appendChild(contactBtn);
+    const actionGroup = document.createElement('div');
+    actionGroup.className = 'hrhelper-resume-floating-action-group';
+    actionGroup.style.cssText = 'display:flex;align-items:stretch;gap:0;flex-shrink:0;';
+    const addVacancyBtn = document.createElement('button');
+    addVacancyBtn.type = 'button';
+    addVacancyBtn.className = 'hrhelper-resume-floating-add-vacancy';
+    addVacancyBtn.title = 'Добавить кандидата на вакансию';
+    addVacancyBtn.setAttribute('aria-label', 'Добавить на вакансию');
+    addVacancyBtn.textContent = '+';
+    addVacancyBtn.style.cssText = 'width:24px;height:24px;border:1px solid var(--hrhelper-border,rgba(0,0,0,.15));border-right:none;border-radius:4px 0 0 4px;background:var(--hrhelper-btn-bg,rgba(0,0,0,.05));cursor:pointer;color:var(--hrhelper-muted,#666);font-size:16px;line-height:1;padding:0;display:none;align-items:center;justify-content:center;';
+    addVacancyBtn.addEventListener('mouseenter', () => { addVacancyBtn.style.background = 'var(--hrhelper-border,rgba(0,0,0,.1))'; });
+    addVacancyBtn.addEventListener('mouseleave', () => { addVacancyBtn.style.background = 'var(--hrhelper-btn-bg,rgba(0,0,0,.05))'; });
+    actionGroup.appendChild(addVacancyBtn);
+    const openInHuntflowBtn = document.createElement('button');
+    openInHuntflowBtn.type = 'button';
+    openInHuntflowBtn.className = 'hrhelper-resume-floating-open-huntflow';
+    openInHuntflowBtn.title = 'Открыть кандидата в Huntflow в новой вкладке';
+    openInHuntflowBtn.setAttribute('aria-label', 'Открыть в Huntflow');
+    openInHuntflowBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>';
+    openInHuntflowBtn.style.cssText = 'width:24px;height:24px;border:1px solid var(--hrhelper-border,rgba(0,0,0,.15));border-radius:0;cursor:pointer;color:var(--hrhelper-muted,#666);flex-shrink:0;display:none;padding:0;align-items:center;justify-content:center;background:var(--hrhelper-btn-bg,rgba(0,0,0,.05));';
+    openInHuntflowBtn.addEventListener('mouseenter', () => { openInHuntflowBtn.style.background = 'var(--hrhelper-border,rgba(0,0,0,.1))'; });
+    openInHuntflowBtn.addEventListener('mouseleave', () => { openInHuntflowBtn.style.background = 'var(--hrhelper-btn-bg,rgba(0,0,0,.05))'; });
+    actionGroup.appendChild(openInHuntflowBtn);
     const editBtn = document.createElement('button');
     editBtn.type = 'button';
     editBtn.className = 'hrhelper-resume-floating-edit';
     editBtn.title = 'Редактировать ссылку';
     editBtn.setAttribute('aria-label', 'Редактировать ссылку');
     editBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>';
-    editBtn.style.cssText = 'width:24px;height:24px;border:none;background:var(--hrhelper-btn-bg,rgba(0,0,0,.05));border-radius:4px;cursor:pointer;color:var(--hrhelper-muted,#666);flex-shrink:0;display:none;padding:0;align-items:center;justify-content:center;';
+    editBtn.style.cssText = 'width:24px;height:24px;border:1px solid var(--hrhelper-border,rgba(0,0,0,.15));border-radius:0 4px 4px 0;cursor:pointer;color:var(--hrhelper-muted,#666);flex-shrink:0;display:none;padding:0;align-items:center;justify-content:center;background:var(--hrhelper-btn-bg,rgba(0,0,0,.05));';
     editBtn.addEventListener('click', function () { if (this._onEditClick) this._onEditClick(); });
     editBtn.addEventListener('mouseenter', () => { editBtn.style.background = 'var(--hrhelper-border,rgba(0,0,0,.1))'; });
     editBtn.addEventListener('mouseleave', () => { editBtn.style.background = 'var(--hrhelper-btn-bg,rgba(0,0,0,.05))'; });
-    header.appendChild(editBtn);
+    actionGroup.appendChild(editBtn);
+    header.appendChild(actionGroup);
     const toggleBtn = document.createElement('button');
     toggleBtn.type = 'button';
-    toggleBtn.textContent = '−';
-    toggleBtn.style.cssText = 'width:24px;height:24px;border:none;background:var(--hrhelper-btn-bg,rgba(0,0,0,.05));border-radius:4px;cursor:pointer;font-size:16px;line-height:1;color:var(--hrhelper-muted,#666);flex-shrink:0;';
+    toggleBtn.className = 'hrhelper-resume-floating-toggle';
+    toggleBtn.title = 'Свернуть / развернуть';
+    toggleBtn.setAttribute('aria-label', 'Свернуть');
+    toggleBtn.style.cssText = 'width:24px;height:24px;border:none;background:var(--hrhelper-btn-bg,rgba(0,0,0,.05));border-radius:4px;cursor:pointer;color:var(--hrhelper-muted,#666);flex-shrink:0;padding:0;align-items:center;justify-content:center;display:flex;';
+    toggleBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path class="hrhelper-toggle-icon-path" d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>';
     toggleBtn.addEventListener('mouseenter', () => { toggleBtn.style.background = 'var(--hrhelper-border,rgba(0,0,0,.1))'; });
     toggleBtn.addEventListener('mouseleave', () => { toggleBtn.style.background = 'var(--hrhelper-btn-bg,rgba(0,0,0,.05))'; });
     header.appendChild(toggleBtn);
     wrapper.appendChild(header);
     const body = document.createElement('div');
     body.className = 'hrhelper-resume-floating-body';
-    body.style.cssText = 'display:flex;flex-direction:column;gap:8px;flex:1;min-height:0;min-width:0;overflow-y:auto;overflow-x:hidden;word-break:break-word;overflow-wrap:break-word;font-size:13px;line-height:1.4;color:var(--hrhelper-text,#333);';
+    body.style.cssText = 'display:flex;flex-direction:column;gap:4px;flex:1;min-height:0;min-width:0;overflow-y:auto;overflow-x:hidden;word-break:break-word;overflow-wrap:break-word;font-size:13px;line-height:1.4;color:var(--hrhelper-text,#333);';
     wrapper.appendChild(body);
     const isCollapsed = !!resumeFloatingUIState.widgetCollapsed;
     body.style.display = isCollapsed ? 'none' : 'flex';
-    toggleBtn.textContent = isCollapsed ? '+' : '−';
+    const togglePath = toggleBtn.querySelector('.hrhelper-toggle-icon-path');
+    if (togglePath) togglePath.setAttribute('d', isCollapsed ? 'M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z' : 'M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z');
     toggleBtn.addEventListener('click', () => {
       const next = body.style.display === 'none';
       body.style.display = next ? 'flex' : 'none';
-      toggleBtn.textContent = next ? '−' : '+';
+      const pathEl = toggleBtn.querySelector('.hrhelper-toggle-icon-path');
+      if (pathEl) pathEl.setAttribute('d', next ? 'M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z' : 'M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z');
+      toggleBtn.setAttribute('aria-label', next ? 'Свернуть' : 'Развернуть');
+      toggleBtn.title = next ? 'Свернуть' : 'Развернуть';
       saveResumeFloatingUIState({ widgetCollapsed: !next });
     });
+    const addVacancyDropdown = document.createElement('div');
+    addVacancyDropdown.className = 'hrhelper-resume-add-vacancy-dropdown';
+    addVacancyDropdown.style.cssText = 'display:none;position:absolute;top:100%;right:0;margin-top:4px;min-width:200px;max-width:280px;max-height:240px;overflow-y:auto;background:var(--hrhelper-bg,#fff);border:1px solid var(--hrhelper-border,rgba(0,0,0,.15));border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.15);z-index:100000;';
+    wrapper.appendChild(addVacancyDropdown);
+    wrapper.dataset.addVacancyDropdown = '1';
     return { wrapper, body };
   }
 
@@ -583,7 +569,7 @@
       try {
         fragment.appendChild(buildActionButtons(opts));
         const spacer0 = document.createElement('div');
-        spacer0.style.marginBottom = '10px';
+        spacer0.style.marginBottom = '4px';
         fragment.appendChild(spacer0);
       } catch (_) {}
     }
@@ -609,18 +595,19 @@
         fragment.appendChild(row);
       });
       const spacer1 = document.createElement('div');
-      spacer1.style.marginBottom = '10px';
+      spacer1.style.marginBottom = '4px';
       fragment.appendChild(spacer1);
     }
 
     const excludeCommLabel = /где ведется коммуникация|где ведётся коммуникация|communication|телефон|phone|email|telegram|linkedin/i;
+    const excludeLevel = /^уровень$|^level$/i;
     const additionalFields = [
       ['Готовность к офису', info.office_readiness],
       ['Уровень', info.level],
     ].filter(([label, v]) => v != null && v !== '' && !excludeCommLabel.test(String(label)));
     if (info.extra_fields && typeof info.extra_fields === 'object') {
       Object.entries(info.extra_fields).forEach(([key, val]) => {
-        if (val != null && val !== '' && !excludeCommLabel.test(String(key))) {
+        if (val != null && val !== '' && !excludeCommLabel.test(String(key)) && !excludeLevel.test(String(key).trim())) {
           additionalFields.push([key, val]);
         }
       });
@@ -655,6 +642,7 @@
       fragment.appendChild(addWrap);
     }
     if (info.labels && Array.isArray(info.labels) && info.labels.length > 0) {
+      const normalizeLabelColor = HRH.normalizeLabelColor || ((v) => (v && typeof v === 'string' ? (v.indexOf('#') === 0 ? v : '#' + v.replace(/^#/, '')) : ''));
       const labelsTitle = document.createElement('div');
       labelsTitle.className = 'hrhelper-resume-labels-title';
       labelsTitle.textContent = 'Метки';
@@ -662,11 +650,17 @@
       const labelsWrap = document.createElement('div');
       labelsWrap.className = 'hrhelper-resume-labels-wrap';
       info.labels.forEach((lbl) => {
-        const name = (typeof lbl === 'string' ? lbl : (lbl && lbl.name) || '').trim();
+        const name = (typeof lbl === 'string' ? lbl : (lbl && (lbl.name || lbl.title)) || '').trim();
         if (!name) return;
         const tag = document.createElement('span');
         tag.className = 'hrhelper-resume-tag';
         tag.textContent = name;
+        const rawColor = (lbl && typeof lbl === 'object' && (lbl.color || lbl.background_color || lbl.bg_color || lbl.border_color || lbl.hex)) || '';
+        const color = rawColor ? normalizeLabelColor(String(rawColor)) : '';
+        if (color) {
+          tag.style.borderColor = color;
+          tag.style.color = color;
+        }
         labelsWrap.appendChild(tag);
       });
       fragment.appendChild(labelsWrap);
@@ -675,7 +669,7 @@
     if (items.length > 0) {
       const vacTitle = document.createElement('div');
       vacTitle.className = 'hrhelper-resume-vacancy-title';
-      vacTitle.style.cssText = 'font-weight:700;margin-bottom:6px;font-size:13px;';
+      vacTitle.style.cssText = 'font-weight:700;margin-bottom:4px;font-size:13px;';
       vacTitle.textContent = 'Вакансии';
       fragment.appendChild(vacTitle);
       items.forEach((v) => {
@@ -988,6 +982,10 @@
         e.preventDefault();
         saveBtn.click();
       }
+      if (e.key === 'Escape' && wrap._onEscape) {
+        e.preventDefault();
+        wrap._onEscape();
+      }
     });
     const saveBtn = document.createElement('button');
     saveBtn.type = 'button';
@@ -1049,23 +1047,88 @@
     }
     const titleEl = widget.querySelector('.hrhelper-resume-floating-header-title');
     if (titleEl) titleEl.textContent = (candidateInfo && candidateInfo.full_name) ? candidateInfo.full_name : 'HR Helper';
-    const contactBtn = widget.querySelector('.hrhelper-resume-floating-contact');
-    if (contactBtn && options && options.huntflowUrl) {
-      contactBtn.style.display = 'flex';
-      contactBtn._huntflowUrl = options.huntflowUrl;
-      contactBtn.onclick = async function () {
-        const url = this._huntflowUrl;
-        if (!url) return;
+    const actionGroup = widget.querySelector('.hrhelper-resume-floating-action-group');
+    const addVacancyBtn = widget.querySelector('.hrhelper-resume-floating-add-vacancy');
+    const addVacancyDropdown = widget.querySelector('.hrhelper-resume-add-vacancy-dropdown');
+    if (addVacancyBtn && addVacancyDropdown && options && options.huntflowUrl) {
+      addVacancyBtn.style.display = 'flex';
+      addVacancyBtn._huntflowUrl = options.huntflowUrl;
+      addVacancyBtn.onclick = async function () {
+        const huntflowUrl = this._huntflowUrl;
+        if (!huntflowUrl) return;
+        const drop = addVacancyDropdown;
+        if (drop.style.display === 'block') {
+          drop.style.display = 'none';
+          if (drop.parentNode === document.body && widget) widget.appendChild(drop);
+          return;
+        }
+        if (drop.parentNode !== document.body) document.body.appendChild(drop);
+        const rect = addVacancyBtn.getBoundingClientRect();
+        drop.style.position = 'fixed';
+        drop.style.top = (rect.bottom + 4) + 'px';
+        drop.style.left = rect.left + 'px';
+        drop.style.minWidth = '200px';
+        drop.style.maxWidth = '280px';
+        drop.style.display = 'block';
+        drop.innerHTML = '<div style="padding:10px 12px;color:var(--hrhelper-muted,#666);font-size:12px;">Загрузка…</div>';
+        const closeDrop = () => {
+          drop.style.display = 'none';
+          document.removeEventListener('click', h);
+          if (widget && drop.parentNode === document.body) widget.appendChild(drop);
+        };
+        const h = (ev) => {
+          if (!drop.contains(ev.target) && !addVacancyBtn.contains(ev.target)) closeDrop();
+        };
+        setTimeout(() => document.addEventListener('click', h), 0);
         try {
-          const qp = new URLSearchParams({ huntflow_url: url });
-          const res = await apiFetch(`/api/v1/huntflow/linkedin-applicants/communication-link/?${qp.toString()}`, { method: 'GET' });
+          const qp = new URLSearchParams({ huntflow_url: huntflowUrl });
+          const resumeUrl = (options && options.resumeUrl) ? (options.resumeUrl || '').trim() : '';
+          if (resumeUrl) qp.set('resume_url', resumeUrl);
+          const res = await apiFetch('/api/v1/huntflow/linkedin-applicants/available-vacancies/?' + qp.toString(), { method: 'GET' });
           const data = await res.json().catch(() => null);
-          if (data && data.success && data.communication_link) window.open(data.communication_link, '_blank', 'noopener,noreferrer');
-        } catch (_) {}
+          if (!res.ok || !data || !data.success) {
+            drop.innerHTML = '<div style="padding:10px 12px;color:var(--hrhelper-danger,#842029);font-size:12px;">' + (data && data.message ? escapeHtml(data.message) : 'Ошибка загрузки') + '</div>';
+            return;
+          }
+          const items = data.items || [];
+          if (items.length === 0) {
+            drop.innerHTML = '<div style="padding:10px 12px;color:var(--hrhelper-muted,#666);font-size:12px;">Нет доступных вакансий</div>';
+            return;
+          }
+          drop.innerHTML = '';
+          items.forEach((v) => {
+            const el = document.createElement('div');
+            el.style.cssText = 'padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--hrhelper-border,rgba(0,0,0,.06));font-size:13px;';
+            el.textContent = v.vacancy_name || 'Вакансия #' + (v.vacancy_id || '');
+            el.addEventListener('click', async (ev) => {
+              ev.stopPropagation();
+              closeDrop();
+              const result = await addToVacancyResume(huntflowUrl, v.vacancy_id, options && options.resumeUrl);
+              if (result && options.onAddedToVacancy) options.onAddedToVacancy();
+            });
+            el.addEventListener('mouseenter', () => { el.style.background = 'var(--hrhelper-btn-bg,rgba(0,0,0,.06))'; });
+            el.addEventListener('mouseleave', () => { el.style.background = ''; });
+            drop.appendChild(el);
+          });
+        } catch (_) {
+          drop.innerHTML = '<div style="padding:10px 12px;color:var(--hrhelper-danger,#842029);font-size:12px;">Ошибка загрузки</div>';
+        }
       };
-    } else if (contactBtn) {
-      contactBtn.style.display = 'none';
-      contactBtn.onclick = null;
+    } else if (addVacancyBtn) {
+      addVacancyBtn.style.display = 'none';
+      addVacancyBtn.onclick = null;
+    }
+    const openInHuntflowBtn = widget.querySelector('.hrhelper-resume-floating-open-huntflow');
+    if (openInHuntflowBtn && options && options.huntflowUrl) {
+      openInHuntflowBtn.style.display = 'flex';
+      openInHuntflowBtn._huntflowUrl = options.huntflowUrl;
+      openInHuntflowBtn.onclick = function () {
+        const url = this._huntflowUrl;
+        if (url) window.open(url, '_blank', 'noopener,noreferrer');
+      };
+    } else if (openInHuntflowBtn) {
+      openInHuntflowBtn.style.display = 'none';
+      openInHuntflowBtn.onclick = null;
     }
     const editBtn = widget.querySelector('.hrhelper-resume-floating-edit');
     if (editBtn) {
@@ -1077,6 +1140,21 @@
         editBtn._onEditClick = null;
         editBtn.style.display = 'none';
       }
+    }
+    if (actionGroup) {
+      const visible = [addVacancyBtn, openInHuntflowBtn, editBtn].filter(function (b) { return b && b.style.display === 'flex'; });
+      [addVacancyBtn, openInHuntflowBtn, editBtn].forEach(function (b) {
+        if (!b) return;
+        b.style.borderRadius = '';
+        b.style.borderRight = '1px solid var(--hrhelper-border,rgba(0,0,0,.15))';
+      });
+      visible.forEach(function (b, i) {
+        if (visible.length === 1) b.style.borderRadius = '4px';
+        else if (i === 0) b.style.borderRadius = '4px 0 0 4px';
+        else if (i === visible.length - 1) b.style.borderRadius = '0 4px 4px 0';
+        else b.style.borderRadius = '0';
+        if (i < visible.length - 1) b.style.borderRight = 'none';
+      });
     }
     const bodyEl = widget.querySelector('.hrhelper-resume-floating-body');
     if (!bodyEl) return;
@@ -1106,48 +1184,6 @@
     const style = document.createElement('style');
     style.id = 'hrhelper-resume-styles';
     style.textContent = `
-      .${BLOCK_CLASS} {
-        margin-top: 8px;
-        padding: 12px;
-        max-width: 480px;
-        background: #f5f7fa;
-        border: 1px solid #e0e4e9;
-        border-radius: 8px;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        font-size: 13px;
-        line-height: 1.4;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-      }
-      .${BLOCK_CLASS}-header {
-        font-weight: 600;
-        font-size: 15px;
-        color: #111;
-        margin-bottom: 8px;
-      }
-      .${BLOCK_CLASS}-contacts { margin-bottom: 10px; }
-      .${BLOCK_CLASS}-vacancies-title {
-        font-weight: 600;
-        color: #0a66c2;
-        margin-bottom: 6px;
-        font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.02em;
-      }
-      .${BLOCK_CLASS}-vacancies-list {
-        margin: 0;
-        padding-left: 18px;
-        list-style: disc;
-      }
-      .${BLOCK_CLASS}-vacancies-list li {
-        margin-bottom: 4px;
-      }
-      .${BLOCK_CLASS}-vacancies-list li:last-child { margin-bottom: 0; }
-      .${BLOCK_CLASS}-body { color: #333; }
-      .${BLOCK_CLASS}-row { margin-bottom: 4px; }
-      .${BLOCK_CLASS}-row:last-child { margin-bottom: 0; }
-      .${BLOCK_CLASS}-label { color: #666; }
-      .${BLOCK_CLASS}-value { color: #111; }
-
       .hrhelper-resume-action-bar {
         display: flex;
         flex-direction: column;
@@ -1370,87 +1406,11 @@
     });
   }
 
-  /** Найти элемент после которого вставить блок: «Кандидат» или ФИО (или заголовок резюме) */
-  function findInsertionPoint(fioFromState) {
-    const host = (window.location.hostname || '').toLowerCase();
-    const isRabota = host === 'rabota.by' || host === 'www.rabota.by' || host.endsWith('.rabota.by');
-    const isHh = host === 'hh.ru' || host.endsWith('.hh.ru');
-
-    const trim = (s) => (s && String(s).trim()) || '';
-
-    function walk(root, fn) {
-      const it = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, null, false);
-      let el;
-      while ((el = it.nextNode())) {
-        if (fn(el)) return el;
-      }
-      return null;
-    }
-
-    // 1) По ФИО из сохранённого состояния
-    if (fioFromState && trim(fioFromState)) {
-      const need = trim(fioFromState);
-      const byFio = walk(document.body, (el) => {
-        const t = trim(el.textContent);
-        if (t === need) return true;
-        if (!el.children.length && t.indexOf(need) !== -1) return true;
-        return false;
-      });
-      if (byFio) return byFio;
-    }
-
-    // 2) Текст "Кандидат" (метка или заголовок)
-    const byKandidat = walk(document.body, (el) => {
-      const t = trim(el.textContent);
-      if (t !== 'Кандидат' && !t.startsWith('Кандидат ')) return false;
-      return el.children.length === 0 || trim(el.textContent) === 'Кандидат';
-    });
-    if (byKandidat) return byKandidat;
-
-    // 3) hh.ru: заголовок блока резюме
-    if (isHh) {
-      const q = document.querySelector('[data-qa="resume-block-title"]') || document.querySelector('[data-qa="resume-block-personal-info"]');
-      if (q) return q;
-    }
-
-    // 4) rabota.by и субдомены: типичный заголовок с именем (в карточке резюме)
-    if (isRabota) {
-      const main = document.querySelector('[class*="resume"] [class*="title"]') || document.querySelector('[class*="Resume"] [class*="title"]');
-      if (main) return main;
-      const byClass = document.querySelector('[class*="resume"]') || document.querySelector('[class*="Resume"]') || document.querySelector('[class*="card"]');
-      if (byClass) return byClass;
-    }
-
-    // 5) Первый h1 (часто ФИО или заголовок страницы)
-    const h1 = document.querySelector('h1');
-    if (h1) return h1;
-
-    // 6) Общие запасные варианты
-    if (isHh) {
-      const q = document.querySelector('.bloko-header-section-1') || document.querySelector('[class*="resume-header"]');
-      if (q) return q;
-    }
-    if (isRabota) {
-      const q = document.querySelector('h2') || document.querySelector('.card-title') || document.querySelector('[class*="title"]') || document.querySelector('main') || document.querySelector('article');
-      if (q) return q;
-    }
-
-    // 7) Универсальный fallback: main, article или первый контейнер с контентом
-    const fallback = document.querySelector('main') || document.querySelector('article') || document.querySelector('[role="main"]');
-    if (fallback) return fallback;
-
-    // 8) Крайний fallback: body (страница резюме — вставляем в начало body)
-    if (document.body && /\/resume\/[^/?#]+/.test(window.location.pathname || '')) {
-      return document.body;
-    }
-    return null;
-  }
-
   /** Показать плавающее окно с данными Huntflow (по сохранённой связи или по API resume-links) */
   function injectSavedLinkBlock() {
     document.querySelectorAll(`[${BY_LINK_ATTR}]`).forEach((el) => el.remove());
 
-    function showFormInWidget(initialUrl) {
+    function showFormInWidget(initialUrl, onRestore) {
       let widget = document.querySelector(`[${FLOATING_ATTR}="1"]`);
       if (!widget) {
         const { wrapper } = createResumeFloatingWidget();
@@ -1477,6 +1437,17 @@
         }
         return data || { success: false, message: 'Ошибка сохранения' };
       });
+      if (typeof onRestore === 'function') {
+        form._onEscape = onRestore;
+        const escHandler = (e) => {
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            document.removeEventListener('keydown', escHandler);
+            onRestore();
+          }
+        };
+        document.addEventListener('keydown', escHandler);
+      }
       bodyEl.appendChild(form);
     }
 
@@ -1531,13 +1502,21 @@
 
         const options = {
           huntflowUrl: state.huntflowUrl,
-          onEditClick: () => showFormInWidget(state.huntflowUrl),
+          onEditClick: null,
+          onAddedToVacancy: () => renderBlock(state),
           showActions,
           resumeUrl: getBaseUrl(),
           isRabota,
           portal,
           vacancies,
           candidateName: (candidateInfo.full_name || '').trim(),
+        };
+        const restore = () => showFloatingWidget(candidateInfo, vacancies, options);
+        options.onEditClick = () => {
+          const w = document.querySelector(`[${FLOATING_ATTR}="1"]`);
+          const b = w && w.querySelector('.hrhelper-resume-floating-body');
+          if (b && b.querySelector('.hrhelper-link-form')) restore();
+          else showFormInWidget(state.huntflowUrl, restore);
         };
         chrome.storage.local.get({ [RESUME_FLOATING_HIDDEN_KEY]: false }, (data) => {
           if (!data[RESUME_FLOATING_HIDDEN_KEY]) showFloatingWidget(candidateInfo, vacancies, options);
@@ -1556,12 +1535,20 @@
         const isRabota = host.includes('rabota.by');
         const fallbackOptions = {
           huntflowUrl: state.huntflowUrl,
-          onEditClick: () => showFormInWidget(state.huntflowUrl),
+          onEditClick: null,
+          onAddedToVacancy: () => renderBlock(state),
           showActions: false,
           resumeUrl: getBaseUrl(),
           isRabota,
           portal: isRabota ? 'rabota.by' : 'hh.ru',
           vacancies: [],
+        };
+        const restoreFallback = () => showFloatingWidget(state.candidateInfo || {}, [], fallbackOptions);
+        fallbackOptions.onEditClick = () => {
+          const w = document.querySelector(`[${FLOATING_ATTR}="1"]`);
+          const b = w && w.querySelector('.hrhelper-resume-floating-body');
+          if (b && b.querySelector('.hrhelper-link-form')) restoreFallback();
+          else showFormInWidget(state.huntflowUrl, restoreFallback);
         };
         showFloatingWidget(state.candidateInfo || {}, [], fallbackOptions);
       });

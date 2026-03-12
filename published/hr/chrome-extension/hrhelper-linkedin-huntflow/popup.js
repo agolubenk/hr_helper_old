@@ -1532,8 +1532,10 @@ async function showContextForTab() {
   }
 
   // Для страниц резюме (rabota.by, hh.ru) и Huntflow показываем тот же блок, что и для LinkedIn; для неизвестных сайтов (OTHER) — только блок «другая страница», без формы LinkedIn–Huntflow
-  const container = (ctx === CONTEXT.RESUME || ctx === CONTEXT.HUNTFLOW) ? document.getElementById('context-linkedin') : document.getElementById(`context-${ctx}`);
-  const showLinkedIn = ctx === CONTEXT.LINKEDIN || ctx === CONTEXT.RESUME || ctx === CONTEXT.HUNTFLOW;
+  const getBlockId = (HRH.tabs && HRH.tabs.getBlockId) ? HRH.tabs.getBlockId : (c) => ((c === CONTEXT.RESUME || c === CONTEXT.HUNTFLOW) ? 'context-linkedin' : `context-${c}`);
+  const isLinkedInBlock = (HRH.tabs && HRH.tabs.isLinkedInBlock) ? HRH.tabs.isLinkedInBlock : (c) => (c === CONTEXT.LINKEDIN || c === CONTEXT.RESUME || c === CONTEXT.HUNTFLOW);
+  const container = document.getElementById(getBlockId(ctx));
+  const showLinkedIn = isLinkedInBlock(ctx);
   if (showLinkedIn) {
     const linkedinBlock = document.getElementById('context-linkedin');
     if (linkedinBlock) linkedinBlock.classList.add('visible');
@@ -1612,16 +1614,16 @@ async function showContextForTab() {
   if (!tab?.id) return;
   if (ctx === CONTEXT.OTHER) return;
 
-  /** На странице Meet при отсутствии данных для копирования: показываем инфо-текст и ссылку на настройки вместо кнопки грейда */
   function setMeetNoDataUI() {
-    const hint = document.getElementById('ctx-meet-hint');
-    const copyBtn = document.getElementById('ctx-meet-copy');
-    const settingsLink = document.getElementById('ctx-meet-settings-link');
-    if (hint) hint.style.display = 'block';
-    if (copyBtn) { copyBtn.style.display = 'none'; copyBtn.disabled = true; }
-    if (settingsLink) {
-      settingsLink.href = 'https://hr.sftntx.com/extension/';
-      settingsLink.style.display = 'inline-flex';
+    if (HRH.tabs && HRH.tabs.meet && HRH.tabs.meet.setMeetNoDataUI) {
+      HRH.tabs.meet.setMeetNoDataUI(document);
+    } else {
+      const hint = document.getElementById('ctx-meet-hint');
+      const copyBtn = document.getElementById('ctx-meet-copy');
+      const settingsLink = document.getElementById('ctx-meet-settings-link');
+      if (hint) hint.style.display = 'block';
+      if (copyBtn) { copyBtn.style.display = 'none'; copyBtn.disabled = true; }
+      if (settingsLink) { settingsLink.href = 'https://hr.sftntx.com/extension/'; settingsLink.style.display = 'inline-flex'; }
     }
   }
 
@@ -1696,63 +1698,32 @@ async function showContextForTab() {
       const headerMeetReminderBtn = document.getElementById('headerMeetReminderBtn');
       if (headerMeetReminderBtn) headerMeetReminderBtn.style.display = 'inline-flex';
       updateMeetReminderToggle(floatingData);
-      const hasCopyData = !!(response.level && (response.vacancyName || response.level));
-      if (meetHint) meetHint.style.display = hasCopyData ? 'none' : 'block';
-      if (meetOpenAll) {
-        if (hasCopyData) {
-          meetOpenAll.style.display = 'inline-flex';
-          meetOpenAll.disabled = false;
-        } else {
-          meetOpenAll.style.display = 'none';
-          meetOpenAll.disabled = true;
+      if (HRH.tabs && HRH.tabs.meet && HRH.tabs.meet.updateMeetUI) {
+        HRH.tabs.meet.updateMeetUI(document, response, { escapeHtml, getMeetContactIcon, updateHeaderActions });
+      } else {
+        const hasCopyData = !!(response.level && (response.vacancyName || response.level));
+        if (meetHint) meetHint.style.display = hasCopyData ? 'none' : 'block';
+        if (meetOpenAll) { if (hasCopyData) { meetOpenAll.style.display = 'inline-flex'; meetOpenAll.disabled = false; } else { meetOpenAll.style.display = 'none'; meetOpenAll.disabled = true; } }
+        if (meetCopy) {
+          if (hasCopyData) {
+            meetCopy.style.display = 'inline-flex'; meetCopy.disabled = false;
+            const v = (response.vacancyName || '').trim(); const l = (response.level || '').trim();
+            meetCopy.textContent = (l && v) ? `${l}, ${v}` : (l || v || 'Вакансия и грейд');
+            meetCopy.title = (l && v) ? `${l}, ${v}` : (l || v || 'Вакансия и грейд');
+          } else { meetCopy.style.display = 'none'; meetCopy.disabled = true; }
         }
-      }
-      if (meetCopy) {
-        if (hasCopyData) {
-          meetCopy.style.display = 'inline-flex';
-          meetCopy.disabled = false;
-          const v = (response.vacancyName || '').trim();
-          const l = (response.level || '').trim();
-          meetCopy.textContent = (l && v) ? `${l}, ${v}` : (l || v || 'Вакансия и грейд');
-          meetCopy.title = (l && v) ? `${l}, ${v}` : (l || v || 'Вакансия и грейд');
-        } else {
-          meetCopy.style.display = 'none';
-          meetCopy.disabled = true;
+        if (meetSettingsLink) { meetSettingsLink.href = 'https://hr.sftntx.com/extension/'; meetSettingsLink.style.display = hasCopyData ? 'none' : 'inline-flex'; }
+        if (meetHuntflow) {
+          if (response.huntflowUrl) { updateHeaderActions(true, response.huntflowUrl, false, false); meetHuntflow.style.display = 'none'; meetHuntflow.href = response.huntflowUrl; meetHuntflow.removeAttribute('aria-disabled'); }
+          else { updateHeaderActions(false); meetHuntflow.style.display = 'none'; meetHuntflow.href = '#'; meetHuntflow.setAttribute('aria-disabled', 'true'); }
         }
-      }
-      if (meetSettingsLink) {
-        meetSettingsLink.href = 'https://hr.sftntx.com/extension/';
-        meetSettingsLink.style.display = hasCopyData ? 'none' : 'inline-flex';
-      }
-      if (meetHuntflow) {
-        if (response.huntflowUrl) {
-          updateHeaderActions(true, response.huntflowUrl, false, false);
-          meetHuntflow.style.display = 'none';
-          meetHuntflow.href = response.huntflowUrl;
-          meetHuntflow.removeAttribute('aria-disabled');
-        } else {
-          updateHeaderActions(false);
-          meetHuntflow.style.display = 'none';
-          meetHuntflow.href = '#';
-          meetHuntflow.setAttribute('aria-disabled', 'true');
+        if (meetScorecard && response.scorecardLink) { meetScorecard.href = response.scorecardLink; meetScorecard.setAttribute('aria-disabled', 'false'); }
+        if (meetContact) {
+          if (response.communicationLink) { meetContact.href = response.communicationLink; meetContact.setAttribute('aria-disabled', 'false'); }
+          const contactLabel = response.communicationLabel || 'Контакт';
+          meetContact.innerHTML = getMeetContactIcon(contactLabel, response.communicationLink || '') + '<span class="ctx-meet-contact-label">' + escapeHtml(contactLabel) + '</span>';
+          meetContact.title = contactLabel; meetContact.setAttribute('aria-label', contactLabel);
         }
-      }
-      if (meetScorecard) {
-        if (response.scorecardLink) {
-          meetScorecard.href = response.scorecardLink;
-          meetScorecard.setAttribute('aria-disabled', 'false');
-        }
-      }
-      if (meetContact) {
-        if (response.communicationLink) {
-          meetContact.href = response.communicationLink;
-          meetContact.setAttribute('aria-disabled', 'false');
-        }
-        const contactLabel = response.communicationLabel || 'Контакт';
-        const contactIcon = getMeetContactIcon(contactLabel, response.communicationLink || '');
-        meetContact.innerHTML = contactIcon + '<span class="ctx-meet-contact-label">' + escapeHtml(contactLabel) + '</span>';
-        meetContact.title = contactLabel;
-        meetContact.setAttribute('aria-label', contactLabel);
       }
       const headerActions = document.getElementById('header-actions');
       if (headerActions) headerActions.style.display = 'flex';

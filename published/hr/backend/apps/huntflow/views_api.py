@@ -2773,6 +2773,32 @@ class LinkedInApplicantsViewSet(viewsets.ViewSet):
             )
             extra_fields = _build_extra_fields_from_questionary(api, account_id, applicant_id)
             # Метки: из ответа get_applicant приходит поле "tags" — массив вида [{"tag": id}, ...]
+            # В ответе get_tags Huntflow возвращает color (часто hex без #, например "30b25b") — нормализуем в #hex для UI
+            def _tag_color_to_hex(tag_obj):
+                raw = (
+                    tag_obj.get("color")
+                    or tag_obj.get("background_color")
+                    or tag_obj.get("bg_color")
+                    or tag_obj.get("border_color")
+                    or tag_obj.get("hex")
+                )
+                if raw is None:
+                    return None
+                if isinstance(raw, dict):
+                    raw = raw.get("hex") or raw.get("value") or raw.get("color")
+                if raw is None:
+                    return None
+                if isinstance(raw, int):
+                    return "#{:06x}".format(raw & 0xFFFFFF)
+                s = (raw or "").strip()
+                if not s:
+                    return None
+                if s.startswith("#"):
+                    return s if len(s) in (4, 7) else "#" + s[-6:].lower()
+                if len(s) in (3, 6) and all(c in "0123456789aAbBcCdDeEfF" for c in s):
+                    return "#" + s.lower()
+                return s
+
             labels = []
             applicant_tags = applicant_data.get("tags") or []
             if applicant_tags:
@@ -2782,7 +2808,12 @@ class LinkedInApplicantsViewSet(viewsets.ViewSet):
                     for t in tags_data["items"]:
                         tid = t.get("id")
                         if tid is not None:
-                            tags_by_id[tid] = {"id": tid, "name": (t.get("name") or "").strip() or f"Метка {tid}"}
+                            name = (t.get("name") or "").strip() or f"Метка {tid}"
+                            label_obj = {"id": tid, "name": name}
+                            color = _tag_color_to_hex(t)
+                            if color:
+                                label_obj["color"] = color
+                            tags_by_id[tid] = label_obj
                 for tag_item in applicant_tags:
                     tag_id = tag_item.get("tag") if isinstance(tag_item, dict) else tag_item
                     if tag_id is not None:

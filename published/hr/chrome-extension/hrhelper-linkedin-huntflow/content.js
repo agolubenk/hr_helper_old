@@ -11,7 +11,7 @@ const TIMING = HRH.TIMING || {};
 
 const FLOATING_UI_STATE_KEY = "hrhelper_linkedin_floating_ui_state";
 const LINKEDIN_FLOATING_HIDDEN_KEY = "hrhelper_linkedin_floating_hidden";
-const DEFAULT_FLOATING_UI_STATE = { widgetCollapsed: false, candidateDataOpen: true, commentsOpen: true };
+const DEFAULT_FLOATING_UI_STATE = { widgetCollapsed: false, candidateDataOpen: true, extraFieldsOpen: true, commentsOpen: true };
 let floatingWidgetUIState = { ...DEFAULT_FLOATING_UI_STATE };
 
 function loadFloatingUIState(cb) {
@@ -162,6 +162,21 @@ const STATE = {
   },
 };
 
+const linkedinMessaging = HRH.linkedinMessaging;
+const linkedinProfile = HRH.linkedinProfile;
+if (!linkedinMessaging || !linkedinProfile) throw new Error("[HRHelper] modules linkedin-profile.js and linkedin-messaging.js must be loaded before content.js");
+const extractThreadIdFromMessageButton = () => linkedinMessaging.extractThreadIdFromMessageButton();
+const saveThreadMappingToBackend = (t, u) => linkedinMessaging.saveThreadMappingToBackend(t, u);
+const captureProfileToThreadMapping = () => linkedinMessaging.captureProfileToThreadMapping();
+const getProfileLinkFromMessaging = () => linkedinMessaging.getProfileLinkFromMessaging(STATE);
+const findMessagingComposer = () => linkedinMessaging.findMessagingComposer();
+const findAllMoreButtons = () => linkedinProfile.findAllMoreButtons();
+const looksLikeProfileActionArea = (btn) => linkedinProfile.looksLikeProfileActionArea(btn);
+const findActionContainer = () => linkedinProfile.findActionContainer();
+const findActivitySection = () => linkedinProfile.findActivitySection();
+const findCoverContainer = () => linkedinProfile.findCoverContainer();
+const COVER_SELECTORS = linkedinProfile.COVER_SELECTORS;
+
 const normalizeLinkedInProfileUrl = HRH.normalizeLinkedInProfileUrl;
 if (!normalizeLinkedInProfileUrl) {
   throw new Error("[HRHelper] shared/utils/url.js not loaded (normalizeLinkedInProfileUrl missing)");
@@ -279,416 +294,6 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
 });
 
-function extractThreadIdFromMessageButton() {
-  // Сначала пробуем извлечь из URL страницы (для страницы messaging)
-  const urlMatch = location.href.match(/thread\/([^/?]+)/);
-  if (urlMatch) {
-    log(' extractThreadIdFromMessageButton: found in URL', urlMatch[1].substring(0, 10) + '...');
-    return urlMatch[1];
-  }
-  
-  // Затем ищем в ссылках на странице
-  const messageLinks = Array.from(document.querySelectorAll('a[href*="/messaging/thread/"]'));
-  for (const messageLink of messageLinks) {
-    if (messageLink?.href) {
-      const threadMatch = messageLink.href.match(/thread\/([^/?]+)/);
-      if (threadMatch) {
-        log(' extractThreadIdFromMessageButton: found in link', threadMatch[1].substring(0, 10) + '...');
-        return threadMatch[1];
-      }
-    }
-  }
-
-  // Ищем в кнопке Message - пробуем разные селекторы
-  const messageBtnSelectors = [
-    'button[aria-label*="Message"]',
-    'button[aria-label*="message"]',
-    'button[aria-label*="Сообщение"]',
-    'button[aria-label*="сообщение"]',
-    'a[href*="/messaging/"]',
-    '[data-control-name="send_inmail"]',
-    '[data-control-name="message"]'
-  ];
-  
-  for (const selector of messageBtnSelectors) {
-    const elements = Array.from(document.querySelectorAll(selector));
-    for (const element of elements) {
-      // Ищем ссылку внутри элемента или рядом
-      let link = element.querySelector('a[href*="/messaging/"]') || 
-                 element.closest('a[href*="/messaging/"]') ||
-                 (element.href && element.href.includes('/messaging/') ? element : null);
-      
-      if (!link && element.href) {
-        link = element;
-      }
-      
-      if (link?.href) {
-        const threadMatch = link.href.match(/thread\/([^/?]+)/);
-        if (threadMatch) {
-          log(' extractThreadIdFromMessageButton: found in button/link', threadMatch[1].substring(0, 10) + '...');
-          return threadMatch[1];
-        }
-      }
-    }
-  }
-
-  log(' extractThreadIdFromMessageButton: not found');
-  return null;
-}
-
-async function saveThreadMappingToBackend(threadId, profileUrl) {
-  if (!threadId || !profileUrl) {
-    log(' saveThreadMappingToBackend: missing threadId or profileUrl', { threadId: !!threadId, profileUrl: !!profileUrl });
-    return;
-  }
-  
-  log(' saveThreadMappingToBackend: saving mapping', { 
-    threadId: threadId.substring(0, 10) + '...', 
-    profileUrl 
-  });
-  
-  try {
-    const result = await apiFetch('/api/v1/linkedin/thread-mapping/', {
-      method: "POST",
-      body: JSON.stringify({ 
-        thread_id: threadId, 
-        profile_url: profileUrl
-      })
-    });
-
-    log(' saveThreadMappingToBackend: API response', { 
-      ok: result.ok, 
-      status: result.status 
-    });
-
-    if (result.ok) {
-      const data = await result.json().catch(() => null);
-      log(' Thread mapping saved successfully:', threadId.substring(0, 10) + '...', data);
-    } else {
-      const data = await result.json().catch(() => null);
-      const msg = data?.message || data?.detail || (typeof data?.error === 'string' ? data.error : null);
-      const isContextInvalidated = (msg && typeof msg === 'string' && msg.includes('Extension context invalidated')) ||
-        (data && typeof data === 'object' && String(data.message || '').includes('Extension context invalidated'));
-      if (!isContextInvalidated) {
-        const hint = result.status === 401 ? ' Укажите API-токен в настройках расширения.' : '';
-        logError(' Failed to save thread mapping. Status:', result.status, msg || '', hint, data ? JSON.stringify(data) : '');
-      } else {
-        log(' saveThreadMappingToBackend: extension context invalidated (reload), skipping error log');
-      }
-    }
-  } catch (e) {
-    const errMsg = e && e.message ? e.message : String(e);
-    if (!errMsg.includes('Extension context invalidated')) {
-      logError(' Exception saving thread mapping:', errMsg);
-    } else {
-      log(' saveThreadMappingToBackend: extension context invalidated (reload), skipping error log');
-    }
-  }
-}
-
-function captureProfileToThreadMapping() {
-  if (!IS_PROFILE_PAGE) {
-    log(' captureProfileToThreadMapping: not a profile page');
-    return;
-  }
-
-  const profileUrl = normalizeLinkedInProfileUrl(location.href);
-  if (!profileUrl) {
-    log(' captureProfileToThreadMapping: could not normalize profile URL');
-    return;
-  }
-
-  log(' captureProfileToThreadMapping: starting for', profileUrl);
-
-  // Функция для сохранения маппинга
-  const saveMapping = (threadId) => {
-    if (!threadId) {
-      log(' saveMapping: threadId is empty');
-      return;
-    }
-    
-    log(' Found thread:', threadId.substring(0, 10) + '...', 'for', profileUrl);
-    
-    try {
-      const mapping = JSON.parse(localStorage.getItem('hrhelper_thread_profile_map') || '{}');
-      mapping[threadId] = profileUrl;
-      localStorage.setItem('hrhelper_thread_profile_map', JSON.stringify(mapping));
-      log(' Saved thread mapping to localStorage');
-    } catch (e) {
-      logError(' Error saving thread mapping to localStorage:', e);
-    }
-
-    saveThreadMappingToBackend(threadId, profileUrl);
-  };
-
-  // Пробуем найти thread_id сразу
-  let threadId = extractThreadIdFromMessageButton();
-  if (threadId) {
-    saveMapping(threadId);
-  } else {
-    log(' captureProfileToThreadMapping: threadId not found immediately, will retry');
-  }
-
-  // Также пробуем найти thread_id через небольшие задержки
-  // (кнопка Message может появиться позже при динамической загрузке)
-  const delays = [500, 1000, 2000, 3000, 5000];
-  delays.forEach(delay => {
-    setTimeout(() => {
-      const delayedThreadId = extractThreadIdFromMessageButton();
-      if (delayedThreadId) {
-        if (!threadId || delayedThreadId !== threadId) {
-          log(' captureProfileToThreadMapping: found threadId after delay', delayedThreadId.substring(0, 10) + '...');
-          threadId = delayedThreadId;
-          saveMapping(delayedThreadId);
-        }
-      }
-    }, delay);
-  });
-
-  let lastThreadId = threadId;
-  const trackMessageButtons = () => {
-    const newThreadId = extractThreadIdFromMessageButton();
-    if (newThreadId && newThreadId !== lastThreadId) {
-      lastThreadId = newThreadId;
-      log(' New thread detected:', newThreadId.substring(0, 10) + '...');
-      
-      try {
-        const mapping = JSON.parse(localStorage.getItem('hrhelper_thread_profile_map') || '{}');
-        mapping[newThreadId] = profileUrl;
-        localStorage.setItem('hrhelper_thread_profile_map', JSON.stringify(mapping));
-        log(' Saved new thread mapping to localStorage');
-      } catch (e) {
-        logError(' Error saving thread mapping to localStorage:', e);
-      }
-      
-      saveThreadMappingToBackend(newThreadId, profileUrl);
-    }
-  };
-
-  const debouncedTrackMessageButtons = debounce(trackMessageButtons, TIMING.DEBOUNCE_MUTATION || 100);
-  const obs = new MutationObserver(() => debouncedTrackMessageButtons());
-  obs.observe(document.body, { childList: true, subtree: true });
-  log(' captureProfileToThreadMapping: MutationObserver started');
-}
-
-async function getProfileLinkFromMessaging() {
-  // Используем кэш, чтобы не искать профиль повторно
-  if (STATE.messagingProfileCache) {
-    return STATE.messagingProfileCache;
-  }
-
-  // Извлекаем thread_id из URL
-  let threadId = null;
-  try {
-    const currentUrl = location.href;
-    const threadMatch = currentUrl.match(/thread\/([^/?]+)/);
-    if (threadMatch) {
-      threadId = threadMatch[1];
-    }
-  } catch (e) {
-    warn(' Error extracting thread_id from URL:', e);
-  }
-
-  // 1. Быстрый путь: ищем в DOM
-  const profileLinks = Array.from(document.querySelectorAll('a[href*="/in/"]'));
-  for (const link of profileLinks) {
-    if (link.href.includes('/me/') || link.href.includes('/jobs/')) continue;
-    const normalized = normalizeLinkedInProfileUrl(link.href);
-    if (normalized) {
-      log(' Profile found in DOM:', normalized);
-      STATE.messagingProfileCache = normalized;
-      
-      // Сохраняем маппинг thread_id -> profile_url если thread_id найден
-      if (threadId) {
-        try {
-          const mapping = JSON.parse(localStorage.getItem('hrhelper_thread_profile_map') || '{}');
-          mapping[threadId] = normalized;
-          localStorage.setItem('hrhelper_thread_profile_map', JSON.stringify(mapping));
-          log(' Saved thread mapping to localStorage:', threadId.substring(0, 10) + '... -> ' + normalized);
-          
-          // Сохраняем на backend
-          saveThreadMappingToBackend(threadId, normalized);
-        } catch (e) {
-          warn(' Error saving thread mapping to localStorage:', e);
-        }
-      }
-      
-      return normalized;
-    }
-  }
-
-  // 2. Средний путь: localStorage (синхронно, быстро)
-  if (threadId) {
-    try {
-      const mapping = JSON.parse(localStorage.getItem('hrhelper_thread_profile_map') || '{}');
-      if (mapping[threadId]) {
-        log(' Profile from localStorage:', mapping[threadId]);
-        STATE.messagingProfileCache = mapping[threadId];
-        return mapping[threadId];
-      }
-      
-      // 3. Медленный путь: backend API (асинхронно)
-      const result = await apiFetch('/api/v1/linkedin/thread-mapping/?thread_id=' + threadId, { method: "GET" });
-      if (result.ok) {
-        const data = await result.json().catch(() => null);
-        if (data?.profile_url) {
-          log(' Profile from backend:', data.profile_url);
-          STATE.messagingProfileCache = data.profile_url;
-          // Сохраняем в localStorage для следующего раза
-          try {
-            const mapping = JSON.parse(localStorage.getItem('hrhelper_thread_profile_map') || '{}');
-            mapping[threadId] = data.profile_url;
-            localStorage.setItem('hrhelper_thread_profile_map', JSON.stringify(mapping));
-          } catch (e) {}
-          return data.profile_url;
-        }
-      }
-      
-      warn(' Thread not mapped:', threadId);
-    } catch (e) {
-      logError(' Error getting profile:', e);
-    }
-  }
-
-  return null;
-}
-
-function findMessagingComposer() {
-  // Ищем форму ввода сообщения на странице /messaging/
-  const selectors = [
-    '.msg-form__contenteditable',
-    '.msg-form__composer',
-    '[data-view-name="msg-form"]',
-    'form.msg-form',
-    '.msg-form__msg-content-container',
-    '[role="textbox"][contenteditable="true"]'
-  ];
-  
-  for (const sel of selectors) {
-    const el = document.querySelector(sel);
-    if (el) {
-      // Ищем родительский контейнер формы
-      const form = el.closest('form') || el.closest('.msg-form') || el.closest('[data-view-name="msg-form"]');
-      return form || el.parentElement;
-    }
-  }
-  
-  return null;
-}
-
-function findAllMoreButtons() {
-  const ariaNeedles = ["more", "more actions", "ещё", "еще", "дополнительно"];
-  const buttons = Array.from(document.querySelectorAll("button[aria-label], [role='button'][aria-label]"));
-  const res = [];
-  for (const el of buttons) {
-    const aria = (el.getAttribute("aria-label") || "").trim().toLowerCase();
-    const txt = (el.textContent || "").trim().toLowerCase();
-    if ((aria && ariaNeedles.some(n => aria.includes(n))) || ariaNeedles.some(n => txt.includes(n))) {
-      res.push(el);
-    }
-  }
-  return Array.from(new Set(res));
-}
-
-function looksLikeProfileActionArea(moreBtn) {
-  const inTop = !!moreBtn.closest('[data-view-name="profile-top-card"]') ||
-                !!moreBtn.closest(".pv-top-card") ||
-                !!moreBtn.closest(".pv-top-card-v2-ctas") ||
-                !!moreBtn.closest(".pv-top-card__actions");
-  const inSticky = !!moreBtn.closest(".scaffold-layout__sticky");
-  if (inTop || inSticky) return true;
-
-  const root = moreBtn.closest("header") || moreBtn.closest("section");
-  if (!root) return false;
-
-  const needles = ["connect", "message", "follow", "соедин", "сообщ"];
-  const nearby = Array.from(root.querySelectorAll("button[aria-label]")).slice(0, 40);
-  for (const b of nearby) {
-    const aria = (b.getAttribute("aria-label") || "").toLowerCase();
-    if (needles.some(n => aria.includes(n))) return true;
-  }
-  return false;
-}
-
-function findActionContainer() {
-  const candidates = [
-    document.querySelector(".pv-top-card-v2-ctas"),
-    document.querySelector(".pv-top-card__actions"),
-    document.querySelector('[data-view-name="profile-top-card"]'),
-    document.querySelector("main")
-  ].filter(Boolean);
-
-  for (const el of candidates) {
-    const btnBar = el.querySelector('div[role="group"]') ||
-                   el.querySelector(".artdeco-button__text")?.closest("div") || el;
-    if (btnBar) return btnBar;
-  }
-  return null;
-}
-
-/** Ищет блок "Activity" / "Действия" на странице профиля LinkedIn для вставки виджета над ним */
-function findActivitySection() {
-  const activityHeadings = [
-    'Activity',
-    'Действия',
-    'Activité',
-    'Actividad',
-    'Aktivität',
-    'Attività',
-    'Atividade'
-  ];
-  const walker = document.createTreeWalker(
-    document.body,
-    NodeFilter.SHOW_TEXT,
-    null
-  );
-  let textNode;
-  while (textNode = walker.nextNode()) {
-    const text = (textNode.textContent || '').trim();
-    if (!text) continue;
-    for (const heading of activityHeadings) {
-      if (text !== heading && !text.startsWith(heading + '\n') && !text.startsWith(heading + ' ')) continue;
-      let el = textNode.parentElement;
-      for (let i = 0; i < 15 && el; i++) {
-        const tag = (el.tagName || '').toLowerCase();
-        const role = (el.getAttribute?.('role') || '').toLowerCase();
-        const cn = el.className || '';
-        const isSectionLike = tag === 'section' || role === 'region' ||
-          /scaffold-layout|pv-profile-section|pvs-list__outer-container|artdeco-card/.test(cn);
-        if (isSectionLike && el.offsetParent != null) {
-          return el;
-        }
-        el = el.parentElement;
-      }
-      return textNode.parentElement || null;
-    }
-  }
-  return null;
-}
-
-/** Селекторы для cover-контейнера LinkedIn */
-const COVER_SELECTORS = [
-  ".pv-top-card__cover-photo-container",
-  ".profile-background-image",
-  "[data-view-name='profile-top-card']",
-  ".scaffold-layout__main section:first-child",
-];
-
-function findCoverContainer() {
-  for (const sel of COVER_SELECTORS) {
-    const el = document.querySelector(sel);
-    if (el) {
-      log(" Floating widget: found cover container:", sel);
-      return el;
-    }
-  }
-  const topCard = document.querySelector(".pv-top-card") || document.querySelector("[data-view-name='profile-top-card']");
-  if (topCard) {
-    log(" Floating widget: using top-card as container");
-    return topCard;
-  }
-  return null;
-}
 
 function pluralize(n, one, few, many) {
   n = Math.abs(n) % 100;
@@ -700,6 +305,14 @@ function pluralize(n, one, few, many) {
 }
 
 let floatingWidgetData = null;
+let floatingEditEscHandler = null;
+
+function removeFloatingEditEscHandler() {
+  if (floatingEditEscHandler) {
+    document.removeEventListener("keydown", floatingEditEscHandler);
+    floatingEditEscHandler = null;
+  }
+}
 
 const isNewStatusName = HRH.isNewStatusName;
 const hasBlacklistLabel = HRH.hasBlacklistLabel;
@@ -731,22 +344,26 @@ function computeFloatingBorderColorLinkedIn() {
   if (!inBase) return null;
 
   const primary = getPrimaryVacancyForBorder(STATE.linkedinFull.vacancies || []);
-  const statusType = primary?.status_type;
-  const statusName = primary?.status_name || STATE.current.statusName || "";
+  return computeBorderColorForVacancy(primary);
+}
+
+/** Цвет рамки для одной вакансии (та же логика, что для всего плавающего окна). */
+function computeBorderColorForVacancy(v) {
+  if (!v) return null;
+  const statusType = v.status_type;
+  const statusName = v.status_name || "";
 
   if (statusType === "rejected") {
-    if (isRejectionReasonClosedByOther(primary?.rejection_reason_name)) return "#0a66c2"; // синий — исключение
-    const ts = primary?.last_change_at || primary?.last_comment_at || null;
+    if (isRejectionReasonClosedByOther(v.rejection_reason_name)) return "#0a66c2";
+    const ts = v.last_change_at || v.last_comment_at || null;
     const dt = ts ? new Date(ts) : null;
     const ms = dt && !isNaN(dt.getTime()) ? (Date.now() - dt.getTime()) : null;
     const halfYearMs = 183 * 24 * 60 * 60 * 1000;
-    if (ms != null && ms < halfYearMs) return "#dc3545"; // красный
-    return "#fd7e14"; // оранжевый
+    if (ms != null && ms < halfYearMs) return "#dc3545";
+    return "#fd7e14";
   }
-
-  // Не отказ
-  if (!isNewStatusName(statusName)) return "#198754"; // зелёный
-  return "#0a66c2"; // синий
+  if (!isNewStatusName(statusName)) return "#198754";
+  return "#0a66c2";
 }
 
 const hexToRgba = HRH.hexToRgba;
@@ -835,7 +452,7 @@ function injectFloatingWidgetThemeStyles() {
     }
     .hrhelper-floating-widget .hrhelper-widget-header { border-bottom-color: var(--hrhelper-border) !important; }
     .hrhelper-floating-widget .hrhelper-widget-title { color: var(--hrhelper-accent) !important; }
-    .hrhelper-floating-widget .hrhelper-widget-fio-slot { color: var(--hrhelper-text) !important; }
+    .hrhelper-floating-widget .hrhelper-widget-title-text { color: inherit; }
     .hrhelper-floating-widget .hrhelper-toggle-btn { background: var(--hrhelper-btn-bg) !important; color: var(--hrhelper-muted) !important; }
     .hrhelper-floating-widget .hrhelper-status-dropdown,
     .hrhelper-floating-widget .hrhelper-add-vacancy-dropdown { background: var(--hrhelper-bg) !important; border-color: var(--hrhelper-border) !important; }
@@ -853,6 +470,11 @@ function injectFloatingWidgetThemeStyles() {
     .hrhelper-floating-widget .hrhelper-ctx-comment-toolbar { background: var(--hrhelper-btn-bg) !important; border-bottom-color: var(--hrhelper-border) !important; }
     .hrhelper-floating-widget .hrhelper-ctx-comment-editor { background: var(--hrhelper-input-bg) !important; color: var(--hrhelper-text) !important; }
     .hrhelper-floating-widget .hrhelper-ctx-status-block button:not(.hrhelper-toggle-btn) { background: var(--hrhelper-input-bg) !important; color: var(--hrhelper-accent) !important; border-color: var(--hrhelper-border) !important; }
+    .hrhelper-floating-widget .hrhelper-ctx-comment-toolbar .hrhelper-ctx-comment-toolbar-btn,
+    .hrhelper-floating-widget .hrhelper-ctx-apply-status { background: var(--hrhelper-input-bg) !important; color: var(--hrhelper-text) !important; border-color: var(--hrhelper-border) !important; }
+    .hrhelper-floating-widget .hrhelper-ctx-comment-toolbar .hrhelper-ctx-comment-toolbar-btn *,
+    .hrhelper-floating-widget .hrhelper-ctx-comment-toolbar .hrhelper-ctx-comment-toolbar-btn svg,
+    .hrhelper-floating-widget .hrhelper-ctx-apply-status * { color: inherit !important; fill: currentColor !important; }
     .hrhelper-floating-widget .hrhelper-status-dropdown,
     .hrhelper-floating-widget .hrhelper-add-vacancy-dropdown { color: var(--hrhelper-text) !important; }
     .hrhelper-floating-widget .hrhelper-status-dropdown *,
@@ -876,7 +498,8 @@ function injectFloatingWidgetThemeStyles() {
     .hrhelper-floating-widget.hrhelper-theme-dark {
       --hrhelper-bg: #161b22; --hrhelper-text: #e6edf3; --hrhelper-muted: #8b949e; --hrhelper-border: rgba(255,255,255,.12); --hrhelper-accent: #58a6ff; --hrhelper-btn-bg: rgba(255,255,255,.08); --hrhelper-input-bg: #0d1117; --hrhelper-danger: #f85149; --hrhelper-danger-bg: rgba(248,81,73,.15); --hrhelper-danger-border: rgba(248,81,73,.4); --hrhelper-success: #3fb950; --hrhelper-success-bg: rgba(63,185,80,.15); --hrhelper-success-border: rgba(63,185,80,.4); --hrhelper-card-border: rgba(88,166,255,.35); --hrhelper-card-bg: rgba(88,166,255,.08); --hrhelper-card-sel-border: #58a6ff; --hrhelper-card-sel-bg: rgba(88,166,255,.18);
     }
-    .hrhelper-floating-widget.hrhelper-theme-dark .hrhelper-widget-header-right .hrhelper-copy-btn { background: var(--hrhelper-accent) !important; color: #fff !important; border: 1px solid var(--hrhelper-border) !important; }
+    .hrhelper-floating-widget.hrhelper-theme-dark .hrhelper-floating-action-group button,
+    .hrhelper-floating-widget.hrhelper-theme-dark .hrhelper-floating-copy-btn { background: var(--hrhelper-btn-bg) !important; color: var(--hrhelper-muted) !important; border-color: var(--hrhelper-border) !important; }
     .hrhelper-messaging-bar {
       background: var(--hrhelper-bg, #f3f6f8) !important;
       border-bottom-color: var(--hrhelper-border, rgba(0,0,0,.08)) !important;
@@ -965,12 +588,13 @@ function createFloatingWidget() {
   wrapper.className = "hrhelper-floating-widget";
   wrapper.dataset.hrhelperHuntflow = "1";
   wrapper.dataset.hrhelperFloating = "true";
+  const widgetWidth = (HRH.FLOATING_WIDGET_WIDTH != null ? HRH.FLOATING_WIDGET_WIDTH : 320);
   wrapper.style.cssText = `
     position: fixed;
     top: 60px;
     right: 12px;
     z-index: 99999;
-    width: 320px;
+    width: ${widgetWidth}px;
     min-width: 0;
     max-height: calc(100vh - 168px);
     border-radius: 12px;
@@ -996,7 +620,7 @@ function createFloatingWidget() {
 
   const title = document.createElement("div");
   title.className = "hrhelper-widget-title";
-  title.style.cssText = "font-size:14px;font-weight:600;color:var(--hrhelper-accent,#0a66c2);display:flex;align-items:center;gap:6px;flex-shrink:0;";
+  title.style.cssText = "font-size:14px;font-weight:600;color:var(--hrhelper-accent,#0a66c2);display:flex;align-items:center;gap:6px;flex:1;min-width:0;overflow:hidden;";
   const titleIcon = document.createElement("img");
   titleIcon.className = "hrhelper-title-icon";
   const iconSize = hasBlacklistLabel(STATE.linkedinFull.candidateInfo) ? 30 : 20;
@@ -1011,8 +635,37 @@ function createFloatingWidget() {
     titleIcon.replaceWith(svg.firstElementChild || svg);
   };
   title.appendChild(titleIcon);
-  title.appendChild(document.createTextNode(" HR Helper"));
+  const titleText = document.createElement("span");
+  titleText.className = "hrhelper-widget-title-text";
+  titleText.style.cssText = "overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+  titleText.textContent = "HR Helper";
+  title.appendChild(titleText);
   headerLeft.appendChild(title);
+
+  const actionGroup = document.createElement("div");
+  actionGroup.className = "hrhelper-floating-action-group";
+  actionGroup.style.cssText = "display:flex;align-items:stretch;gap:0;flex-shrink:0;";
+
+  const addVacancyBtn = document.createElement("button");
+  addVacancyBtn.type = "button";
+  addVacancyBtn.className = "hrhelper-add-vacancy-btn";
+  addVacancyBtn.textContent = "+";
+  addVacancyBtn.title = "Взять на другую вакансию";
+  addVacancyBtn.style.cssText = "width:24px;height:24px;border:1px solid var(--hrhelper-border,rgba(0,0,0,.15));border-right:none;border-radius:4px 0 0 4px;background:var(--hrhelper-btn-bg,rgba(0,0,0,.05));cursor:pointer;color:var(--hrhelper-muted,#666);font-size:16px;line-height:1;padding:0;display:none;align-items:center;justify-content:center;";
+  addVacancyBtn.addEventListener("mouseenter", () => { addVacancyBtn.style.background = "var(--hrhelper-border,rgba(0,0,0,.1))"; });
+  addVacancyBtn.addEventListener("mouseleave", () => { addVacancyBtn.style.background = "var(--hrhelper-btn-bg,rgba(0,0,0,.05))"; });
+  actionGroup.appendChild(addVacancyBtn);
+
+  const huntflowBtn = document.createElement("button");
+  huntflowBtn.type = "button";
+  huntflowBtn.className = "hrhelper-floating-huntflow-btn";
+  huntflowBtn.title = "Открыть в Huntflow";
+  huntflowBtn.setAttribute("aria-label", "Открыть в Huntflow");
+  huntflowBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>';
+  huntflowBtn.style.cssText = "width:24px;height:24px;border:1px solid var(--hrhelper-border,rgba(0,0,0,.15));border-radius:0;cursor:pointer;color:var(--hrhelper-muted,#666);flex-shrink:0;padding:0;display:none;align-items:center;justify-content:center;background:var(--hrhelper-btn-bg,rgba(0,0,0,.05));";
+  huntflowBtn.addEventListener("mouseenter", () => { huntflowBtn.style.background = "var(--hrhelper-border,rgba(0,0,0,.1))"; });
+  huntflowBtn.addEventListener("mouseleave", () => { huntflowBtn.style.background = "var(--hrhelper-btn-bg,rgba(0,0,0,.05))"; });
+  actionGroup.appendChild(huntflowBtn);
 
   const floatingEditBtn = document.createElement("button");
   floatingEditBtn.type = "button";
@@ -1020,39 +673,49 @@ function createFloatingWidget() {
   floatingEditBtn.title = "Редактировать ссылку";
   floatingEditBtn.setAttribute("aria-label", "Редактировать ссылку");
   floatingEditBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>';
-  floatingEditBtn.style.cssText = "width:24px;height:24px;border:none;background:var(--hrhelper-btn-bg,rgba(0,0,0,.05));border-radius:4px;cursor:pointer;color:var(--hrhelper-muted,#666);flex-shrink:0;padding:0;display:none;align-items:center;justify-content:center;";
+  floatingEditBtn.style.cssText = "width:24px;height:24px;border:1px solid var(--hrhelper-border,rgba(0,0,0,.15));border-radius:0 4px 4px 0;cursor:pointer;color:var(--hrhelper-muted,#666);flex-shrink:0;padding:0;display:none;align-items:center;justify-content:center;background:var(--hrhelper-btn-bg,rgba(0,0,0,.05));";
   floatingEditBtn.addEventListener("click", (e) => { e.stopPropagation(); onEditClick(e); });
   floatingEditBtn.addEventListener("mouseenter", () => { floatingEditBtn.style.background = "var(--hrhelper-border,rgba(0,0,0,.1))"; });
   floatingEditBtn.addEventListener("mouseleave", () => { floatingEditBtn.style.background = "var(--hrhelper-btn-bg,rgba(0,0,0,.05))"; });
+  actionGroup.appendChild(floatingEditBtn);
+
+  const copyVacancyBtn = document.createElement("button");
+  copyVacancyBtn.type = "button";
+  copyVacancyBtn.className = "hrhelper-floating-copy-btn";
+  copyVacancyBtn.title = "Скопировать ссылку на вакансию";
+  copyVacancyBtn.setAttribute("aria-label", "Скопировать ссылку на вакансию");
+  copyVacancyBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>';
+  copyVacancyBtn.style.cssText = "width:24px;height:24px;border:1px solid var(--hrhelper-border,rgba(0,0,0,.15));border-radius:4px;cursor:pointer;color:var(--hrhelper-muted,#666);flex-shrink:0;padding:0;display:flex;align-items:center;justify-content:center;background:var(--hrhelper-btn-bg,rgba(0,0,0,.05));margin-right:4px;";
+  copyVacancyBtn.addEventListener("mouseenter", () => { copyVacancyBtn.style.background = "var(--hrhelper-border,rgba(0,0,0,.1))"; });
+  copyVacancyBtn.addEventListener("mouseleave", () => { copyVacancyBtn.style.background = "var(--hrhelper-btn-bg,rgba(0,0,0,.05))"; });
+  copyVacancyBtn.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    try {
+      const url = getSelectedVacancyUrl();
+      if (!url) return;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(url);
+        copyVacancyBtn.title = "Скопировано";
+        setTimeout(() => { copyVacancyBtn.title = "Скопировать ссылку на вакансию"; }, 1500);
+      }
+    } catch (_) {}
+  });
 
   const toggleBtn = document.createElement("button");
   toggleBtn.type = "button";
   toggleBtn.className = "hrhelper-toggle-btn";
-  toggleBtn.textContent = "−";
-  toggleBtn.style.cssText = "width:24px;height:24px;border:none;background:var(--hrhelper-btn-bg,rgba(0,0,0,.05));border-radius:4px;cursor:pointer;font-size:16px;line-height:1;color:var(--hrhelper-muted,#666);flex-shrink:0;";
+  toggleBtn.title = "Свернуть / развернуть";
+  toggleBtn.setAttribute("aria-label", "Свернуть");
+  toggleBtn.style.cssText = "width:24px;height:24px;border:none;background:var(--hrhelper-btn-bg,rgba(0,0,0,.05));border-radius:4px;cursor:pointer;color:var(--hrhelper-muted,#666);flex-shrink:0;padding:0;display:flex;align-items:center;justify-content:center;";
+  toggleBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path class="hrhelper-toggle-icon-path" d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>';
   toggleBtn.addEventListener("mouseenter", () => { toggleBtn.style.background = "var(--hrhelper-border,rgba(0,0,0,.1))"; });
   toggleBtn.addEventListener("mouseleave", () => { toggleBtn.style.background = "var(--hrhelper-btn-bg,rgba(0,0,0,.05))"; });
 
   header.appendChild(headerLeft);
-  header.appendChild(floatingEditBtn);
+  header.appendChild(copyVacancyBtn);
+  header.appendChild(actionGroup);
   header.appendChild(toggleBtn);
   wrapper.appendChild(header);
-
-  const toolbarRow = document.createElement("div");
-  toolbarRow.className = "hrhelper-widget-toolbar";
-  toolbarRow.style.cssText = "display:flex;align-items:center;gap:4px;margin-bottom:8px;flex-shrink:0;min-height:0;";
-
-  const fioSlot = document.createElement("div");
-  fioSlot.className = "hrhelper-widget-fio-slot";
-  fioSlot.style.cssText = "font-size:15px;font-weight:600;color:var(--hrhelper-text,#212529);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;";
-
-  const headerRight = document.createElement("div");
-  headerRight.className = "hrhelper-widget-header-right";
-  headerRight.style.cssText = "display:flex;align-items:center;gap:4px;flex-shrink:0;margin-left:auto;";
-
-  toolbarRow.appendChild(fioSlot);
-  toolbarRow.appendChild(headerRight);
-  wrapper.appendChild(toolbarRow);
 
   const body = document.createElement("div");
   body.className = "hrhelper-widget-body";
@@ -1071,15 +734,19 @@ function createFloatingWidget() {
 
   const isCollapsed = !!floatingWidgetUIState.widgetCollapsed;
   body.style.display = isCollapsed ? "none" : "flex";
-  toggleBtn.textContent = isCollapsed ? "+" : "−";
+  const togglePath = toggleBtn.querySelector(".hrhelper-toggle-icon-path");
+  if (togglePath) togglePath.setAttribute("d", isCollapsed ? "M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z" : "M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z");
   toggleBtn.addEventListener("click", () => {
-    const next = body.style.display === "none";
-    body.style.display = next ? "none" : "flex";
-    toggleBtn.textContent = next ? "+" : "−";
-    saveFloatingUIState({ widgetCollapsed: next });
+    const willExpand = body.style.display === "none";
+    body.style.display = willExpand ? "flex" : "none";
+    const pathEl = toggleBtn.querySelector(".hrhelper-toggle-icon-path");
+    if (pathEl) pathEl.setAttribute("d", willExpand ? "M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z" : "M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z");
+    toggleBtn.setAttribute("aria-label", willExpand ? "Свернуть" : "Развернуть");
+    toggleBtn.title = willExpand ? "Свернуть" : "Развернуть";
+    saveFloatingUIState({ widgetCollapsed: !willExpand });
   });
 
-  return { wrapper, body, statusDropdown, addVacancyDropdown, toggleBtn, headerRight, fioSlot, toolbarRow, floatingEditBtn };
+  return { wrapper, body, statusDropdown, addVacancyDropdown, toggleBtn, titleText, titleIcon, actionGroup, addVacancyBtn, huntflowBtn, floatingEditBtn };
 }
 
 function getSelectedVacancyUrl() {
@@ -1095,68 +762,46 @@ function repopulateFloatingWidgetBody() {
 }
 
 function updateFloatingWidgetHeader() {
-  const { headerRight, fioSlot, toolbarRow, floatingEditBtn } = floatingWidgetData || {};
-  if (!headerRight || !fioSlot) return;
-  if (floatingEditBtn) {
-    floatingEditBtn.style.display = (STATE.current.mode === "open" && !!STATE.current.appUrl) ? "flex" : "none";
+  try {
+    if (!chrome.runtime?.id) return;
+  } catch (_) {
+    return;
   }
+  const { titleText, actionGroup, addVacancyBtn, huntflowBtn, floatingEditBtn } = floatingWidgetData || {};
+  if (!titleText) return;
   const info = STATE.linkedinFull.candidateInfo;
   const hasFio = info?.full_name && STATE.current.mode === "open";
-  fioSlot.textContent = hasFio ? info.full_name : "";
-  fioSlot.style.display = hasFio ? "block" : "none";
-  headerRight.innerHTML = "";
-  if (STATE.current.mode === "open" && STATE.current.appUrl) {
-    const huntflowUrl = getSelectedVacancyUrl() || STATE.current.appUrl;
-    const isRej = STATE.current.statusName ? isRejectionStatus(STATE.current.statusName) : false;
-    const btnStyle = "padding:4px 8px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:background .2s;height:28px;display:inline-flex;align-items:center;justify-content:center;";
-    const huntflowBtn = document.createElement("a");
-    huntflowBtn.className = "hrhelper-btn-primary";
-    huntflowBtn.textContent = "Huntflow";
-    huntflowBtn.style.cssText = btnStyle + (isRej ? "background:var(--hrhelper-danger-bg);color:var(--hrhelper-danger);text-decoration:none;" : "background:var(--hrhelper-accent,#0a66c2);color:#fff;text-decoration:none;");
-    huntflowBtn.href = huntflowUrl || "#";
-    huntflowBtn.target = "_blank";
-    huntflowBtn.rel = "noopener noreferrer";
-    const copyBtn = document.createElement("button");
-    copyBtn.type = "button";
-    copyBtn.className = "hrhelper-copy-btn";
-    copyBtn.title = "Копировать";
-    copyBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>';
-    copyBtn.style.cssText = btnStyle + "background:var(--hrhelper-btn-bg,rgba(0,0,0,.06));color:var(--hrhelper-text,#333);padding:4px;";
-    copyBtn.addEventListener("click", async () => {
-      const url = huntflowUrl || STATE.current.appUrl;
-      if (!url) return;
-      try {
-        await navigator.clipboard.writeText(url);
-        copyBtn.innerHTML = "✓";
-        copyBtn.style.background = "var(--hrhelper-success-bg)";
-        copyBtn.style.color = "var(--hrhelper-success)";
-        setTimeout(() => { copyBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>'; copyBtn.style.background = ""; copyBtn.style.color = ""; }, 1000);
-      } catch (_) {
-        const ta = document.createElement("textarea");
-        ta.value = url;
-        ta.style.position = "fixed";
-        ta.style.left = "-9999px";
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand("copy");
-        document.body.removeChild(ta);
-      }
-    });
-    const addVacancyBtn = document.createElement("button");
-    addVacancyBtn.type = "button";
-    addVacancyBtn.className = "hrhelper-add-vacancy-btn";
-    addVacancyBtn.textContent = "+";
-    addVacancyBtn.title = "Взять на другую вакансию";
-    addVacancyBtn.style.cssText = btnStyle + "background:var(--hrhelper-accent,#0a66c2);color:#fff;width:28px;padding:0;";
-    addVacancyBtn.addEventListener("click", (e) => onAddVacancyClickFloating(e, addVacancyBtn));
-    headerRight.appendChild(addVacancyBtn);
-    headerRight.appendChild(huntflowBtn);
-    headerRight.appendChild(copyBtn);
+  titleText.textContent = hasFio ? info.full_name : "HR Helper";
+  const showActions = STATE.current.mode === "open" && !!STATE.current.appUrl;
+  const showEditBtn = showActions || STATE.current.mode === "input";
+  if (addVacancyBtn) {
+    addVacancyBtn.style.display = showActions ? "flex" : "none";
+    if (showActions && !addVacancyBtn._bound) {
+      addVacancyBtn._bound = true;
+      addVacancyBtn.addEventListener("click", (e) => onAddVacancyClickFloating(e, addVacancyBtn));
+    }
   }
-  if (toolbarRow) {
-    const hasContent = hasFio || headerRight.children.length > 0;
-    toolbarRow.style.display = hasContent ? "flex" : "none";
-    toolbarRow.style.marginBottom = hasContent ? "8px" : "0";
+  if (huntflowBtn) {
+    huntflowBtn.style.display = showActions ? "flex" : "none";
+    const huntflowUrl = showActions ? (getSelectedVacancyUrl() || STATE.current.appUrl) : "";
+    huntflowBtn.onclick = huntflowUrl ? () => window.open(huntflowUrl, "_blank", "noopener,noreferrer") : null;
+  }
+  if (floatingEditBtn) {
+    floatingEditBtn.style.display = showEditBtn ? "flex" : "none";
+  }
+  if (actionGroup && addVacancyBtn && huntflowBtn && floatingEditBtn) {
+    [addVacancyBtn, huntflowBtn, floatingEditBtn].forEach((b) => {
+      b.style.borderRadius = "";
+      b.style.borderRight = "1px solid var(--hrhelper-border,rgba(0,0,0,.15))";
+    });
+    const visible = [addVacancyBtn, huntflowBtn, floatingEditBtn].filter((b) => b && b.style.display === "flex");
+    visible.forEach((b, i) => {
+      if (visible.length === 1) b.style.borderRadius = "4px";
+      else if (i === 0) b.style.borderRadius = "4px 0 0 4px";
+      else if (i === visible.length - 1) b.style.borderRadius = "0 4px 4px 0";
+      else b.style.borderRadius = "0";
+      if (i < visible.length - 1) b.style.borderRight = "none";
+    });
   }
 }
 
@@ -1184,6 +829,16 @@ function populateFloatingWidgetBody(body) {
       if (e.key === "Enter") {
         e.preventDefault();
         onSaveLinkClick();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        removeFloatingEditEscHandler();
+        STATE.current.mode = "open";
+        STATE.current.appUrl = STATE.current.originalAppUrl;
+        STATE.current.inputValue = "";
+        STATE.current.disabled = false;
+        STATE.current.title = "Открыть в Huntflow";
+        STATE.current.originalAppUrl = null;
+        applyStateToAllButtons();
       }
     });
     const saveBtn = document.createElement("button");
@@ -1206,53 +861,102 @@ function populateFloatingWidgetBody(body) {
   const vacancies = STATE.linkedinFull.vacancies || [];
   const { active, rejected, archived, hired } = categorizeVacancies(vacancies);
 
-  const hasCandidateData = info && (info.phone || info.email || info.telegram || info.communication || info.office_readiness || info.level || (info.extra_fields && Object.keys(info.extra_fields || {}).length > 0));
-  if (hasCandidateData) {
+  const hasContacts = info && (info.phone || info.email || info.telegram || info.communication);
+  if (hasContacts) {
     const open = !!floatingWidgetUIState.candidateDataOpen;
     const toggle = document.createElement("button");
     toggle.type = "button";
     toggle.className = "hrhelper-body-accent";
     toggle.style.cssText = "font-size:12px;background:none;border:none;cursor:pointer;padding:4px 0;margin-bottom:4px;text-align:left;";
-    toggle.textContent = open ? "Данные кандидата ▲" : "Данные кандидата ▼";
+    toggle.textContent = open ? "Контакты и коммуникация ▲" : "Контакты и коммуникация ▼";
     const details = document.createElement("div");
     details.className = "hrhelper-body-muted";
     details.style.cssText = "font-size:11px;margin-bottom:8px;padding:8px;background:var(--hrhelper-btn-bg,rgba(0,0,0,.03));border-radius:6px;display:" + (open ? "block" : "none") + ";";
-    const rows = [
-      ["Телефон", info.phone],
-      ["Email", info.email],
-      ["Telegram", info.telegram],
-      ["Коммуникация", info.communication],
-      ["Офис", info.office_readiness],
-      ["Уровень", info.level],
-    ].filter(([, v]) => v != null && v !== "");
-    if (info.extra_fields && typeof info.extra_fields === "object") {
-      Object.entries(info.extra_fields).forEach(([label, val]) => {
-        if (val != null && val !== "") rows.push([label, val]);
-      });
+    const escapeHtml = (s) => String(s).replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    const contactRows = [];
+    if (info.phone) contactRows.push({ label: "Телефон", html: "<a href=\"tel:" + escapeHtml(info.phone) + "\">" + escapeHtml(info.phone) + "</a>" });
+    if (info.email) contactRows.push({ label: "Email", html: "<a href=\"mailto:" + escapeHtml(info.email) + "\">" + escapeHtml(info.email) + "</a>" });
+    let linkedinUrl = null;
+    try { linkedinUrl = normalizeLinkedInProfileUrl(location.href) || location.href; } catch (_) { linkedinUrl = location.href; }
+    contactRows.push({ label: "LinkedIn", html: "<a href=\"" + escapeHtml(linkedinUrl) + "\" target=\"_blank\" rel=\"noopener\">" + escapeHtml(linkedinUrl) + "</a>" });
+    if (info.telegram) {
+      const t = String(info.telegram).trim();
+      const telegramHref = /^https?:\/\//i.test(t) ? t : "https://t.me/" + t.replace(/^@/, "");
+      contactRows.push({ label: "Telegram", html: "<a href=\"" + escapeHtml(telegramHref) + "\" target=\"_blank\" rel=\"noopener\">" + escapeHtml(t) + "</a>" });
     }
-    details.innerHTML = rows.map(([l, v]) => "<div><b>" + String(l).replace(/</g, "&lt;") + ":</b> " + String(v).replace(/</g, "&lt;") + "</div>").join("");
+    if (info.communication) {
+      const comm = String(info.communication).trim();
+      const commLower = comm.toLowerCase();
+      let label = "Коммуникация";
+      let href = null;
+      if (/^https?:\/\//i.test(comm)) {
+        href = comm;
+        if (commLower.includes("t.me") || commLower.includes("telegram")) label = "Telegram";
+        else if (commLower.includes("wa.me") || commLower.includes("whatsapp")) label = "WhatsApp";
+        else if (commLower.includes("vk.com") || commLower.includes("vkontakte")) label = "VK";
+        else if (commLower.includes("facebook") || commLower.includes("fb.")) label = "Facebook";
+        else if (commLower.includes("linkedin")) label = "LinkedIn";
+      } else {
+        if (/telegram|tg|тг/i.test(comm)) { label = "Telegram"; href = info.telegram ? (/^https?:\/\//i.test(String(info.telegram)) ? info.telegram : "https://t.me/" + String(info.telegram).replace(/^@/, "")) : null; }
+        else if (/whatsapp|wa\.me/i.test(comm)) label = "WhatsApp";
+        else if (/vk\.|vkontakte|вк/i.test(comm)) label = "VK";
+        else label = comm.length > 30 ? comm.slice(0, 30) + "…" : comm;
+      }
+      const html = href ? "<a href=\"" + escapeHtml(href) + "\" target=\"_blank\" rel=\"noopener\">" + escapeHtml(label === "Коммуникация" ? comm : label) + "</a>" : escapeHtml(comm);
+      if (label === "Telegram" && info.telegram) { /* уже есть строка Telegram выше */ } else contactRows.push({ label: label, html: html });
+    }
+    details.innerHTML = contactRows.map((r) => "<div><b>" + escapeHtml(r.label) + ":</b> " + r.html + "</div>").join("");
     toggle.addEventListener("click", () => {
       const nowOpen = details.style.display !== "none";
       details.style.display = nowOpen ? "none" : "block";
-      toggle.textContent = nowOpen ? "Данные кандидата ▼" : "Данные кандидата ▲";
+      toggle.textContent = nowOpen ? "Контакты и коммуникация ▼" : "Контакты и коммуникация ▲";
       saveFloatingUIState({ candidateDataOpen: !nowOpen });
     });
     body.appendChild(toggle);
     body.appendChild(details);
   }
 
+  const excludeLevelKey = /^уровень$|^level$/i;
+  const extraFieldsEntries = info && info.extra_fields && typeof info.extra_fields === "object"
+    ? Object.entries(info.extra_fields).filter(([k, v]) => v != null && v !== "" && !excludeLevelKey.test(String(k).trim()))
+    : [];
+  if (extraFieldsEntries.length > 0) {
+    const openExtra = !!floatingWidgetUIState.extraFieldsOpen;
+    const toggleExtra = document.createElement("button");
+    toggleExtra.type = "button";
+    toggleExtra.className = "hrhelper-body-accent";
+    toggleExtra.style.cssText = "font-size:12px;background:none;border:none;cursor:pointer;padding:4px 0;margin-bottom:4px;text-align:left;";
+    toggleExtra.textContent = openExtra ? "Дополнительные поля ▲" : "Дополнительные поля ▼";
+    const extraBlock = document.createElement("div");
+    extraBlock.className = "hrhelper-body-muted";
+    extraBlock.style.cssText = "font-size:11px;margin-bottom:8px;padding:8px;background:var(--hrhelper-btn-bg,rgba(0,0,0,.03));border-radius:6px;display:" + (openExtra ? "block" : "none") + ";";
+    extraBlock.innerHTML = extraFieldsEntries.map(([l, v]) => "<div><b>" + String(l).replace(/</g, "&lt;") + ":</b> " + String(v).replace(/</g, "&lt;") + "</div>").join("");
+    toggleExtra.addEventListener("click", () => {
+      const nowOpen = extraBlock.style.display !== "none";
+      extraBlock.style.display = nowOpen ? "none" : "block";
+      toggleExtra.textContent = nowOpen ? "Дополнительные поля ▼" : "Дополнительные поля ▲";
+      saveFloatingUIState({ extraFieldsOpen: !nowOpen });
+    });
+    body.appendChild(toggleExtra);
+    body.appendChild(extraBlock);
+  }
+
   if (info && info.labels && info.labels.length > 0) {
-    const labelsTitle = document.createElement("div");
-    labelsTitle.className = "hrhelper-body-muted";
-    labelsTitle.style.cssText = "font-size:12px;font-weight:700;margin-bottom:4px;";
-    labelsTitle.textContent = "Метки";
-    body.appendChild(labelsTitle);
+    const normalizeLabelColor = HRH.normalizeLabelColor || ((v) => (v && typeof v === "string" ? (v.indexOf("#") === 0 ? v : "#" + v.replace(/^#/, "")) : ""));
     const labelsWrap = document.createElement("div");
     labelsWrap.style.cssText = "display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;";
     info.labels.forEach((lbl) => {
+      const name = (typeof lbl === "string" ? lbl : (lbl && (lbl.name || lbl.title)) || "").trim();
+      if (!name) return;
       const tag = document.createElement("span");
       tag.style.cssText = "font-size:11px;padding:2px 8px;border-radius:4px;background:var(--hrhelper-btn-bg,rgba(0,0,0,.06));border:1px solid var(--hrhelper-border,rgba(0,0,0,.1));";
-      tag.textContent = (lbl && (lbl.name || lbl.title || lbl)) || "—";
+      const rawColor = (lbl && typeof lbl === "object" && (lbl.color || lbl.background_color || lbl.bg_color || lbl.border_color || lbl.hex)) || "";
+      const color = rawColor ? normalizeLabelColor(String(rawColor)) : "";
+      if (color) {
+        tag.style.borderColor = color;
+        tag.style.color = color;
+      }
+      tag.textContent = name || "—";
       labelsWrap.appendChild(tag);
     });
     body.appendChild(labelsWrap);
@@ -1275,8 +979,18 @@ function populateFloatingWidgetBody(body) {
       active.forEach((v) => {
         const card = document.createElement("div");
         const isSel = v.vacancy_id === selId;
-        card.style.cssText = "padding:8px 10px;margin-bottom:4px;border-radius:6px;font-size:12px;cursor:pointer;border:1px solid " + (isSel ? "var(--hrhelper-card-sel-border)" : "var(--hrhelper-card-border)") + ";background:" + (isSel ? "var(--hrhelper-card-sel-bg)" : "var(--hrhelper-card-bg)") + ";";
-        card.textContent = (isSel ? "✓ " : "") + (v.vacancy_name || "—") + (v.status_name ? " (" + v.status_name + ")" : "");
+        const cardBorderColor = computeBorderColorForVacancy(v) || (isSel ? "var(--hrhelper-card-sel-border)" : "var(--hrhelper-card-border)");
+        const cardBg = isSel ? "var(--hrhelper-card-sel-bg)" : "var(--hrhelper-card-bg)";
+        card.style.cssText = "padding:8px 10px;margin-bottom:4px;border-radius:6px;font-size:12px;cursor:pointer;border:1px solid " + cardBorderColor + ";background:" + cardBg + ";display:flex;align-items:center;justify-content:space-between;gap:8px;";
+        const left = document.createElement("span");
+        left.style.cssText = "min-width:0;flex:1;";
+        left.textContent = (isSel ? "✓ " : "") + (v.vacancy_name || "—") + (v.status_name ? " (" + v.status_name + ")" : "");
+        const dateSpan = document.createElement("span");
+        dateSpan.className = "hrhelper-body-muted";
+        dateSpan.style.cssText = "font-size:10px;flex-shrink:0;";
+        dateSpan.textContent = (v.last_change_at && formatVacancyDate) ? formatVacancyDate(v.last_change_at) : "";
+        card.appendChild(left);
+        card.appendChild(dateSpan);
         card.dataset.vacancyId = v.vacancy_id;
         card.addEventListener("click", () => {
           STATE.linkedinFull.selectedVacancyId = v.vacancy_id;
@@ -1300,8 +1014,14 @@ function populateFloatingWidgetBody(body) {
       body.appendChild(rejTitle);
       rejected.forEach((v) => {
         const card = document.createElement("div");
-        card.style.cssText = "padding:8px 10px;margin-bottom:4px;border-radius:6px;font-size:12px;cursor:pointer;border:1px solid var(--hrhelper-danger-border);background:var(--hrhelper-danger-bg);color:var(--hrhelper-danger);";
-        card.innerHTML = "<div>" + (v.vacancy_name || "—") + (v.rejection_reason_name ? " — " + v.rejection_reason_name : "") + "</div>";
+        card.style.cssText = "padding:8px 10px;margin-bottom:4px;border-radius:6px;font-size:12px;cursor:pointer;border:1px solid var(--hrhelper-danger-border);background:var(--hrhelper-danger-bg);color:var(--hrhelper-danger);display:flex;align-items:center;justify-content:space-between;gap:8px;";
+        const left = document.createElement("div");
+        left.textContent = (v.vacancy_name || "—") + (v.rejection_reason_name ? " — " + v.rejection_reason_name : "");
+        const dateSpan = document.createElement("span");
+        dateSpan.style.cssText = "font-size:10px;opacity:.9;flex-shrink:0;";
+        dateSpan.textContent = (v.last_change_at && formatVacancyDate) ? formatVacancyDate(v.last_change_at) : "";
+        card.appendChild(left);
+        card.appendChild(dateSpan);
         card.dataset.vacancyId = v.vacancy_id;
         card.addEventListener("click", () => {
           STATE.linkedinFull.selectedVacancyId = v.vacancy_id;
@@ -1329,8 +1049,16 @@ function populateFloatingWidgetBody(body) {
         card.className = "hrhelper-archived-vacancy-card";
         const borderColor = isSel ? "var(--hrhelper-card-sel-border)" : "var(--hrhelper-border)";
         const bgColor = isSel ? "var(--hrhelper-card-sel-bg)" : "var(--hrhelper-btn-bg)";
-        card.style.cssText = "padding:8px 10px;margin-bottom:4px;border-radius:6px;font-size:12px;cursor:pointer;border:1px solid " + borderColor + ";background:" + bgColor + ";color:var(--hrhelper-text);";
-        card.textContent = (isSel ? "✓ " : "") + (v.vacancy_name || "—") + (v.status_name ? " (" + v.status_name + ")" : "");
+        card.style.cssText = "padding:8px 10px;margin-bottom:4px;border-radius:6px;font-size:12px;cursor:pointer;border:1px solid " + borderColor + ";background:" + bgColor + ";color:var(--hrhelper-text);display:flex;align-items:center;justify-content:space-between;gap:8px;";
+        const left = document.createElement("span");
+        left.style.cssText = "min-width:0;flex:1;";
+        left.textContent = (isSel ? "✓ " : "") + (v.vacancy_name || "—") + (v.status_name ? " (" + v.status_name + ")" : "");
+        const dateSpan = document.createElement("span");
+        dateSpan.className = "hrhelper-body-muted";
+        dateSpan.style.cssText = "font-size:10px;flex-shrink:0;";
+        dateSpan.textContent = (v.last_change_at && formatVacancyDate) ? formatVacancyDate(v.last_change_at) : "";
+        card.appendChild(left);
+        card.appendChild(dateSpan);
         card.dataset.vacancyId = v.vacancy_id;
         card.addEventListener("click", () => {
           STATE.linkedinFull.selectedVacancyId = v.vacancy_id;
@@ -1432,15 +1160,6 @@ function appendFloatingStatusBlock(body, btnStyle) {
   block.className = "hrhelper-ctx-status-block";
   block.style.cssText = "margin-top:12px;padding-top:10px;border-top:1px solid var(--hrhelper-border,rgba(0,0,0,.1));";
 
-  const vacancyName = STATE.current && STATE.current.vacancy_name ? String(STATE.current.vacancy_name).trim() : "";
-  if (vacancyName) {
-    const vacancyLine = document.createElement("div");
-    vacancyLine.className = "hrhelper-ctx-vacancy-name";
-    vacancyLine.style.cssText = "font-size:12px;color:var(--hrhelper-text,#212529);margin-bottom:6px;word-break:break-word;";
-    vacancyLine.textContent = "Вакансия: " + vacancyName;
-    block.appendChild(vacancyLine);
-  }
-
   const formLabel = document.createElement("span");
   formLabel.className = "hrhelper-ctx-label";
   formLabel.style.cssText = "display:block;margin-bottom:6px;font-size:12px;font-weight:600;";
@@ -1501,7 +1220,8 @@ function appendFloatingStatusBlock(body, btnStyle) {
   toolbarBtns.forEach(({ cmd, title, html }) => {
     const b = document.createElement("button");
     b.type = "button";
-    b.style.cssText = "width:28px;height:24px;padding:0;border:1px solid var(--hrhelper-border);border-radius:4px;background:var(--hrhelper-input-bg);color:var(--hrhelper-accent);cursor:pointer;font-size:11px;display:inline-flex;align-items:center;justify-content:center;";
+    b.className = "hrhelper-ctx-comment-toolbar-btn";
+    b.style.cssText = "width:28px;height:24px;padding:0;border:1px solid var(--hrhelper-border);border-radius:4px;background:var(--hrhelper-input-bg);color:var(--hrhelper-text);cursor:pointer;font-size:11px;display:inline-flex;align-items:center;justify-content:center;";
     b.title = title;
     b.innerHTML = html;
     b.addEventListener("click", (e) => {
@@ -1525,7 +1245,7 @@ function appendFloatingStatusBlock(body, btnStyle) {
   applyBtn.type = "button";
   applyBtn.className = "hrhelper-ctx-apply-status";
   applyBtn.textContent = "Применить статус";
-  applyBtn.style.cssText = btnStyle + "background:var(--hrhelper-accent,#0a66c2);color:#fff;width:100%;border:1px solid var(--hrhelper-accent,#0a66c2);";
+  applyBtn.style.cssText = btnStyle + "background:var(--hrhelper-input-bg);color:var(--hrhelper-text);width:100%;border:1px solid var(--hrhelper-border);";
   block.appendChild(applyBtn);
 
   const toggleReasonRow = () => {
@@ -1722,18 +1442,25 @@ function insertFloatingWidget() {
       return;
     }
     loadFloatingUIState(() => {
-      const { wrapper, body, statusDropdown, addVacancyDropdown, headerRight, fioSlot, toolbarRow, floatingEditBtn } = createFloatingWidget();
-      floatingWidgetData = { wrapper, body, statusDropdown, addVacancyDropdown, headerRight, fioSlot, toolbarRow, floatingEditBtn };
+      const created = createFloatingWidget();
+      floatingWidgetData = { wrapper: created.wrapper, body: created.body, statusDropdown: created.statusDropdown, addVacancyDropdown: created.addVacancyDropdown, toggleBtn: created.toggleBtn, titleText: created.titleText, titleIcon: created.titleIcon, actionGroup: created.actionGroup, addVacancyBtn: created.addVacancyBtn, huntflowBtn: created.huntflowBtn, floatingEditBtn: created.floatingEditBtn };
+      const wrapper = created.wrapper;
+      const body = created.body;
       updateResolvedWidgetTheme().then(() => {
-        applyFloatingWidgetTheme(wrapper);
-        applyFloatingBorder(wrapper, computeFloatingBorderColorLinkedIn());
-        updateFloatingWidgetTitleIcon(wrapper);
-        updateFloatingWidgetHeader();
-        populateFloatingWidgetBody(body);
-        document.body.appendChild(wrapper);
-        makeWidgetDraggable(wrapper, "hrhelper_linkedin_floating_pos", ".hrhelper-widget-header");
-        startFloatingWidgetThemeObserver(wrapper);
-        log(" Floating widget inserted");
+        try {
+          if (!chrome.runtime?.id) return;
+          applyFloatingWidgetTheme(wrapper);
+          applyFloatingBorder(wrapper, computeFloatingBorderColorLinkedIn());
+          updateFloatingWidgetTitleIcon(wrapper);
+          updateFloatingWidgetHeader();
+          populateFloatingWidgetBody(body);
+          document.body.appendChild(wrapper);
+          makeWidgetDraggable(wrapper, "hrhelper_linkedin_floating_pos", ".hrhelper-widget-header");
+          startFloatingWidgetThemeObserver(wrapper);
+          log(" Floating widget inserted");
+        } catch (e) {
+          if (e?.message !== "Extension context invalidated") throw e;
+        }
       });
     });
   });
@@ -1750,15 +1477,23 @@ function updateFloatingWidgetTitleIcon(w) {
 }
 
 function updateFloatingWidget() {
+  try {
+    if (!chrome.runtime?.id) return;
+  } catch (_) {
+    return;
+  }
   const w = document.querySelector("[data-hrhelper-floating='true']");
   if (!w || !floatingWidgetData) return;
-
-  applyFloatingWidgetTheme(w);
-  applyFloatingBorder(w, computeFloatingBorderColorLinkedIn());
-  updateFloatingWidgetTitleIcon(w);
-  updateFloatingWidgetHeader();
-  if (floatingWidgetData.body) {
-    repopulateFloatingWidgetBody();
+  try {
+    applyFloatingWidgetTheme(w);
+    applyFloatingBorder(w, computeFloatingBorderColorLinkedIn());
+    updateFloatingWidgetTitleIcon(w);
+    updateFloatingWidgetHeader();
+    if (floatingWidgetData.body) {
+      repopulateFloatingWidgetBody();
+    }
+  } catch (e) {
+    if (e?.message !== "Extension context invalidated") throw e;
   }
 }
 
@@ -2019,6 +1754,14 @@ function ensureButtons(force = false) {
 
   STATE.suppressObserver = true;
   try {
+    if (IS_LINKEDIN) {
+      document.querySelectorAll("[data-hrhelper-huntflow='1']").forEach((el) => {
+        if (el.getAttribute("data-hrhelper-floating") !== "true" && el.parentNode) el.remove();
+      });
+      const existingFloating = document.querySelector("[data-hrhelper-floating='true']");
+      if (existingFloating) updateFloatingWidget();
+      return;
+    }
     if (IS_MESSAGING_PAGE) {
       const composer = findMessagingComposer();
       if (composer) {
@@ -2039,11 +1782,7 @@ function ensureButtons(force = false) {
         }
       }
     }
-    if (IS_LINKEDIN) {
-      insertFloatingWidget();
-    }
     if (!IS_MESSAGING_PAGE) {
-      // На странице профиля — вставляем над блоком "Activity" / "Действия", иначе рядом с кнопками More
       const activitySection = findActivitySection();
       if (activitySection && activitySection.parentElement) {
         const container = activitySection.parentElement;
@@ -2233,6 +1972,8 @@ async function fetchCandidateInfo(huntflowUrl) {
   const res = await apiFetch("/api/v1/huntflow/linkedin-applicants/candidate-info/?" + qp.toString(), { method: "GET" });
   const data = await res.json().catch(() => null);
   if (!res.ok || !data?.success) return null;
+  // Метки: для цвета границы/текста в UI ожидаются объекты с полем color (или background_color, bg_color, border_color, hex)
+  const labels = Array.isArray(data.labels) ? data.labels : [];
   return {
     full_name: data.full_name ?? null,
     phone: data.phone ?? null,
@@ -2241,7 +1982,7 @@ async function fetchCandidateInfo(huntflowUrl) {
     communication: data.communication ?? null,
     office_readiness: data.office_readiness ?? null,
     level: data.level ?? null,
-    labels: Array.isArray(data.labels) ? data.labels : [],
+    labels,
     extra_fields: data.extra_fields && typeof data.extra_fields === "object" ? data.extra_fields : {},
   };
 }
@@ -2309,6 +2050,7 @@ async function refreshButtonForCurrentProfile() {
     STATE.current.title = "Загрузка...";
     STATE.current.text = "Huntflow";
     ensureButtons();
+    if (IS_LINKEDIN) insertFloatingWidget();
   };
 
   // Показываем кнопки сразу, если еще не показаны
@@ -2334,6 +2076,7 @@ async function refreshButtonForCurrentProfile() {
     STATE.current.disabled = false;
     STATE.current.title = "Укажи ссылку на кандидата";
     ensureButtons();
+    if (IS_LINKEDIN) insertFloatingWidget();
     return;
   }
   
@@ -2414,6 +2157,7 @@ async function refreshButtonForCurrentProfile() {
       setButtonState({ text: "Huntflow", disabled: false, title: "Укажи ссылку на кандидата", color: "#0a66c2", vacancy_name: null, vacanciesCount: 0 });
     }
     ensureButtons();
+    if (IS_LINKEDIN) insertFloatingWidget();
     // Продолжаем обновление в фоне
   }
   
@@ -2456,6 +2200,7 @@ async function refreshButtonForCurrentProfile() {
     STATE.current.disabled = true;
     STATE.current.title = status.error || "Нужна авторизация (проверь API Token в настройках расширения)";
     ensureButtons();
+    if (IS_LINKEDIN) insertFloatingWidget();
     STATE.statusFetchedFor = canonical;
     return;
   }
@@ -2510,17 +2255,20 @@ async function refreshButtonForCurrentProfile() {
     setButtonState({ text: "Huntflow", disabled: false, title: "Укажи ссылку на кандидата", color: "#0a66c2", vacancy_name: null, vacanciesCount: 0 });
   }
   ensureButtons();
+  if (IS_LINKEDIN) insertFloatingWidget();
   STATE.statusFetchedFor = canonical;
 }
 
 async function onSaveLinkClick() {
   log(' onSaveLinkClick called');
-  
+
   if (STATE.busy) {
     log(' Already busy, ignoring click');
     return;
   }
-  
+
+  removeFloatingEditEscHandler();
+
   let canonical = normalizeLinkedInProfileUrl(location.href);
   log(' Canonical URL:', canonical);
   
@@ -2711,14 +2459,37 @@ async function onEditClick(e) {
 
   log(' Edit button clicked');
 
-  // Сохраняем оригинальный URL перед редактированием
-  STATE.current.originalAppUrl = STATE.current.appUrl;
+  if (STATE.current.mode === "input") {
+    removeFloatingEditEscHandler();
+    STATE.current.mode = "open";
+    STATE.current.appUrl = STATE.current.originalAppUrl;
+    STATE.current.inputValue = "";
+    STATE.current.disabled = false;
+    STATE.current.title = "Открыть в Huntflow";
+    STATE.current.originalAppUrl = null;
+    applyStateToAllButtons();
+    return;
+  }
 
-  // Переключаемся в режим редактирования
+  STATE.current.originalAppUrl = STATE.current.appUrl;
   STATE.current.mode = "input";
   STATE.current.inputValue = STATE.current.appUrl || "";
   STATE.current.disabled = false;
   STATE.current.title = "Редактировать ссылку";
+
+  removeFloatingEditEscHandler();
+  floatingEditEscHandler = (ev) => {
+    if (ev.key !== "Escape") return;
+    removeFloatingEditEscHandler();
+    STATE.current.mode = "open";
+    STATE.current.appUrl = STATE.current.originalAppUrl;
+    STATE.current.inputValue = "";
+    STATE.current.disabled = false;
+    STATE.current.title = "Открыть в Huntflow";
+    STATE.current.originalAppUrl = null;
+    applyStateToAllButtons();
+  };
+  document.addEventListener("keydown", floatingEditEscHandler);
 
   applyStateToAllButtons();
 }
@@ -2728,13 +2499,13 @@ async function onCancelClick(e) {
 
   log(' Cancel button clicked');
 
-  // Возвращаемся в режим просмотра с оригинальным URL
+  removeFloatingEditEscHandler();
   STATE.current.mode = "open";
   STATE.current.appUrl = STATE.current.originalAppUrl;
   STATE.current.inputValue = "";
   STATE.current.disabled = false;
   STATE.current.title = "Открыть в Huntflow";
-  STATE.current.originalAppUrl = null; // Очищаем сохранённый URL
+  STATE.current.originalAppUrl = null;
 
   applyStateToAllButtons();
 }

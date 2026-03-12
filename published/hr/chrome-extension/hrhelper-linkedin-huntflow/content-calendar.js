@@ -113,12 +113,10 @@
         .hrhelper-communication-btn.hrhelper-cal-default .hrhelper-cal-sep { color: rgba(108,117,125,.5) !important; }
         .hrhelper-communication-btn.hrhelper-cal-theme-dark {
           background: #3c4043 !important;
-          border-color: rgba(255,255,255,.2) !important;
-          color: #e8eaed !important;
           box-shadow: 0 1px 3px rgba(0,0,0,.3), 0 2px 8px rgba(0,0,0,.25) !important;
         }
         .hrhelper-communication-btn.hrhelper-cal-theme-dark:hover { box-shadow: 0 2px 6px rgba(0,0,0,.35), 0 4px 12px rgba(0,0,0,.2) !important; }
-        .hrhelper-communication-btn.hrhelper-cal-theme-dark .hrhelper-cal-sep { color: rgba(255,255,255,.4) !important; }
+        .hrhelper-communication-btn.hrhelper-cal-theme-dark .hrhelper-cal-sep { opacity: .85 !important; }
       `;
       (document.head || document.documentElement).appendChild(style);
     }
@@ -283,66 +281,74 @@
 
     function processInterviewerLinks() {
       ensureCalendarButtonStyles();
-      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
-      let textNode;
-      const interviewerNodes = [];
-      const interviewerSearchTexts = ["Для интервьюеров:", "For interviewers:"];
-      while ((textNode = walker.nextNode())) {
-        const t = textNode.textContent || "";
-        if (interviewerSearchTexts.some((s) => t.includes(s))) interviewerNodes.push(textNode);
-      }
 
-      interviewerNodes.forEach((node) => {
-        const parent = node.parentElement;
-        if (!parent) return;
-        if (parent.dataset.hrhelperProcessed === "true") return;
-        parent.dataset.hrhelperProcessed = "true";
+      // Ищем контейнер «Уведомить гостей» / Notify guests — туда и будем добавлять кнопку
+      const notifyContainer = findNotifyGuestsContainer();
+      if (!notifyContainer || !notifyContainer.container) return;
 
-        // Ищем ссылку Huntflow в документе/контейнере
-        const allLinks = Array.from(document.querySelectorAll("a"));
-        const huntflowLink = allLinks.find((a) => {
-          const href = (a.href || "").toLowerCase();
-          const text = (a.textContent || "").toLowerCase();
-          return href.includes("huntflow.ru") || href.includes("huntflow.dev") || text.includes("huntflow.ru") || text.includes("huntflow.dev");
-        });
-        if (!huntflowLink) return;
-        const huntflowUrl = huntflowLink.href;
-        const ids = extractHuntflowIds(huntflowUrl);
-        if (!ids.account_name || !ids.applicant_id) return;
+      // Не создаём дубликаты кнопки
+      const existing = notifyContainer.container.querySelector(
+        ".hrhelper-communication-btn.hrhelper-cal-default, " +
+          ".hrhelper-communication-btn.hrhelper-cal-telegram, " +
+          ".hrhelper-communication-btn.hrhelper-cal-linkedin, " +
+          ".hrhelper-communication-btn.hrhelper-cal-whatsapp, " +
+          ".hrhelper-communication-btn.hrhelper-cal-viber"
+      );
+      if (existing) return;
 
-        const notifyContainer = findNotifyGuestsContainer();
-        const button = buildCalendarContactButtonPlaceholder();
-        const targetContainer = notifyContainer?.container || huntflowLink.parentElement || parent;
-        const insertAfter = notifyContainer?.buttons?.[notifyContainer.buttons.length - 1] || null;
-        if (insertAfter && insertAfter.nextSibling) targetContainer.insertBefore(button, insertAfter.nextSibling);
-        else targetContainer.appendChild(button);
+      // Пытаемся найти ссылку Huntflow в событии (если есть — настраиваем кнопку по API)
+      const allLinks = Array.from(document.querySelectorAll("a"));
+      const huntflowLink = allLinks.find((a) => {
+        const href = (a.href || "").toLowerCase();
+        const text = (a.textContent || "").toLowerCase();
+        return href.includes("huntflow.ru") || href.includes("huntflow.dev") || text.includes("huntflow.ru") || text.includes("huntflow.dev");
+      });
 
-        getCommunicationLink(huntflowUrl).then((linkData) => {
-          if (linkData && linkData.success && linkData.communication_link) {
-            button.href = linkData.communication_link;
-            button.target = "_blank";
-            button.rel = "noopener noreferrer";
-            button.onclick = null;
-            let linkType = linkData.link_type || "default";
-            if (linkType === "unknown" && linkData.communication_link) {
-              const u = String(linkData.communication_link).toLowerCase();
-              if (u.includes("wa.me") || u.includes("whatsapp")) linkType = "whatsapp";
-              else if (u.includes("viber")) linkType = "viber";
-            }
-            const labels = { telegram: "Telegram", linkedin: "LinkedIn", whatsapp: "WhatsApp", viber: "Viber" };
-            setCalendarButtonContent(button, linkType, labels[linkType] || "Связаться");
-            button.setAttribute("aria-label", labels[linkType] || "Связаться");
-            applyCalendarButtonTheme();
-          } else {
-            setCalendarButtonContent(button, "default", "Ссылка не найдена");
-            button.style.cursor = "not-allowed";
-            button.href = "#";
-          }
-        });
+      const button = buildCalendarContactButtonPlaceholder();
+      const targetContainer = notifyContainer.container;
+      const insertAfter = notifyContainer.buttons?.[notifyContainer.buttons.length - 1] || null;
+      if (insertAfter && insertAfter.nextSibling) targetContainer.insertBefore(button, insertAfter.nextSibling);
+      else targetContainer.appendChild(button);
 
+      if (!huntflowLink) {
+        // Линки Huntflow не нашли — показываем капсулу, но без рабочей ссылки
+        setCalendarButtonContent(button, "default", "Ссылка не найдена");
+        button.style.cursor = "not-allowed";
+        button.href = "#";
         applyCalendarButtonTheme();
         startCalendarThemeObserver();
+        return;
+      }
+
+      const huntflowUrl = huntflowLink.href;
+
+      // Просим backend сам разобрать huntflow_url; не валидируем формат на фронте,
+      // чтобы не ломаться, если изменилась структура hash/URL.
+      getCommunicationLink(huntflowUrl).then((linkData) => {
+        if (linkData && linkData.success && linkData.communication_link) {
+          button.href = linkData.communication_link;
+          button.target = "_blank";
+          button.rel = "noopener noreferrer";
+          button.onclick = null;
+          let linkType = linkData.link_type || "default";
+          if (linkType === "unknown" && linkData.communication_link) {
+            const u = String(linkData.communication_link).toLowerCase();
+            if (u.includes("wa.me") || u.includes("whatsapp")) linkType = "whatsapp";
+            else if (u.includes("viber")) linkType = "viber";
+          }
+          const labels = { telegram: "Telegram", linkedin: "LinkedIn", whatsapp: "WhatsApp", viber: "Viber" };
+          setCalendarButtonContent(button, linkType, labels[linkType] || "Связаться");
+          button.setAttribute("aria-label", labels[linkType] || "Связаться");
+          applyCalendarButtonTheme();
+        } else {
+          setCalendarButtonContent(button, "default", "Ссылка не найдена");
+          button.style.cursor = "not-allowed";
+          button.href = "#";
+        }
       });
+
+      applyCalendarButtonTheme();
+      startCalendarThemeObserver();
     }
 
     setTimeout(() => processInterviewerLinks(), 1000);
