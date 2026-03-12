@@ -193,16 +193,17 @@
     style.textContent = `
       .hrh-meet-openall-btn{
         margin-left:8px!important;
-        padding:4px 10px!important;
-        border-radius:999px!important;
-        border:1px solid rgba(255,255,255,.18)!important;
-        background:rgba(255,255,255,.08)!important;
-        color:#fff!important;
-        font:600 12px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif!important;
+        padding:2px 8px!important;
+        min-height:0!important;
+        border-radius:4px!important;
+        border:1px solid rgba(255,255,255,.12)!important;
+        background:#3c4043!important;
+        color:rgba(255,255,255,.9)!important;
+        font:500 11px/1.3 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif!important;
         cursor:pointer!important;
         user-select:none!important;
       }
-      .hrh-meet-openall-btn:hover{ background:rgba(255,255,255,.14)!important; }
+      .hrh-meet-openall-btn:hover{ background:#5f6368!important; }
       .hrh-meet-openall-btn:disabled{ opacity:.55!important; cursor:not-allowed!important; }
     `;
     (document.head || document.documentElement).appendChild(style);

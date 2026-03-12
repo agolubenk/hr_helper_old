@@ -395,11 +395,15 @@ def _resolve_huntflow_url_to_account_applicant(user, huntflow_url):
         if m:
             account_name, applicant_id = m.group(1), int(m.group(2))
         else:
-            m = re.search(r'/my/([^/#]+)#/vacancy/(\d+)/filter/[^/]+/id/(\d+)', url)
+            m = re.search(r'/my/([^/#]+)#/applicants/id/(\d+)', url)
             if m:
-                account_name, applicant_id = m.group(1), int(m.group(3))
+                account_name, applicant_id = m.group(1), int(m.group(2))
             else:
-                return (None, None)
+                m = re.search(r'/my/([^/#]+)#/vacancy/(\d+)/filter/[^/]+/id/(\d+)', url)
+                if m:
+                    account_name, applicant_id = m.group(1), int(m.group(3))
+                else:
+                    return (None, None)
     try:
         from apps.huntflow.services import HuntflowService
         api = HuntflowService(user=user)
@@ -614,6 +618,13 @@ def vacancy_responses(request, hh_vacancy_id):
             refresh_hhru_vacancies_and_responses_cache.delay(account.pk)
         except Exception:
             pass
+
+    # Синхронизация откликов в HHResponse (база HH/rabota.by общая) — чтобы расширение находило запись по resume_url
+    try:
+        from .sync_responses import sync_negotiations_to_hh_response
+        sync_negotiations_to_hh_response(account.pk, hh_vacancy_id, all_items, vacancy_title=vacancy_title)
+    except Exception:
+        pass
 
     folders = {
         FOLDER_UNSEEN: [],

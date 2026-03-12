@@ -151,9 +151,10 @@
     }
   }
 
-  async function checkHhActionsAvailability(resumeUrl) {
+  async function checkHhActionsAvailability(resumeUrl, huntflowUrl) {
     try {
       const qp = new URLSearchParams({ resume_url: resumeUrl });
+      if (huntflowUrl && (huntflowUrl = (huntflowUrl || '').trim())) qp.set('huntflow_url', huntflowUrl);
       const res = await apiFetch(`/api/v1/hh/actions-availability?${qp.toString()}`, { method: 'GET' });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data) return { success: false, actions_allowed: false };
@@ -802,6 +803,7 @@
               resume_url: options.resumeUrl,
               huntflow_url: options.huntflowUrl,
               portal: options.portal,
+              candidate_name: options.candidateName || '',
               status_id: defaultRejectionStatusId,
               rejection_reason_id: reasonId,
               comment: (commentArea.value || '').trim(),
@@ -813,7 +815,19 @@
             bar.innerHTML = '';
             const badge = document.createElement('div');
             badge.className = 'hrhelper-resume-action-badge hrhelper-resume-action-badge--success';
-            badge.textContent = '✓ Отказ отправлен';
+            const hhMsg = (data2.hh_status || '').trim();
+            const hfMsg = (data2.huntflow_status || '').trim();
+            const hfOk = /обновлён|успешно|отправлен/i.test(hfMsg || '');
+            const hhNotFound = /не найден|не обновлён/i.test(hhMsg || '');
+            let text = '✓ Отказ отправлен';
+            if (hfOk && hhNotFound) {
+              text = '✓ Отказ зафиксирован в Huntflow. В HH отклик не найден — обновите отклики по вакансии в приложении HR Helper.';
+            } else if (hfOk) {
+              text = '✓ Отказ зафиксирован в Huntflow' + (hhMsg ? '. HH: ' + hhMsg : '');
+            } else if (hhMsg || hfMsg) {
+              text = '✓ Отказ: ' + [hhMsg, hfMsg].filter(Boolean).join('. ');
+            }
+            badge.textContent = text;
             bar.appendChild(badge);
           } else {
             showActionError(bar, data2?.message || 'Не удалось отправить отказ');
@@ -861,6 +875,7 @@
             resume_url: options.resumeUrl,
             huntflow_url: options.huntflowUrl,
             portal: options.portal,
+            candidate_name: options.candidateName || '',
             message_template: 'default_invite',
           }),
         });
@@ -869,7 +884,19 @@
           bar.innerHTML = '';
           const badge = document.createElement('div');
           badge.className = 'hrhelper-resume-action-badge hrhelper-resume-action-badge--success';
-          badge.textContent = '✓ Приглашение отправлено';
+          const hhMsg = (data.hh_status || '').trim();
+          const hfMsg = (data.huntflow_status || '').trim();
+          const hfOk = /обновлён|успешно|отправлен/i.test(hfMsg || '');
+          const hhNotFound = /не найден|не обновлён/i.test(hhMsg || '');
+          let text = '✓ Приглашение отправлено';
+          if (hfOk && hhNotFound) {
+            text = '✓ Приглашение зафиксировано в Huntflow. В HH отклик не найден — обновите отклики по вакансии в приложении HR Helper.';
+          } else if (hfOk) {
+            text = '✓ Приглашение зафиксировано в Huntflow' + (hhMsg ? '. HH: ' + hhMsg : '');
+          } else if (hhMsg || hfMsg) {
+            text = '✓ Приглашение: ' + [hhMsg, hfMsg].filter(Boolean).join('. ');
+          }
+          badge.textContent = text;
           bar.appendChild(badge);
         } else {
           showActionError(bar, data?.message || 'Не удалось отправить приглашение');
@@ -878,7 +905,7 @@
           inviteBtn.innerHTML = originalHTML;
         }
       } catch (e) {
-        showActionError(bar, e.message || 'Ошибка сети');
+        showActionError(bar, (e && e.message) || 'Ошибка сети');
         inviteBtn.disabled = false;
         rejectBtn.disabled = false;
         inviteBtn.innerHTML = originalHTML;
@@ -1425,10 +1452,12 @@
         const isRabota = host.includes('rabota.by');
         const portal = isRabota ? 'rabota.by' : 'hh.ru';
         const hasRejected = (vacancies || []).some((v) => (v && String(v.status_type || '').toLowerCase() === 'rejected'));
-        const hhStatus = await checkHhIntegrationStatus();
-        const actionsInfo = await checkHhActionsAvailability(getResumeUrlForActions());
+        const actionsInfo = await checkHhActionsAvailability(getResumeUrlForActions(), state.huntflowUrl);
         const hhCanAct = !!(actionsInfo && actionsInfo.success && actionsInfo.actions_allowed);
-        const showActions = !!(state.huntflowUrl && hhStatus && hhStatus.connected && hhCanAct && !hasRejected);
+        // Кнопки при наличии ссылки Huntflow и без отказа по вакансии. Если бэкенд разрешает действия (hhCanAct) —
+        // показываем; иначе тоже показываем (на rabota.by HHResponse часто не находится по resume_url), при клике
+        // бэкенд обновит Huntflow и вернёт сообщение по HH
+        const showActions = !!(state.huntflowUrl && !hasRejected);
 
         const options = {
           huntflowUrl: state.huntflowUrl,
@@ -1438,6 +1467,7 @@
           isRabota,
           portal,
           vacancies,
+          candidateName: (candidateInfo.full_name || '').trim(),
         };
         chrome.storage.local.get({ [RESUME_FLOATING_HIDDEN_KEY]: false }, (data) => {
           if (!data[RESUME_FLOATING_HIDDEN_KEY]) showFloatingWidget(candidateInfo, vacancies, options);
@@ -1451,7 +1481,19 @@
           });
         }
       }).catch(() => {
-        hideFloatingWidget();
+        // При ошибке загрузки показываем виджет без кнопок (не знаем actions_allowed / статус)
+        const host = (location.hostname || '').toLowerCase();
+        const isRabota = host.includes('rabota.by');
+        const fallbackOptions = {
+          huntflowUrl: state.huntflowUrl,
+          onEditClick: () => showFormInWidget(state.huntflowUrl),
+          showActions: false,
+          resumeUrl: getBaseUrl(),
+          isRabota,
+          portal: isRabota ? 'rabota.by' : 'hh.ru',
+          vacancies: [],
+        };
+        showFloatingWidget(state.candidateInfo || {}, [], fallbackOptions);
       });
     }
 

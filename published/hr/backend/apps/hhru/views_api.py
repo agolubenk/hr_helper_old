@@ -12,7 +12,7 @@ from apps.huntflow.services import HuntflowService
 from apps.huntflow.models import HHResponse
 
 from .models import HHruOAuthAccount
-from .views import _get_default_config  # reuse existing helper
+from .views import _get_default_config, _resolve_huntflow_url_to_account_applicant
 from .hh_oauth import refresh_access_token, change_negotiation_action
 
 
@@ -208,6 +208,7 @@ class HHInviteView(APIView):
         resume_url = _normalize_resume_url(payload.get("resume_url") or "")
         huntflow_url = (payload.get("huntflow_url") or "").strip()
         portal = (payload.get("portal") or "").strip() or "hh.ru"
+        candidate_name = (payload.get("candidate_name") or "").strip()
 
         if not resume_url or not huntflow_url:
             return Response({"success": False, "message": "Нужны resume_url и huntflow_url."}, status=status.HTTP_400_BAD_REQUEST)
@@ -217,10 +218,25 @@ class HHInviteView(APIView):
         if err or not token:
             return Response({"success": False, "message": err or "HH.ru не подключен."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Find HHResponse (imported responses DB) — best-effort, не блокируем логику Huntflow
-        hh_resp = HHResponse.objects.filter(hh_resume_url__startswith=resume_url).order_by("-hh_updated_at").first()
+        # Find HHResponse: по resume_url, huntflow_url (applicant_id), затем по ФИО кандидата
+        hh_resp = None
+        qs = HHResponse.objects.filter(hh_resume_url__startswith=resume_url).order_by("-hh_updated_at")
+        if qs.exists():
+            hh_resp = qs.first()
         if not hh_resp:
-            hh_resp = HHResponse.objects.filter(hh_resume_url__icontains=resume_url).order_by("-hh_updated_at").first()
+            qs = HHResponse.objects.filter(hh_resume_url__icontains=resume_url).order_by("-hh_updated_at")
+            if qs.exists():
+                hh_resp = qs.first()
+        if not hh_resp:
+            qs = _find_hh_response_by_resume_url(resume_url)
+            if qs.exists():
+                hh_resp = qs.first()
+        if not hh_resp and huntflow_url:
+            qs = _find_hh_response_by_huntflow_url(huntflow_url)
+            if qs.exists():
+                hh_resp = qs.first()
+        if not hh_resp and candidate_name:
+            hh_resp = _find_hh_response_by_candidate_name(candidate_name, resume_url)
 
         hh_status = None
         if hh_resp:
@@ -246,7 +262,9 @@ class HHInviteView(APIView):
             hf_account_id = hf_applicant_id = hf_vacancy_id = None
 
         if not (hf_account_id and hf_applicant_id):
-            hf_account_id, hf_applicant_id, hf_vacancy_id = _parse_huntflow_ids(huntflow_url)
+            hf_account_id, hf_applicant_id = _resolve_huntflow_url_to_account_applicant(request.user, huntflow_url)
+            if hf_vacancy_id is None:
+                _, __, hf_vacancy_id = _parse_huntflow_ids(huntflow_url)
 
         huntflow_status = None
         try:
@@ -291,6 +309,7 @@ class HHRejectView(APIView):
         status_id = payload.get("status_id")
         rejection_reason_id = payload.get("rejection_reason_id")
         comment = (payload.get("comment") or "").strip()
+        candidate_name = (payload.get("candidate_name") or "").strip()
 
         if not resume_url or not huntflow_url:
             return Response({"success": False, "message": "Нужны resume_url и huntflow_url."}, status=status.HTTP_400_BAD_REQUEST)
@@ -302,9 +321,25 @@ class HHRejectView(APIView):
         if err or not token:
             return Response({"success": False, "message": err or "HH.ru не подключен."}, status=status.HTTP_400_BAD_REQUEST)
 
-        hh_resp = HHResponse.objects.filter(hh_resume_url__startswith=resume_url).order_by("-hh_updated_at").first()
+        # Find HHResponse: по resume_url, huntflow_url (applicant_id), затем по ФИО кандидата
+        hh_resp = None
+        qs = HHResponse.objects.filter(hh_resume_url__startswith=resume_url).order_by("-hh_updated_at")
+        if qs.exists():
+            hh_resp = qs.first()
         if not hh_resp:
-            hh_resp = HHResponse.objects.filter(hh_resume_url__icontains=resume_url).order_by("-hh_updated_at").first()
+            qs = HHResponse.objects.filter(hh_resume_url__icontains=resume_url).order_by("-hh_updated_at")
+            if qs.exists():
+                hh_resp = qs.first()
+        if not hh_resp:
+            qs = _find_hh_response_by_resume_url(resume_url)
+            if qs.exists():
+                hh_resp = qs.first()
+        if not hh_resp and huntflow_url:
+            qs = _find_hh_response_by_huntflow_url(huntflow_url)
+            if qs.exists():
+                hh_resp = qs.first()
+        if not hh_resp and candidate_name:
+            hh_resp = _find_hh_response_by_candidate_name(candidate_name, resume_url)
 
         hh_status = None
         if hh_resp:
@@ -330,7 +365,9 @@ class HHRejectView(APIView):
             hf_account_id = hf_applicant_id = hf_vacancy_id = None
 
         if not (hf_account_id and hf_applicant_id):
-            hf_account_id, hf_applicant_id, hf_vacancy_id = _parse_huntflow_ids(huntflow_url)
+            hf_account_id, hf_applicant_id = _resolve_huntflow_url_to_account_applicant(request.user, huntflow_url)
+            if hf_vacancy_id is None:
+                _, __, hf_vacancy_id = _parse_huntflow_ids(huntflow_url)
 
         if not (hf_account_id and hf_applicant_id):
             return Response(
@@ -383,11 +420,113 @@ def _resume_ids_from_request(resume_url: str) -> Tuple[Optional[str], Optional[s
     return path_id, query_resume_id
 
 
+def _find_hh_response_by_resume_url(resume_url: str):
+    """Ищем HHResponse по resume_url (path_id или query resumeId). Возвращает QuerySet."""
+    path_id, query_resume_id = _resume_ids_from_request(resume_url)
+    if not path_id and not query_resume_id:
+        return HHResponse.objects.none()
+
+    qs = HHResponse.objects.none()
+    if path_id:
+        qs = HHResponse.objects.filter(hh_resume_url__icontains="/resume/{}".format(path_id))
+
+    if not qs.exists() and query_resume_id:
+        try:
+            qs = HHResponse.objects.filter(raw_data__resume__id=query_resume_id)
+        except Exception:
+            pass
+        if not qs.exists():
+            try:
+                qs = HHResponse.objects.filter(raw_data__resume__id=int(query_resume_id))
+            except (ValueError, TypeError):
+                pass
+        if not qs.exists() and path_id:
+            qs = HHResponse.objects.filter(raw_data__resume__alternate_url__icontains=path_id)
+    return qs
+
+
+def _find_hh_response_by_huntflow_url(huntflow_url: str):
+    """Ищем HHResponse по applicant_id (и account_id) из ссылки Huntflow. Возвращает QuerySet."""
+    _, applicant_id, _ = _parse_huntflow_ids(huntflow_url)
+    if not applicant_id:
+        return HHResponse.objects.none()
+    return HHResponse.objects.filter(applicant_id=applicant_id).order_by("-hh_updated_at")
+
+
+def _normalize_name_part(s: str) -> str:
+    """Нормализация части ФИО для поиска: нижний регистр, пробелы, ё->е."""
+    if not s or not isinstance(s, str):
+        return ""
+    return (s.strip().lower().replace("ё", "е").replace("  ", " ") or "")
+
+
+def _parse_full_name(full_name: str) -> Tuple[str, str, str]:
+    """Разбивает «Фамилия Имя Отчество» на (first_name, last_name, middle_name)."""
+    parts = (full_name or "").strip().split()
+    if not parts:
+        return "", "", ""
+    if len(parts) == 1:
+        return parts[0], "", ""
+    if len(parts) == 2:
+        return parts[1], parts[0], ""  # имя, фамилия
+    # 3+ частей: фамилия имя отчество
+    return parts[1], parts[0], " ".join(parts[2:])
+
+
+def _find_hh_response_by_candidate_name(
+    candidate_name: str, resume_url: str
+) -> Optional[HHResponse]:
+    """
+    Поиск HHResponse по ФИО кандидата (запасной вариант при расхождении URL).
+    Уточняем по path_id из resume_url, если есть несколько совпадений.
+    """
+    candidate_name = (candidate_name or "").strip()
+    if not candidate_name or len(candidate_name) < 2:
+        return None
+    first_name, last_name, middle_name = _parse_full_name(candidate_name)
+    fn = _normalize_name_part(first_name)
+    ln = _normalize_name_part(last_name)
+    if not fn and not ln:
+        return None
+    from django.db.models import Q
+    qs = HHResponse.objects.all().order_by("-hh_updated_at")
+    if ln:
+        qs = qs.filter(last_name__iexact=ln)
+    if fn:
+        qs = qs.filter(first_name__iexact=fn)
+    if not qs.exists():
+        # Мягкий поиск: содержит подстроку (на случай разного написания)
+        q = Q()
+        if ln:
+            q &= Q(last_name__icontains=ln)
+        if fn:
+            q &= Q(first_name__icontains=fn)
+        qs = HHResponse.objects.filter(q).order_by("-hh_updated_at")
+    if not qs.exists():
+        return None
+    path_id, query_resume_id = _resume_ids_from_request(resume_url)
+    # Если один результат — берём его
+    if qs.count() == 1:
+        return qs.first()
+    # Несколько: уточняем по path_id или resumeId в raw_data
+    for resp in qs[:20]:
+        if path_id and (path_id in (resp.hh_resume_url or "")):
+            return resp
+        if path_id and (resp.raw_data or {}).get("resume", {}).get("alternate_url", "").find(path_id) >= 0:
+            return resp
+        if query_resume_id:
+            rid = (resp.raw_data or {}).get("resume", {}).get("id")
+            if rid is not None and str(rid).strip() == str(query_resume_id).strip():
+                return resp
+    return qs.first()
+
+
 class HHActionsAvailabilityView(APIView):
     """
     Возвращает, можно ли показывать кнопки Invite/Reject для резюме HH.
     Логика:
     - ищем HHResponse по resume_url (по идентификатору /resume/<id> или по resumeId из query для rabota.by)
+    - при неудаче — по huntflow_url (applicant_id из ссылки Huntflow)
     - читаем employer_state.id из raw_data (если есть)
     - маппим через COLLECTION_TO_FOLDER и разрешаем действия
       только для папок 'unseen' (не разобранные) и 'consider' (подумать)
@@ -399,39 +538,17 @@ class HHActionsAvailabilityView(APIView):
         from apps.hhru.views import FOLDER_UNSEEN, FOLDER_CONSIDER
 
         resume_url = (request.query_params.get("resume_url") or "").strip()
-        if not resume_url:
+        huntflow_url = (request.query_params.get("huntflow_url") or "").strip()
+
+        if not resume_url and not huntflow_url:
             return Response(
-                {"success": False, "actions_allowed": False, "reason": "resume_url is required"},
+                {"success": False, "actions_allowed": False, "reason": "resume_url or huntflow_url is required"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        path_id, query_resume_id = _resume_ids_from_request(resume_url)
-        if not path_id and not query_resume_id:
-            return Response(
-                {"success": False, "actions_allowed": False, "reason": "Cannot parse resume_id from URL"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # 1) Поиск по пути: hh_resume_url содержит /resume/<path_id>
-        qs = HHResponse.objects.none()
-        if path_id:
-            qs = HHResponse.objects.filter(hh_resume_url__icontains="/resume/{}".format(path_id))
-
-        # 2) Для rabota.by: если не нашли по URL, ищем по raw_data.resume.id (resumeId из query)
-        if not qs.exists() and query_resume_id:
-            try:
-                qs = HHResponse.objects.filter(raw_data__resume__id=query_resume_id)
-            except Exception:
-                pass
-            if not qs.exists():
-                try:
-                    qs = HHResponse.objects.filter(raw_data__resume__id=int(query_resume_id))
-                except (ValueError, TypeError):
-                    pass
-            if not qs.exists() and path_id:
-                qs = HHResponse.objects.filter(
-                    raw_data__resume__alternate_url__icontains=path_id
-                )
+        qs = _find_hh_response_by_resume_url(resume_url)
+        if not qs.exists() and huntflow_url:
+            qs = _find_hh_response_by_huntflow_url(huntflow_url)
 
         if not qs.exists():
             return Response(

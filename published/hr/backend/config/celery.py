@@ -107,10 +107,11 @@ app.conf.beat_schedule = {
         'task': 'apps.google_oauth.tasks.validate_oauth_tokens',
         'schedule': 3600.0,  # Каждый час
     },
-    # HH.ru: кэш активных вакансий и откликов (страницы грузятся из кэша)
+    # HH.ru / rabota.by: загрузка откликов по активным вакансиям в БД (расширение сверяется с записями)
+    # Каждые 15 минут с 8:00 до 20:00 по Москве (Europe/Moscow)
     'refresh-hhru-vacancies-and-responses-cache': {
         'task': 'apps.hhru.tasks.refresh_hhru_vacancies_and_responses_cache',
-        'schedule': 600.0,  # Каждые 10 минут
+        'schedule': crontab(minute='*/15', hour='8-20', day_of_week='1-5'),  # Пн–Пт 8:00–18:00
     },
     'sync-calendar-events-by-vacancies': {
         'task': 'apps.google_oauth.tasks.sync_calendar_events_by_vacancies',

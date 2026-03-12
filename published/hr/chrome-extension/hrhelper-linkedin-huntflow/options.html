@@ -187,6 +187,10 @@
     .changelog-ul li {
       margin-bottom: 4px;
     }
+    .changelog-ul .changelog-stub {
+      color: #c62828;
+      font-weight: 500;
+    }
 
     .options-divider {
       margin: 28px 0 24px;
@@ -413,6 +417,7 @@
     body.options-theme-dark .changelog-version-current { color: #b0b0b0; }
     body.options-theme-dark .changelog-version { color: #64b5f6; }
     body.options-theme-dark .changelog-ul { color: #c0c0c0; }
+    body.options-theme-dark .changelog-stub { color: #ef9a9a; }
     body.options-theme-dark .options-theme-card {
       background: #2d2d31;
       border-color: rgba(255,255,255,.15);
@@ -461,6 +466,7 @@
       body.options-theme-system .changelog-version-current { color: #b0b0b0; }
       body.options-theme-system .changelog-version { color: #64b5f6; }
       body.options-theme-system .changelog-ul { color: #c0c0c0; }
+      body.options-theme-system .changelog-stub { color: #ef9a9a; }
       body.options-theme-system .options-theme-card {
         background: #2d2d31;
         border-color: rgba(255,255,255,.15);
@@ -591,7 +597,16 @@
       <div class="changelog-scroll">
       <ul class="changelog-list">
         <li class="changelog-item">
-          <div class="changelog-version">1.4.8 <span class="changelog-date">(10.03.2026)</span></div>
+          <div class="changelog-version">1.4.9 <span class="changelog-date">(17.03.2026)</span></div>
+          <ul class="changelog-ul">
+            <li>Google Meet: добавлена кнопка «Открыть все» для быстрого открытия всех ссылок</li>
+            <li>Улучшения в коде и рефакторинг</li>
+            <li>HH экосистема (rabota.by / hh.ru): добавлена функциональность принять/отклонить кандидата</li>
+            <li class="changelog-stub">Кнопки «Пригласить»/«Отказать» на rabota.by и hh.ru — заготовка, пока не работает (в разработке)</li>
+          </ul>
+        </li>
+        <li class="changelog-item">
+          <div class="changelog-version">1.4.8 <span class="changelog-date">(15.03.2026)</span></div>
           <ul class="changelog-ul">
             <li>Тема для календаря и LinkedIn: при выборе «Автоматически» сначала учитывается тема сайта (страница календаря или LinkedIn); если определить нельзя — используется тема браузера (системная)</li>
             <li>Календарь: исправлено определение темы кнопок контактов — сначала проверяется общий фон страницы (body/html), затем контейнер кнопки; при светлой странице днём кнопки отображаются в светлой теме</li>

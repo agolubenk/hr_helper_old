@@ -50,7 +50,10 @@ def _ensure_token_valid(account):
 @shared_task(name='apps.hhru.tasks.refresh_hhru_vacancies_and_responses_cache')
 def refresh_hhru_vacancies_and_responses_cache(account_id=None):
     """
-    Фоново подгружает и кэширует активные вакансии и отклики по ним для HH.ru.
+    Подгружает активные вакансии HH и отклики по ним (база HH/rabota.by общая), кэширует и
+    синхронизирует в HHResponse. Расширение сверяется с записями в БД; при действии «пригласить»/«отказать»
+    бэкенд находит конкретный отклик и выполняет действие.
+    Запускается по расписанию: каждые 15 мин с 8:00 до 20:00 (Пн–Пт).
     Если account_id передан — только для этого аккаунта, иначе для всех с employer_id и токеном.
     """
     if account_id is not None:
@@ -93,6 +96,11 @@ def refresh_hhru_vacancies_and_responses_cache(account_id=None):
                 all_items = fetch_all_negotiations_for_vacancy(account.access_token, vid)
                 set_cached_negotiations(account.pk, vid, all_items, vacancy_title=title)
                 total_responses += len(all_items)
+                try:
+                    from .sync_responses import sync_negotiations_to_hh_response
+                    sync_negotiations_to_hh_response(account.pk, vid, all_items, vacancy_title=title)
+                except Exception:
+                    pass
             except Exception as e:
                 logger.debug('HHru cache: ошибка откликов vacancy %s account %s: %s', vid, account.pk, e)
                 errors += 1

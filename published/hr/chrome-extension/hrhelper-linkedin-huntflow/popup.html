@@ -334,6 +334,22 @@
       cursor: not-allowed;
       pointer-events: none;
     }
+    .context-block #ctx-meet-open-all.ctx-meet-open-all-btn {
+      height: 26px;
+      min-height: 26px;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-weight: 500;
+      background: #81c784;
+      color: rgba(0, 0, 0, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 4px;
+      margin-right: 0;
+    }
+    .context-block #ctx-meet-open-all.ctx-meet-open-all-btn:hover {
+      background: #5f6368;
+      color: white;
+    }
     .context-block .ctx-buttons-meet {
       display: flex;
       flex-direction: column;
@@ -1144,7 +1160,7 @@
   <div id="context-meet" class="context-block" data-ctx="meet">
     <h3 style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
       <span>Google Meet</span>
-      <button type="button" id="ctx-meet-open-all" class="btn-small secondary" style="flex-shrink:0;min-width:auto;padding:0 10px;font-size:11px;">Открыть всё</button>
+      <button type="button" id="ctx-meet-open-all" class="btn-small secondary ctx-meet-open-all-btn">Открыть всё</button>
     </h3>
     <p id="ctx-meet-hint" class="ctx-meet-hint" style="display:none;">Кнопки активны при наличии данных.</p>
     <div id="context-meet-data" class="ctx-data"></div>
