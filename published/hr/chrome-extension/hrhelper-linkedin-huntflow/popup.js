@@ -1450,6 +1450,7 @@ async function showContextForTab() {
   const meetHuntflow = document.getElementById('ctx-meet-huntflow');
   const meetSettingsLink = document.getElementById('ctx-meet-settings-link');
   const meetHint = document.getElementById('ctx-meet-hint');
+  const meetOpenAll = document.getElementById('ctx-meet-open-all');
   const headerMeetReminderBtn = document.getElementById('headerMeetReminderBtn');
   const headerLinkedInFloatingBtn = document.getElementById('headerLinkedInFloatingBtn');
   const headerResumeFloatingBtn = document.getElementById('headerResumeFloatingBtn');
@@ -1691,6 +1692,15 @@ async function showContextForTab() {
       updateMeetReminderToggle();
       const hasCopyData = !!(response.level && (response.vacancyName || response.level));
       if (meetHint) meetHint.style.display = hasCopyData ? 'none' : 'block';
+      if (meetOpenAll) {
+        if (hasCopyData) {
+          meetOpenAll.style.display = 'inline-flex';
+          meetOpenAll.disabled = false;
+        } else {
+          meetOpenAll.style.display = 'none';
+          meetOpenAll.disabled = true;
+        }
+      }
       if (meetCopy) {
         if (hasCopyData) {
           meetCopy.style.display = 'inline-flex';
@@ -2290,6 +2300,45 @@ async function copyMeetLevelText() {
   }
 }
 
+/** Копирование и открытие Huntflow + Scorecard (Meet, попап) */
+async function openMeetAll() {
+  if (!currentTabId) return;
+  const openBtn = document.getElementById('ctx-meet-open-all');
+  const copyBtn = document.getElementById('ctx-meet-copy');
+  if (openBtn) openBtn.disabled = true;
+  const oldCopyText = copyBtn ? copyBtn.textContent : '';
+  try {
+    const res = await chrome.tabs.sendMessage(currentTabId, { action: 'copyLevelText' });
+    if (res && res.success && res.text && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(res.text);
+      if (copyBtn) {
+        copyBtn.textContent = 'Скопировано';
+        setTimeout(() => { copyBtn.textContent = oldCopyText; }, 1500);
+      }
+    }
+    // открываем Huntflow и Scorecard из текущего контекста
+    const ctxDataEl = document.getElementById('context-meet-data');
+    let huntflowUrl = null;
+    if (ctxDataEl && ctxDataEl.textContent) {
+      // в data уже может быть pageUrl, но ссылки на huntflow/scorecard хранятся в response, мы их брали выше
+      // поэтому надёжнее получить их ещё раз
+    }
+    // переиспользуем последний getPageContext: отправим запрос ещё раз
+    const tab = await chrome.tabs.get(currentTabId);
+    let urls = [];
+    try {
+      const response = await chrome.tabs.sendMessage(tab.id, { action: 'getPageContext' });
+      if (response && response.huntflowUrl) urls.push(response.huntflowUrl);
+      if (response && response.scorecardLink) urls.push(response.scorecardLink);
+    } catch (_) {}
+    if (urls.length) {
+      chrome.runtime.sendMessage({ type: 'HRHELPER_OPEN_TABS', urls });
+    }
+  } finally {
+    if (openBtn) openBtn.disabled = false;
+  }
+}
+
 var normalizeToken = HRH.normalizeToken;
 if (!normalizeToken) {
   throw new Error("[HRHelper] shared/utils/token.js not loaded (normalizeToken missing)");
@@ -2424,6 +2473,7 @@ document.getElementById('ctx-linkedin-candidate-toggle').addEventListener('click
   toggle.setAttribute('aria-expanded', String(open));
 });
 document.getElementById('ctx-meet-copy').addEventListener('click', copyMeetLevelText);
+document.getElementById('ctx-meet-open-all').addEventListener('click', openMeetAll);
 document.getElementById('headerMeetReminderBtn')?.addEventListener('click', toggleMeetReminderVisibility);
 document.getElementById('headerLinkedInFloatingBtn')?.addEventListener('click', toggleLinkedInFloatingVisibility);
 document.getElementById('headerResumeFloatingBtn')?.addEventListener('click', toggleResumeFloatingVisibility);

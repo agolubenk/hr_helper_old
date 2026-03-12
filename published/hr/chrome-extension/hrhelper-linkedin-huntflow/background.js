@@ -139,7 +139,44 @@ async function doRequest({ path, method, body }) {
 }
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-  if (!msg || msg.type !== "HRHELPER_API") return;
+  if (!msg) return;
+
+  if (msg.type === "HRHELPER_OPEN_TABS") {
+    try {
+      const urls = Array.isArray(msg.urls) ? msg.urls.filter((u) => typeof u === "string" && u.trim()) : [];
+      if (urls.length === 0) {
+        sendResponse({ success: false, message: "No urls" });
+        return true;
+      }
+      const sender = _sender;
+      const tabId = sender && sender.tab && sender.tab.id;
+      const startIndex = sender && sender.tab && typeof sender.tab.index === "number" ? sender.tab.index + 1 : undefined;
+
+      const createNext = (i) => {
+        if (i >= urls.length) {
+          sendResponse({ success: true });
+          return;
+        }
+        const url = urls[i];
+        const index = typeof startIndex === "number" ? startIndex + i : undefined;
+        chrome.tabs.create(
+          {
+            url,
+            active: false,
+            index,
+            openerTabId: typeof tabId === "number" ? tabId : undefined,
+          },
+          () => createNext(i + 1)
+        );
+      };
+      createNext(0);
+    } catch (e) {
+      sendResponse({ success: false, message: String(e) });
+    }
+    return true;
+  }
+
+  if (msg.type !== "HRHELPER_API") return;
 
   doRequest(msg.payload)
     .then((result) => sendResponse(result))

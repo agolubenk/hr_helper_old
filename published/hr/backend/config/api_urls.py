@@ -95,6 +95,7 @@ router.register(r'clickup/bulk-imports', ClickUpBulkImportViewSet, basename='cli
 urlpatterns = [
     # API v1
     path('v1/', include(router.urls)),
+    path('v1/hh/', include('apps.hhru.urls_api')),
     
     # API аутентификация
     path('auth/', include('rest_framework.urls')),

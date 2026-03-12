@@ -29,6 +29,11 @@
     },
   };
 
+  const UI = {
+    styleInjected: false,
+    openAllInjected: false,
+  };
+
   function makeWidgetDraggable(wrapper, storageKey) {
     if (!wrapper) return;
     try {
@@ -137,6 +142,129 @@
     }
   }
 
+  async function fetchLevelText(level, vacancyName) {
+    try {
+      if (!level) return "";
+      const q = new URLSearchParams({ level });
+      if (vacancyName) q.set("vacancy_name", vacancyName);
+      const res = await apiFetch(`/api/v1/huntflow/linkedin-applicants/level-text/?${q.toString()}`, { method: "GET" });
+      if (!res.ok) return "";
+      const data = await res.json().catch(() => null);
+      if (data && data.success && typeof data.text === "string") return (data.text || "").trim();
+      return "";
+    } catch (err) {
+      if (err?.message && !err.message.includes("Extension context invalidated")) logError("fetchLevelText:", err);
+      return "";
+    }
+  }
+
+  async function copyToClipboard(text) {
+    const t = (text || "").toString();
+    if (!t) return false;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(t);
+        return true;
+      }
+    } catch (_) {}
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = t;
+      ta.setAttribute("readonly", "true");
+      ta.style.position = "fixed";
+      ta.style.top = "-1000px";
+      ta.style.left = "-1000px";
+      document.body.appendChild(ta);
+      ta.select();
+      ta.setSelectionRange(0, ta.value.length);
+      const ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      return !!ok;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function ensureMeetUiStyles() {
+    if (UI.styleInjected) return;
+    UI.styleInjected = true;
+    const style = document.createElement("style");
+    style.id = "hrhelper-meet-ui-style";
+    style.textContent = `
+      .hrh-meet-openall-btn{
+        margin-left:8px!important;
+        padding:4px 10px!important;
+        border-radius:999px!important;
+        border:1px solid rgba(255,255,255,.18)!important;
+        background:rgba(255,255,255,.08)!important;
+        color:#fff!important;
+        font:600 12px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif!important;
+        cursor:pointer!important;
+        user-select:none!important;
+      }
+      .hrh-meet-openall-btn:hover{ background:rgba(255,255,255,.14)!important; }
+      .hrh-meet-openall-btn:disabled{ opacity:.55!important; cursor:not-allowed!important; }
+    `;
+    (document.head || document.documentElement).appendChild(style);
+  }
+
+  function findGoogleMeetTitleNode() {
+    // Ищем видимый текст "Google Meet" в хедере.
+    // У Meet DOM часто меняется, поэтому делаем best-effort.
+    const candidates = Array.from(document.querySelectorAll("span,div,h1,h2"));
+    for (const el of candidates) {
+      if (!el || !el.textContent) continue;
+      const txt = el.textContent.trim();
+      if (txt === "Google Meet") return el;
+    }
+    return null;
+  }
+
+  function injectOpenAllButton(titleNode) {
+    if (!titleNode || UI.openAllInjected) return;
+    const parent = titleNode.parentElement;
+    if (!parent) return;
+    ensureMeetUiStyles();
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "hrh-meet-openall-btn";
+    btn.textContent = "Открыть всё";
+    btn.title = "Скопировать текст и открыть Huntflow + Scorecard";
+
+    const onClick = async () => {
+      try {
+        btn.disabled = true;
+        const { level, vacancyName, huntflowUrl, scorecardLink } = STATE.meet;
+        const text = await fetchLevelText(level, vacancyName);
+        if (text) await copyToClipboard(text);
+
+        const urls = [];
+        if (huntflowUrl) urls.push(huntflowUrl);
+        if (scorecardLink) urls.push(scorecardLink);
+        if (urls.length) {
+          chrome.runtime.sendMessage({ type: "HRHELPER_OPEN_TABS", urls }, () => {});
+        }
+      } catch (err) {
+        warn("OpenAll error", err);
+      } finally {
+        btn.disabled = false;
+      }
+    };
+    btn.addEventListener("click", onClick);
+
+    // Вставляем сразу после текста "Google Meet"
+    titleNode.insertAdjacentElement("afterend", btn);
+    UI.openAllInjected = true;
+    log("OpenAll button injected");
+  }
+
+  function ensureOpenAllButton() {
+    if (!IS_GOOGLE_MEET || UI.openAllInjected) return;
+    const node = findGoogleMeetTitleNode();
+    if (node) injectOpenAllButton(node);
+  }
+
   function injectReminderBlock(phrase) {
     if (!phrase || document.getElementById("hrhelper-reminder-block")) return;
     const block = document.createElement("div");
@@ -243,8 +371,20 @@
         STATE.meet.level = data.level || null;
         STATE.meet.vacancyName = data.vacancy_title || null;
         STATE.meet.huntflowUrl = data.huntflow_url || null;
+        // После получения данных пробуем поставить кнопку (у нас появятся ссылки).
+        ensureOpenAllButton();
       });
     }
+
+    // Meet DOM подгружается/меняется — наблюдаем и пробуем вставить кнопку несколько раз.
+    ensureOpenAllButton();
+    const mo = new MutationObserver(() => ensureOpenAllButton());
+    try {
+      mo.observe(document.documentElement, { childList: true, subtree: true });
+      setTimeout(() => {
+        try { mo.disconnect(); } catch (_) {}
+      }, 30_000);
+    } catch (_) {}
   }
 
   if (document.readyState === "loading") {

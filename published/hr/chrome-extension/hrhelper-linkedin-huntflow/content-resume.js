@@ -140,6 +140,29 @@
     return (typeof res.json === "function") ? await res.json() : res.json;
   }
 
+  async function checkHhIntegrationStatus() {
+    try {
+      const res = await apiFetch('/api/v1/hh/integration-status', { method: 'GET' });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data) return { connected: false };
+      return data;
+    } catch (_) {
+      return { connected: false };
+    }
+  }
+
+  async function checkHhActionsAvailability(resumeUrl) {
+    try {
+      const qp = new URLSearchParams({ resume_url: resumeUrl });
+      const res = await apiFetch(`/api/v1/hh/actions-availability?${qp.toString()}`, { method: 'GET' });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data) return { success: false, actions_allowed: false };
+      return data;
+    } catch (_) {
+      return { success: false, actions_allowed: false };
+    }
+  }
+
   function normalizeHuntflowUrl(raw) {
     const s = (raw || '').trim();
     if (!s || (!s.includes('huntflow.ru') && !s.includes('huntflow.dev'))) return null;
@@ -532,6 +555,16 @@
     const info = candidateInfo || {};
     const fragment = document.createDocumentFragment();
 
+    const opts = options || {};
+    if (opts.showActions) {
+      try {
+        fragment.appendChild(buildActionButtons(opts));
+        const spacer0 = document.createElement('div');
+        spacer0.style.marginBottom = '10px';
+        fragment.appendChild(spacer0);
+      } catch (_) {}
+    }
+
     const contactRows = [
       ['Телефон', info.phone],
       ['Email', info.email],
@@ -666,6 +699,199 @@
       fragment.appendChild(fallback);
     }
     return fragment;
+  }
+
+  function showActionError(container, message) {
+    if (!container) return;
+    const el = document.createElement('div');
+    el.className = 'hrhelper-resume-action-error';
+    el.textContent = (message || 'Ошибка').toString();
+    container.appendChild(el);
+  }
+
+  async function showRejectForm(bar, options, inviteBtn, rejectBtn) {
+    bar.innerHTML = '';
+    const loading = document.createElement('div');
+    loading.textContent = 'Загрузка причин отказа...';
+    loading.className = 'hrhelper-resume-action-loading';
+    bar.appendChild(loading);
+
+    try {
+      const qp = new URLSearchParams({ huntflow_url: options.huntflowUrl });
+      const res = await apiFetch(`/api/v1/huntflow/linkedin-applicants/status-options?${qp.toString()}`, { method: 'GET' });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        loading.textContent = data?.message || 'Не удалось загрузить причины';
+        loading.classList.add('is-error');
+        return;
+      }
+
+      const rejectionReasons = data.rejection_reasons || [];
+      const rejectionStatuses = (data.statuses || []).filter((s) =>
+        s?.type?.toLowerCase?.() === 'rejected' || (s?.name || '').toLowerCase().includes('отказ')
+      );
+      const defaultRejectionStatusId = rejectionStatuses[0]?.id || null;
+
+      bar.innerHTML = '';
+
+      const reasonLabel = document.createElement('div');
+      reasonLabel.className = 'hrhelper-resume-action-label';
+      reasonLabel.textContent = 'Причина отказа:';
+      bar.appendChild(reasonLabel);
+
+      const reasonSelect = document.createElement('select');
+      reasonSelect.className = 'hrhelper-resume-action-select';
+      reasonSelect.innerHTML = '<option value="">Выберите причину</option>';
+      rejectionReasons.forEach((r) => {
+        const opt = document.createElement('option');
+        opt.value = r.id;
+        opt.textContent = r.name;
+        reasonSelect.appendChild(opt);
+      });
+      bar.appendChild(reasonSelect);
+
+      const commentLabel = document.createElement('div');
+      commentLabel.className = 'hrhelper-resume-action-label';
+      commentLabel.textContent = 'Комментарий (необязательно):';
+      bar.appendChild(commentLabel);
+
+      const commentArea = document.createElement('textarea');
+      commentArea.className = 'hrhelper-resume-action-textarea';
+      commentArea.placeholder = 'Дополнительная информация...';
+      commentArea.rows = 2;
+      bar.appendChild(commentArea);
+
+      const btnRow = document.createElement('div');
+      btnRow.className = 'hrhelper-resume-action-row';
+
+      const confirmBtn = document.createElement('button');
+      confirmBtn.type = 'button';
+      confirmBtn.className = 'hrhelper-resume-action-btn hrhelper-resume-action-btn--reject';
+      confirmBtn.textContent = 'Отправить отказ';
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.type = 'button';
+      cancelBtn.className = 'hrhelper-resume-action-btn hrhelper-resume-action-btn--secondary';
+      cancelBtn.textContent = 'Отмена';
+
+      btnRow.appendChild(confirmBtn);
+      btnRow.appendChild(cancelBtn);
+      bar.appendChild(btnRow);
+
+      cancelBtn.addEventListener('click', () => {
+        bar.innerHTML = '';
+        bar.appendChild(inviteBtn);
+        bar.appendChild(rejectBtn);
+      });
+
+      confirmBtn.addEventListener('click', async () => {
+        if (confirmBtn.disabled) return;
+        const reasonId = reasonSelect.value ? parseInt(reasonSelect.value, 10) : null;
+        if (!reasonId) {
+          showActionError(bar, 'Выберите причину отказа.');
+          return;
+        }
+        confirmBtn.disabled = true;
+        cancelBtn.disabled = true;
+        const old = confirmBtn.textContent;
+        confirmBtn.textContent = 'Отправка...';
+        try {
+          const res2 = await apiFetch('/api/v1/hh/reject', {
+            method: 'POST',
+            body: JSON.stringify({
+              resume_url: options.resumeUrl,
+              huntflow_url: options.huntflowUrl,
+              portal: options.portal,
+              status_id: defaultRejectionStatusId,
+              rejection_reason_id: reasonId,
+              comment: (commentArea.value || '').trim(),
+              message_template: 'default_rejection',
+            }),
+          });
+          const data2 = await res2.json().catch(() => null);
+          if (res2.ok && data2?.success) {
+            bar.innerHTML = '';
+            const badge = document.createElement('div');
+            badge.className = 'hrhelper-resume-action-badge hrhelper-resume-action-badge--success';
+            badge.textContent = '✓ Отказ отправлен';
+            bar.appendChild(badge);
+          } else {
+            showActionError(bar, data2?.message || 'Не удалось отправить отказ');
+            confirmBtn.disabled = false;
+            cancelBtn.disabled = false;
+            confirmBtn.textContent = old;
+          }
+        } catch (e) {
+          showActionError(bar, e.message || 'Ошибка сети');
+          confirmBtn.disabled = false;
+          cancelBtn.disabled = false;
+          confirmBtn.textContent = old;
+        }
+      });
+    } catch (e) {
+      bar.innerHTML = '';
+      showActionError(bar, e.message || 'Ошибка загрузки');
+    }
+  }
+
+  function buildActionButtons(options) {
+    const bar = document.createElement('div');
+    bar.className = 'hrhelper-resume-action-bar';
+
+    const inviteBtn = document.createElement('button');
+    inviteBtn.type = 'button';
+    inviteBtn.className = 'hrhelper-resume-action-btn hrhelper-resume-action-btn--invite';
+    inviteBtn.innerHTML = '<span>Пригласить</span>';
+
+    const rejectBtn = document.createElement('button');
+    rejectBtn.type = 'button';
+    rejectBtn.className = 'hrhelper-resume-action-btn hrhelper-resume-action-btn--reject';
+    rejectBtn.innerHTML = '<span>Отказать</span>';
+
+    inviteBtn.addEventListener('click', async () => {
+      if (inviteBtn.disabled) return;
+      inviteBtn.disabled = true;
+      rejectBtn.disabled = true;
+      const originalHTML = inviteBtn.innerHTML;
+      inviteBtn.textContent = 'Отправка...';
+      try {
+        const res = await apiFetch('/api/v1/hh/invite', {
+          method: 'POST',
+          body: JSON.stringify({
+            resume_url: options.resumeUrl,
+            huntflow_url: options.huntflowUrl,
+            portal: options.portal,
+            message_template: 'default_invite',
+          }),
+        });
+        const data = await res.json().catch(() => null);
+        if (res.ok && data?.success) {
+          bar.innerHTML = '';
+          const badge = document.createElement('div');
+          badge.className = 'hrhelper-resume-action-badge hrhelper-resume-action-badge--success';
+          badge.textContent = '✓ Приглашение отправлено';
+          bar.appendChild(badge);
+        } else {
+          showActionError(bar, data?.message || 'Не удалось отправить приглашение');
+          inviteBtn.disabled = false;
+          rejectBtn.disabled = false;
+          inviteBtn.innerHTML = originalHTML;
+        }
+      } catch (e) {
+        showActionError(bar, e.message || 'Ошибка сети');
+        inviteBtn.disabled = false;
+        rejectBtn.disabled = false;
+        inviteBtn.innerHTML = originalHTML;
+      }
+    });
+
+    rejectBtn.addEventListener('click', () => {
+      showRejectForm(bar, options, inviteBtn, rejectBtn);
+    });
+
+    bar.appendChild(inviteBtn);
+    bar.appendChild(rejectBtn);
+    return bar;
   }
 
   /** Форма ввода/редактирования ссылки Huntflow: поле + квадратная кнопка «Сохранить» в один ряд */
@@ -835,6 +1061,106 @@
       .${BLOCK_CLASS}-row:last-child { margin-bottom: 0; }
       .${BLOCK_CLASS}-label { color: #666; }
       .${BLOCK_CLASS}-value { color: #111; }
+
+      .hrhelper-resume-action-bar {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        margin-top: 8px;
+        max-width: 320px;
+      }
+      .hrhelper-resume-action-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        border: 1px solid var(--hrhelper-border, rgba(0,0,0,.2));
+        border-radius: 8px;
+        padding: 7px 10px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        background: var(--hrhelper-bg, #fff);
+        color: var(--hrhelper-text, #212529);
+        min-height: 32px;
+        width: 100%;
+        box-sizing: border-box;
+        white-space: nowrap;
+        writing-mode: horizontal-tb;
+      }
+      .hrhelper-resume-action-btn:disabled {
+        opacity: .65;
+        cursor: not-allowed;
+      }
+      .hrhelper-resume-action-btn--invite {
+        background: rgba(25, 135, 84, .12);
+        border-color: rgba(25, 135, 84, .35);
+        color: #198754;
+      }
+      .hrhelper-resume-action-btn--reject {
+        background: rgba(220, 53, 69, .10);
+        border-color: rgba(220, 53, 69, .35);
+        color: #dc3545;
+      }
+      .hrhelper-resume-action-btn--secondary {
+        background: rgba(0,0,0,.04);
+        border-color: rgba(0,0,0,.18);
+        color: #495057;
+      }
+      .hrhelper-resume-action-badge {
+        width: 100%;
+        padding: 8px 10px;
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: 700;
+        text-align: center;
+        border: 1px solid transparent;
+      }
+      .hrhelper-resume-action-badge--success {
+        background: rgba(25, 135, 84, .12);
+        border-color: rgba(25, 135, 84, .35);
+        color: #198754;
+      }
+      .hrhelper-resume-action-error {
+        margin-top: 8px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        font-size: 12px;
+        background: rgba(220, 53, 69, .10);
+        border: 1px solid rgba(220, 53, 69, .35);
+        color: #842029;
+      }
+      .hrhelper-resume-action-loading {
+        font-size: 12px;
+        color: var(--hrhelper-muted, #666);
+        padding: 6px 2px;
+      }
+      .hrhelper-resume-action-loading.is-error { color: #842029; }
+      .hrhelper-resume-action-label {
+        font-size: 12px;
+        font-weight: 700;
+        margin: 6px 0 4px;
+      }
+      .hrhelper-resume-action-select,
+      .hrhelper-resume-action-textarea {
+        width: 100%;
+        border: 1px solid var(--hrhelper-border, rgba(0,0,0,.2));
+        border-radius: 8px;
+        padding: 7px 10px;
+        font-size: 12px;
+        background: var(--hrhelper-bg, #fff);
+        color: var(--hrhelper-text, #212529);
+        box-sizing: border-box;
+      }
+      .hrhelper-resume-action-textarea { resize: vertical; }
+      .hrhelper-resume-action-row {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+        align-items: center;
+        justify-content: space-between;
+      }
     `;
     (document.head || document.documentElement).appendChild(style);
   }
@@ -889,6 +1215,11 @@
   function getBaseUrl() {
     const u = window.location.href;
     return u.split('?')[0].split('#')[0];
+  }
+
+  /** Полный URL для проверки actions-availability (с query), чтобы бэкенд мог извлечь resumeId на rabota.by */
+  function getResumeUrlForActions() {
+    return (window.location.href || '').split('#')[0];
   }
 
   /** ID резюме из пути /resume/{id} — один ключ для всех доменов (hh.ru, rabota.by, gomel.rabota.by) */
@@ -1069,7 +1400,7 @@
       Promise.all([
         useCached ? Promise.resolve(state.candidateInfo) : apiFetch(candidatePath),
         fetchStatusMulti(state.huntflowUrl),
-      ]).then(([candidateData, multiData]) => {
+      ]).then(async ([candidateData, multiData]) => {
         const info = (candidateData && (candidateData.success || candidateData.full_name) ? candidateData : state.candidateInfo) || {};
         const candidateInfo = {
           full_name: info.full_name,
@@ -1090,9 +1421,23 @@
             status_name: state.status_name,
             rejection_reason_name: state.rejection_reason_name,
           })];
+        const host = (location.hostname || '').toLowerCase();
+        const isRabota = host.includes('rabota.by');
+        const portal = isRabota ? 'rabota.by' : 'hh.ru';
+        const hasRejected = (vacancies || []).some((v) => (v && String(v.status_type || '').toLowerCase() === 'rejected'));
+        const hhStatus = await checkHhIntegrationStatus();
+        const actionsInfo = await checkHhActionsAvailability(getResumeUrlForActions());
+        const hhCanAct = !!(actionsInfo && actionsInfo.success && actionsInfo.actions_allowed);
+        const showActions = !!(state.huntflowUrl && hhStatus && hhStatus.connected && hhCanAct && !hasRejected);
+
         const options = {
           huntflowUrl: state.huntflowUrl,
           onEditClick: () => showFormInWidget(state.huntflowUrl),
+          showActions,
+          resumeUrl: getBaseUrl(),
+          isRabota,
+          portal,
+          vacancies,
         };
         chrome.storage.local.get({ [RESUME_FLOATING_HIDDEN_KEY]: false }, (data) => {
           if (!data[RESUME_FLOATING_HIDDEN_KEY]) showFloatingWidget(candidateInfo, vacancies, options);
