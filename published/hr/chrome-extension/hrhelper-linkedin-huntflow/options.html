@@ -191,6 +191,15 @@
       color: #c62828;
       font-weight: 500;
     }
+    .changelog-ul code {
+      font-family: ui-monospace, monospace;
+      font-size: 0.92em;
+      background: rgba(0,0,0,.06);
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+    body.options-theme-dark .changelog-ul code,
+    body.options-theme-system .changelog-ul code { background: rgba(255,255,255,.1); }
 
     .options-divider {
       margin: 28px 0 24px;
@@ -600,9 +609,12 @@
           <div class="changelog-version">1.4.9 <span class="changelog-date">(17.03.2026)</span></div>
           <ul class="changelog-ul">
             <li>Google Meet: добавлена кнопка «Открыть все» для быстрого открытия всех ссылок</li>
-            <li>Улучшения в коде и рефакторинг</li>
             <li>HH экосистема (rabota.by / hh.ru): добавлена функциональность принять/отклонить кандидата</li>
             <li class="changelog-stub">Кнопки «Пригласить»/«Отказать» на rabota.by и hh.ru — заготовка, пока не работает (в разработке)</li>
+            <li>Рефакторинг и производительность: добавлен debounce для всех MutationObserver — в content.js (главный observer профиля/переписки, theme observers, trackMessageButtons), content-resume.js, content-calendar.js, content-meet.js; пакетная обработка DOM-изменений, снижение нагрузки на CPU</li>
+            <li>Общая утилита <code>shared/utils/debounce.js</code> и константы таймингов <code>TIMING</code> в <code>shared/constants.js</code> (DEBOUNCE_MUTATION, DEBOUNCE_THEME, DEBOUNCE_CALENDAR_MEET)</li>
+            <li>Документация: план рефакторинга <code>docs/REFACTOR_PLAN.md</code> — фазы 1–4 (оптимизации, разделение монолитов, архитектура, build), чеклист качества кода</li>
+            <li><strong>Batch storage (popup):</strong> один запрос <code>getFloatingHiddenStates()</code> для всех ключей видимости плавающих окон; при открытии попапа — параллельная загрузка sync (active pages) и local (floating hidden), данные передаются в <code>update*Toggle(preloaded)</code></li>
           </ul>
         </li>
         <li class="changelog-item">
@@ -692,6 +704,17 @@
             <li>Кнопка скрытия/показа напоминания в Google Meet (глаз в попапе)</li>
             <li>Плавающее окно на LinkedIn: данные кандидата, комментарии, смена статуса, добавление на вакансию</li>
             <li>Интеграция с Huntflow: кнопка на профилях LinkedIn, синхронизация вакансий и кандидатов</li>
+          </ul>
+        </li>
+        <li class="changelog-item">
+          <div class="changelog-version">1.2.x <span class="changelog-date">(ранее)</span></div>
+          <ul class="changelog-ul">
+            <li>Интеграция с HR Helper: Base URL + API Token, настройка в попапе при отсутствии токена; контекстный UI в зависимости от вкладки (LinkedIn, rabota.by/hh.ru, Calendar, Meet)</li>
+            <li>LinkedIn: виджет на профиле и в переписке (Messaging), сохранение связи профиль ↔ Huntflow, кнопки «Открыть в Huntflow», «Копировать», «Редактировать», «Изменить статус»</li>
+            <li>Множественные вакансии: карточки активных/отказов/нанятых, «В новый цикл», «+ Взять на другую вакансию», бейдж «Сотрудник»</li>
+            <li>rabota.by и hh.ru: content script на страницах резюме, привязка Huntflow, данные из Huntflow, те же карточки и действия по вакансиям</li>
+            <li>Google Calendar и Meet: блок в попапе, кнопки Scorecard/Контакт/копирование уровня на Meet</li>
+            <li>Технически: Manifest 3, service worker, API-прокси через background, chrome.storage.sync для baseUrl/apiToken</li>
           </ul>
         </li>
       </ul>

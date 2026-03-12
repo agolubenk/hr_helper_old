@@ -7,6 +7,8 @@
   if (!HRH) throw new Error("[HRHelper] shared/constants.js not loaded");
   const apiFetch = HRH.apiFetch;
   if (!apiFetch) throw new Error("[HRHelper] shared/api/client.js not loaded (apiFetch missing)");
+  const debounce = HRH.debounce;
+  const TIMING = HRH.TIMING || {};
 
   const DEBUG = false;
   const IS_GOOGLE_MEET = location.href.includes("meet.google.com");
@@ -377,9 +379,10 @@
       });
     }
 
-    // Meet DOM подгружается/меняется — наблюдаем и пробуем вставить кнопку несколько раз.
+    // Meet DOM подгружается/меняется — наблюдаем и пробуем вставить кнопку несколько раз (с debounce).
     ensureOpenAllButton();
-    const mo = new MutationObserver(() => ensureOpenAllButton());
+    const debouncedEnsure = debounce(ensureOpenAllButton, TIMING.DEBOUNCE_CALENDAR_MEET || 500);
+    const mo = new MutationObserver(() => debouncedEnsure());
     try {
       mo.observe(document.documentElement, { childList: true, subtree: true });
       setTimeout(() => {

@@ -1491,14 +1491,20 @@ async function showContextForTab() {
   const url = tab?.url || '';
   let ctx = getContextFromUrl(url);
   const pageKey = getActivePageKeyFromContext(ctx);
+
+  // Batch: sync (active pages) + local (floating hidden) — один раз вместо отдельных вызовов в ветках
+  let syncData = { [ACTIVE_PAGES_KEY]: DEFAULT_ACTIVE_PAGES };
+  let floatingData = {};
+  try {
+    [syncData, floatingData] = await Promise.all([
+      chrome.storage.sync.get({ [ACTIVE_PAGES_KEY]: DEFAULT_ACTIVE_PAGES }),
+      getFloatingHiddenStates()
+    ]);
+  } catch (_) {}
+
   if (pageKey) {
-    try {
-      const data = await chrome.storage.sync.get({ [ACTIVE_PAGES_KEY]: DEFAULT_ACTIVE_PAGES });
-      const active = data[ACTIVE_PAGES_KEY] || DEFAULT_ACTIVE_PAGES;
-      if (!active[pageKey]) {
-        ctx = CONTEXT.OTHER;
-      }
-    } catch (_) {}
+    const active = syncData[ACTIVE_PAGES_KEY] || DEFAULT_ACTIVE_PAGES;
+    if (!active[pageKey]) ctx = CONTEXT.OTHER;
   }
   currentContext = ctx;
 
@@ -1510,19 +1516,19 @@ async function showContextForTab() {
     const headerActions = document.getElementById('header-actions');
     if (headerActions) headerActions.style.display = 'flex';
     if (headerLinkedInFloatingBtn) headerLinkedInFloatingBtn.style.display = 'inline-flex';
-    updateLinkedInFloatingToggle();
+    updateLinkedInFloatingToggle(floatingData);
   }
   if (ctx === CONTEXT.RESUME) {
     const headerActions = document.getElementById('header-actions');
     if (headerActions) headerActions.style.display = 'flex';
     if (headerResumeFloatingBtn) headerResumeFloatingBtn.style.display = 'inline-flex';
-    updateResumeFloatingToggle();
+    updateResumeFloatingToggle(floatingData);
   }
   if (ctx === CONTEXT.HUNTFLOW) {
     const headerActions = document.getElementById('header-actions');
     if (headerActions) headerActions.style.display = 'flex';
     if (headerHuntflowFloatingBtn) headerHuntflowFloatingBtn.style.display = 'inline-flex';
-    updateHuntflowFloatingToggle();
+    updateHuntflowFloatingToggle(floatingData);
   }
 
   // Для страниц резюме (rabota.by, hh.ru) и Huntflow показываем тот же блок, что и для LinkedIn; для неизвестных сайтов (OTHER) — только блок «другая страница», без формы LinkedIn–Huntflow
@@ -1689,7 +1695,7 @@ async function showContextForTab() {
     if (ctx === CONTEXT.MEET) {
       const headerMeetReminderBtn = document.getElementById('headerMeetReminderBtn');
       if (headerMeetReminderBtn) headerMeetReminderBtn.style.display = 'inline-flex';
-      updateMeetReminderToggle();
+      updateMeetReminderToggle(floatingData);
       const hasCopyData = !!(response.level && (response.vacancyName || response.level));
       if (meetHint) meetHint.style.display = hasCopyData ? 'none' : 'block';
       if (meetOpenAll) {
@@ -1759,7 +1765,7 @@ async function showContextForTab() {
       if (headerActions) headerActions.style.display = 'flex';
       const headerMeetReminderBtn = document.getElementById('headerMeetReminderBtn');
       if (headerMeetReminderBtn) headerMeetReminderBtn.style.display = 'inline-flex';
-      updateMeetReminderToggle();
+      updateMeetReminderToggle(floatingData);
     }
   }
 }
@@ -1769,13 +1775,23 @@ const LINKEDIN_FLOATING_HIDDEN_KEY = 'hrhelper_linkedin_floating_hidden';
 const RESUME_FLOATING_HIDDEN_KEY = 'hrhelper_resume_floating_hidden';
 const HUNTFLOW_FLOATING_HIDDEN_KEY = 'hrhelper_huntflow_floating_hidden';
 
+/** Один batch-запрос для всех ключей видимости плавающих окон (снижение обращений к storage). */
+function getFloatingHiddenStates() {
+  return chrome.storage.local.get({
+    [MEET_REMINDER_HIDDEN_KEY]: false,
+    [LINKEDIN_FLOATING_HIDDEN_KEY]: false,
+    [RESUME_FLOATING_HIDDEN_KEY]: false,
+    [HUNTFLOW_FLOATING_HIDDEN_KEY]: false
+  });
+}
+
 const MEET_REMINDER_EYE_OPEN_SVG = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>';
 const MEET_REMINDER_EYE_CLOSED_SVG = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"><path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l1.74 1.74c.57-.23 1.18-.36 1.83-.36zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/></svg>';
 
-async function updateMeetReminderToggle() {
+async function updateMeetReminderToggle(preloaded) {
   const btn = document.getElementById('headerMeetReminderBtn');
   if (!btn) return;
-  const data = await chrome.storage.local.get({ [MEET_REMINDER_HIDDEN_KEY]: false });
+  const data = preloaded || await getFloatingHiddenStates();
   const hidden = !!data[MEET_REMINDER_HIDDEN_KEY];
   btn.title = hidden ? 'Показать напоминание на странице' : 'Скрыть напоминание на странице';
   btn.setAttribute('aria-label', btn.title);
@@ -1783,7 +1799,7 @@ async function updateMeetReminderToggle() {
 }
 
 async function toggleMeetReminderVisibility() {
-  const data = await chrome.storage.local.get({ [MEET_REMINDER_HIDDEN_KEY]: false });
+  const data = await getFloatingHiddenStates();
   const currentlyHidden = !!data[MEET_REMINDER_HIDDEN_KEY];
   const visible = currentlyHidden;
   await chrome.storage.local.set({ [MEET_REMINDER_HIDDEN_KEY]: !visible });
@@ -1802,10 +1818,10 @@ const RESUME_FLOATING_EYE_CLOSED_SVG = '<svg viewBox="0 0 24 24" xmlns="http://w
 const LINKEDIN_FLOATING_EYE_OPEN_SVG = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>';
 const LINKEDIN_FLOATING_EYE_CLOSED_SVG = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"><path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l1.74 1.74c.57-.23 1.18-.36 1.83-.36zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/></svg>';
 
-async function updateLinkedInFloatingToggle() {
+async function updateLinkedInFloatingToggle(preloaded) {
   const btn = document.getElementById('headerLinkedInFloatingBtn');
   if (!btn) return;
-  const data = await chrome.storage.local.get({ [LINKEDIN_FLOATING_HIDDEN_KEY]: false });
+  const data = preloaded || await getFloatingHiddenStates();
   const hidden = !!data[LINKEDIN_FLOATING_HIDDEN_KEY];
   btn.title = hidden ? 'Показать плавающее окно на странице' : 'Скрыть плавающее окно на странице';
   btn.setAttribute('aria-label', btn.title);
@@ -1813,7 +1829,7 @@ async function updateLinkedInFloatingToggle() {
 }
 
 async function toggleLinkedInFloatingVisibility() {
-  const data = await chrome.storage.local.get({ [LINKEDIN_FLOATING_HIDDEN_KEY]: false });
+  const data = await getFloatingHiddenStates();
   const currentlyHidden = !!data[LINKEDIN_FLOATING_HIDDEN_KEY];
   const visible = currentlyHidden;
   await chrome.storage.local.set({ [LINKEDIN_FLOATING_HIDDEN_KEY]: !visible });
@@ -1826,10 +1842,10 @@ async function toggleLinkedInFloatingVisibility() {
   } catch (_) {}
 }
 
-async function updateResumeFloatingToggle() {
+async function updateResumeFloatingToggle(preloaded) {
   const btn = document.getElementById('headerResumeFloatingBtn');
   if (!btn) return;
-  const data = await chrome.storage.local.get({ [RESUME_FLOATING_HIDDEN_KEY]: false });
+  const data = preloaded || await getFloatingHiddenStates();
   const hidden = !!data[RESUME_FLOATING_HIDDEN_KEY];
   btn.title = hidden ? 'Показать плавающее окно на странице' : 'Скрыть плавающее окно на странице';
   btn.setAttribute('aria-label', btn.title);
@@ -1837,7 +1853,7 @@ async function updateResumeFloatingToggle() {
 }
 
 async function toggleResumeFloatingVisibility() {
-  const data = await chrome.storage.local.get({ [RESUME_FLOATING_HIDDEN_KEY]: false });
+  const data = await getFloatingHiddenStates();
   const currentlyHidden = !!data[RESUME_FLOATING_HIDDEN_KEY];
   const visible = currentlyHidden;
   await chrome.storage.local.set({ [RESUME_FLOATING_HIDDEN_KEY]: !visible });
@@ -1853,10 +1869,10 @@ async function toggleResumeFloatingVisibility() {
 const HUNTFLOW_FLOATING_EYE_OPEN_SVG = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>';
 const HUNTFLOW_FLOATING_EYE_CLOSED_SVG = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"><path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l1.74 1.74c.57-.23 1.18-.36 1.83-.36zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/></svg>';
 
-async function updateHuntflowFloatingToggle() {
+async function updateHuntflowFloatingToggle(preloaded) {
   const btn = document.getElementById('headerHuntflowFloatingBtn');
   if (!btn) return;
-  const data = await chrome.storage.local.get({ [HUNTFLOW_FLOATING_HIDDEN_KEY]: false });
+  const data = preloaded || await getFloatingHiddenStates();
   const hidden = !!data[HUNTFLOW_FLOATING_HIDDEN_KEY];
   btn.title = hidden ? 'Показать плавающее окно на странице' : 'Скрыть плавающее окно на странице';
   btn.setAttribute('aria-label', btn.title);
@@ -1864,7 +1880,7 @@ async function updateHuntflowFloatingToggle() {
 }
 
 async function toggleHuntflowFloatingVisibility() {
-  const data = await chrome.storage.local.get({ [HUNTFLOW_FLOATING_HIDDEN_KEY]: false });
+  const data = await getFloatingHiddenStates();
   const currentlyHidden = !!data[HUNTFLOW_FLOATING_HIDDEN_KEY];
   const visible = currentlyHidden;
   await chrome.storage.local.set({ [HUNTFLOW_FLOATING_HIDDEN_KEY]: !visible });
@@ -2308,7 +2324,14 @@ async function openMeetAll() {
   if (openBtn) openBtn.disabled = true;
   const oldCopyText = copyBtn ? copyBtn.textContent : '';
   try {
-    const res = await chrome.tabs.sendMessage(currentTabId, { action: 'copyLevelText' });
+    let res = null;
+    try {
+      res = await chrome.tabs.sendMessage(currentTabId, { action: 'copyLevelText' });
+    } catch (e) {
+      // Receiving end does not exist: вкладка закрыта, не Meet, или content script не загружен
+      if (e?.message && (e.message.includes('Receiving end does not exist') || e.message.includes('Could not establish connection'))) return;
+      throw e;
+    }
     if (res && res.success && res.text && navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(res.text);
       if (copyBtn) {
@@ -2317,20 +2340,15 @@ async function openMeetAll() {
       }
     }
     // открываем Huntflow и Scorecard из текущего контекста
-    const ctxDataEl = document.getElementById('context-meet-data');
-    let huntflowUrl = null;
-    if (ctxDataEl && ctxDataEl.textContent) {
-      // в data уже может быть pageUrl, но ссылки на huntflow/scorecard хранятся в response, мы их брали выше
-      // поэтому надёжнее получить их ещё раз
-    }
-    // переиспользуем последний getPageContext: отправим запрос ещё раз
-    const tab = await chrome.tabs.get(currentTabId);
     let urls = [];
     try {
+      const tab = await chrome.tabs.get(currentTabId);
       const response = await chrome.tabs.sendMessage(tab.id, { action: 'getPageContext' });
       if (response && response.huntflowUrl) urls.push(response.huntflowUrl);
       if (response && response.scorecardLink) urls.push(response.scorecardLink);
-    } catch (_) {}
+    } catch (_) {
+      // вкладка закрыта или content script недоступен — просто не открываем ссылки
+    }
     if (urls.length) {
       chrome.runtime.sendMessage({ type: 'HRHELPER_OPEN_TABS', urls });
     }

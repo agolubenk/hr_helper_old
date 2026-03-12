@@ -6,6 +6,8 @@ const DEFAULTS = HRH.DEFAULTS;
 if (!DEFAULTS) {
   throw new Error("[HRHelper] shared/constants.js not loaded (DEFAULTS missing)");
 }
+const debounce = HRH.debounce;
+const TIMING = HRH.TIMING || {};
 
 const FLOATING_UI_STATE_KEY = "hrhelper_linkedin_floating_ui_state";
 const LINKEDIN_FLOATING_HIDDEN_KEY = "hrhelper_linkedin_floating_hidden";
@@ -463,7 +465,8 @@ function captureProfileToThreadMapping() {
     }
   };
 
-  const obs = new MutationObserver(trackMessageButtons);
+  const debouncedTrackMessageButtons = debounce(trackMessageButtons, TIMING.DEBOUNCE_MUTATION || 100);
+  const obs = new MutationObserver(() => debouncedTrackMessageButtons());
   obs.observe(document.body, { childList: true, subtree: true });
   log(' captureProfileToThreadMapping: MutationObserver started');
 }
@@ -928,11 +931,10 @@ function applyMessagingBarTheme(wrapper) {
 
 let floatingThemeObserver = null;
 let messagingBarThemeObserver = null;
+const debouncedUpdateResolvedTheme = debounce(updateResolvedWidgetTheme, TIMING.DEBOUNCE_THEME || 50);
 function startFloatingWidgetThemeObserver(wrapper) {
   if (floatingThemeObserver || !wrapper) return;
-  floatingThemeObserver = new MutationObserver(() => {
-    updateResolvedWidgetTheme();
-  });
+  floatingThemeObserver = new MutationObserver(() => debouncedUpdateResolvedTheme());
   floatingThemeObserver.observe(document.documentElement, {
     attributes: true,
     attributeFilter: ["data-theme", "data-mode", "class"],
@@ -941,9 +943,7 @@ function startFloatingWidgetThemeObserver(wrapper) {
 
 function startMessagingBarThemeObserver() {
   if (messagingBarThemeObserver) return;
-  messagingBarThemeObserver = new MutationObserver(() => {
-    updateResolvedWidgetTheme();
-  });
+  messagingBarThemeObserver = new MutationObserver(() => debouncedUpdateResolvedTheme());
   messagingBarThemeObserver.observe(document.documentElement, {
     attributes: true,
     attributeFilter: ["data-theme", "data-mode", "class"],
@@ -3306,11 +3306,11 @@ function startObserver() {
     });
   };
 
-  const obs = new MutationObserver(() => {
+  const debouncedSchedule = debounce(function () {
     if (STATE.suppressObserver) return;
     schedule();
-  });
-  
+  }, TIMING.DEBOUNCE_MUTATION || 100);
+  const obs = new MutationObserver(() => debouncedSchedule());
 
   // Наблюдаем только за конкретными контейнерами, а не за всем body
   const observeTargets = IS_MESSAGING_PAGE

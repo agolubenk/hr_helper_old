@@ -36,4 +36,13 @@
   /** Ключ темы оформления в настройках: "system" | "light" | "dark" */
   g.__HRH__.OPTIONS_THEME_KEY = "hrhelper_options_theme";
   g.__HRH__.DEFAULT_THEME = "system";
+
+  /** Тайминги для debounce и задержек (DRY, единый источник правды) */
+  g.__HRH__.TIMING = {
+    DEBOUNCE_MUTATION: 100,
+    DEBOUNCE_THEME: 50,
+    DEBOUNCE_CALENDAR_MEET: 500,
+    RETRY_INITIAL_MS: 1000,
+    SCAN_DELAY_MS: 1500,
+  };
 })();

@@ -7,6 +7,8 @@
   if (!HRH) throw new Error("[HRHelper] shared/constants.js not loaded");
   const apiFetch = HRH.apiFetch;
   if (!apiFetch) throw new Error("[HRHelper] shared/api/client.js not loaded (apiFetch missing)");
+  const debounce = HRH.debounce;
+  const TIMING = HRH.TIMING || {};
   const OPTIONS_THEME_KEY = HRH.OPTIONS_THEME_KEY;
   if (!OPTIONS_THEME_KEY) throw new Error("[HRHelper] shared/constants.js not loaded (OPTIONS_THEME_KEY missing)");
 
@@ -198,7 +200,8 @@
       if (window._hrhelperCalendarThemeObserver) return;
       const run = () => applyCalendarButtonTheme();
       run();
-      const observer = new MutationObserver(() => run());
+      const debouncedRun = debounce(run, (TIMING && TIMING.DEBOUNCE_THEME) || 50);
+      const observer = new MutationObserver(() => debouncedRun());
       observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class", "data-theme", "style"] });
       if (document.body) observer.observe(document.body, { attributes: true, attributeFilter: ["class", "style"] });
       window._hrhelperCalendarThemeObserver = observer;

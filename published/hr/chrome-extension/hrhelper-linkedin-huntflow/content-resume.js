@@ -13,6 +13,8 @@
   if (!ACTIVE_PAGES_KEY || !DEFAULT_ACTIVE_PAGES) {
     throw new Error("[HRHelper] shared/constants.js not loaded (ACTIVE_PAGES_KEY/DEFAULT_ACTIVE_PAGES missing)");
   }
+  var debounce = HRH.debounce;
+  var TIMING = HRH.TIMING || {};
   try {
     var data = await chrome.storage.sync.get({ [ACTIVE_PAGES_KEY]: DEFAULT_ACTIVE_PAGES });
     var active = data[ACTIVE_PAGES_KEY] || DEFAULT_ACTIVE_PAGES;
@@ -200,6 +202,15 @@
     throw new Error("[HRHelper] shared/utils/date.js not loaded (formatVacancyDate missing)");
   }
 
+  /** Нормализует ответ API candidate-info: бэкенд может вернуть данные в .data или в корне */
+  function normalizeCandidatePayload(payload) {
+    if (!payload) return null;
+    const data = payload.data && typeof payload.data === 'object' && (payload.data.full_name != null || payload.data.phone != null || payload.data.email != null)
+      ? payload.data
+      : payload;
+    return (data.full_name != null || data.phone != null || data.email != null || data.telegram != null || data.communication != null || (payload && payload.success)) ? data : null;
+  }
+
   /** Получить список вакансий: status-multi или один элемент из candidate-info */
   function fetchStatusMulti(huntflowUrl) {
     const shared = HRH.fetchStatusMulti;
@@ -371,6 +382,7 @@
       .hrhelper-resume-floating-widget .hrhelper-resume-floating-body,
       .hrhelper-resume-floating-widget .hrhelper-resume-floating-body * { color: var(--hrhelper-text) !important; }
       .hrhelper-resume-floating-widget .hrhelper-resume-floating-edit,
+      .hrhelper-resume-floating-widget .hrhelper-resume-floating-contact,
       .hrhelper-resume-floating-widget .hrhelper-resume-floating-switch-service,
       .hrhelper-resume-floating-widget button[style*="border-radius:4px"] { background: var(--hrhelper-btn-bg) !important; color: var(--hrhelper-muted) !important; border-color: var(--hrhelper-border) !important; }
       .hrhelper-resume-floating-widget input,
@@ -503,6 +515,16 @@
     switchServiceBtn.addEventListener('mouseenter', () => { switchServiceBtn.style.background = 'var(--hrhelper-border,rgba(0,0,0,.1))'; });
     switchServiceBtn.addEventListener('mouseleave', () => { switchServiceBtn.style.background = 'var(--hrhelper-btn-bg,rgba(0,0,0,.05))'; });
     header.appendChild(switchServiceBtn);
+    const contactBtn = document.createElement('button');
+    contactBtn.type = 'button';
+    contactBtn.className = 'hrhelper-resume-floating-contact';
+    contactBtn.title = 'Открыть контакт (Telegram, WhatsApp и т.д.)';
+    contactBtn.setAttribute('aria-label', 'Открыть контакт');
+    contactBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>';
+    contactBtn.style.cssText = 'width:24px;height:24px;border:none;background:var(--hrhelper-btn-bg,rgba(0,0,0,.05));border-radius:4px;cursor:pointer;color:var(--hrhelper-muted,#666);flex-shrink:0;display:none;padding:0;align-items:center;justify-content:center;';
+    contactBtn.addEventListener('mouseenter', () => { contactBtn.style.background = 'var(--hrhelper-border,rgba(0,0,0,.1))'; });
+    contactBtn.addEventListener('mouseleave', () => { contactBtn.style.background = 'var(--hrhelper-btn-bg,rgba(0,0,0,.05))'; });
+    header.appendChild(contactBtn);
     const editBtn = document.createElement('button');
     editBtn.type = 'button';
     editBtn.className = 'hrhelper-resume-floating-edit';
@@ -680,14 +702,21 @@
         }
         card.appendChild(cardLeft);
         if (v.appurl) {
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          btn.className = 'hrhelper-resume-vacancy-btn';
-          btn.title = 'Открыть в Huntflow';
-          btn.setAttribute('aria-label', 'Открыть в Huntflow');
-          btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>';
-          btn.addEventListener('click', () => { window.open(v.appurl, '_blank', 'noopener,noreferrer'); });
-          card.appendChild(btn);
+          const copyBtn = document.createElement('button');
+          copyBtn.type = 'button';
+          copyBtn.className = 'hrhelper-resume-vacancy-btn';
+          copyBtn.title = 'Копировать ссылку на Huntflow';
+          copyBtn.setAttribute('aria-label', 'Копировать ссылку');
+          copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>';
+          copyBtn.addEventListener('click', () => {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(v.appurl).then(() => {
+                copyBtn.title = 'Скопировано';
+                setTimeout(() => { copyBtn.title = 'Копировать ссылку на Huntflow'; }, 1500);
+              });
+            }
+          });
+          card.appendChild(copyBtn);
         }
         fragment.appendChild(card);
       });
@@ -710,7 +739,7 @@
     container.appendChild(el);
   }
 
-  async function showRejectForm(bar, options, inviteBtn, rejectBtn) {
+  async function showRejectForm(bar, options, inviteBtn, rejectBtn, buttonsRow) {
     bar.innerHTML = '';
     const loading = document.createElement('div');
     loading.textContent = 'Загрузка причин отказа...';
@@ -781,8 +810,15 @@
 
       cancelBtn.addEventListener('click', () => {
         bar.innerHTML = '';
-        bar.appendChild(inviteBtn);
-        bar.appendChild(rejectBtn);
+        if (buttonsRow && inviteBtn && rejectBtn) {
+          buttonsRow.innerHTML = '';
+          buttonsRow.appendChild(inviteBtn);
+          buttonsRow.appendChild(rejectBtn);
+          bar.appendChild(buttonsRow);
+        } else {
+          bar.appendChild(inviteBtn);
+          bar.appendChild(rejectBtn);
+        }
       });
 
       confirmBtn.addEventListener('click', async () => {
@@ -862,6 +898,12 @@
     rejectBtn.className = 'hrhelper-resume-action-btn hrhelper-resume-action-btn--reject';
     rejectBtn.innerHTML = '<span>Отказать</span>';
 
+    const buttonsRow = document.createElement('div');
+    buttonsRow.className = 'hrhelper-resume-action-buttons-row';
+    buttonsRow.style.cssText = 'display:flex;flex-direction:row;gap:8px;align-items:stretch;';
+    buttonsRow.appendChild(inviteBtn);
+    buttonsRow.appendChild(rejectBtn);
+
     inviteBtn.addEventListener('click', async () => {
       if (inviteBtn.disabled) return;
       inviteBtn.disabled = true;
@@ -913,11 +955,10 @@
     });
 
     rejectBtn.addEventListener('click', () => {
-      showRejectForm(bar, options, inviteBtn, rejectBtn);
+      showRejectForm(bar, options, inviteBtn, rejectBtn, buttonsRow);
     });
 
-    bar.appendChild(inviteBtn);
-    bar.appendChild(rejectBtn);
+    bar.appendChild(buttonsRow);
     return bar;
   }
 
@@ -1008,6 +1049,24 @@
     }
     const titleEl = widget.querySelector('.hrhelper-resume-floating-header-title');
     if (titleEl) titleEl.textContent = (candidateInfo && candidateInfo.full_name) ? candidateInfo.full_name : 'HR Helper';
+    const contactBtn = widget.querySelector('.hrhelper-resume-floating-contact');
+    if (contactBtn && options && options.huntflowUrl) {
+      contactBtn.style.display = 'flex';
+      contactBtn._huntflowUrl = options.huntflowUrl;
+      contactBtn.onclick = async function () {
+        const url = this._huntflowUrl;
+        if (!url) return;
+        try {
+          const qp = new URLSearchParams({ huntflow_url: url });
+          const res = await apiFetch(`/api/v1/huntflow/linkedin-applicants/communication-link/?${qp.toString()}`, { method: 'GET' });
+          const data = await res.json().catch(() => null);
+          if (data && data.success && data.communication_link) window.open(data.communication_link, '_blank', 'noopener,noreferrer');
+        } catch (_) {}
+      };
+    } else if (contactBtn) {
+      contactBtn.style.display = 'none';
+      contactBtn.onclick = null;
+    }
     const editBtn = widget.querySelector('.hrhelper-resume-floating-edit');
     if (editBtn) {
       const onEdit = options && options.onEditClick;
@@ -1095,6 +1154,17 @@
         align-items: stretch;
         gap: 8px;
         margin-top: 8px;
+      }
+      .hrhelper-resume-action-buttons-row {
+        display: flex;
+        flex-direction: row;
+        gap: 8px;
+        align-items: stretch;
+      }
+      .hrhelper-resume-action-buttons-row .hrhelper-resume-action-btn {
+        flex: 1;
+        width: auto;
+        min-width: 0;
         max-width: 320px;
       }
       .hrhelper-resume-action-btn {
@@ -1200,10 +1270,10 @@
 
     const candidatePath = `/api/v1/huntflow/linkedin-applicants/candidate-info/?huntflow_url=${encodeURIComponent(url)}`;
     Promise.all([
-      apiFetch(candidatePath),
+      apiFetch(candidatePath).then((r) => r.json().catch(() => null)),
       fetchStatusMulti(url),
     ]).then(([candidateData, multiData]) => {
-      const info = candidateData && candidateData.success ? candidateData : null;
+      const info = normalizeCandidatePayload(candidateData);
       const vacancies = multiData && multiData.success && multiData.items && multiData.items.length > 0
         ? multiData.items
         : (info ? [buildVacancyFromCandidateInfo(info)] : []);
@@ -1425,10 +1495,10 @@
       }
 
       Promise.all([
-        useCached ? Promise.resolve(state.candidateInfo) : apiFetch(candidatePath),
+        useCached ? Promise.resolve(state.candidateInfo) : apiFetch(candidatePath).then((r) => r.json().catch(() => null)),
         fetchStatusMulti(state.huntflowUrl),
       ]).then(async ([candidateData, multiData]) => {
-        const info = (candidateData && (candidateData.success || candidateData.full_name) ? candidateData : state.candidateInfo) || {};
+        const info = normalizeCandidatePayload(candidateData) || state.candidateInfo || {};
         const candidateInfo = {
           full_name: info.full_name,
           phone: info.phone,
@@ -1472,11 +1542,11 @@
         chrome.storage.local.get({ [RESUME_FLOATING_HIDDEN_KEY]: false }, (data) => {
           if (!data[RESUME_FLOATING_HIDDEN_KEY]) showFloatingWidget(candidateInfo, vacancies, options);
         });
-        if (candidateData && candidateData.success && !useCached) {
+        if (candidateData && !useCached && (normalizeCandidatePayload(candidateData) || candidateData.success)) {
           saveStateToStorage({
             huntflowUrl: state.huntflowUrl,
             saved: true,
-            candidateInfo: candidateData,
+            candidateInfo: normalizeCandidatePayload(candidateData) || candidateData,
             vacancy_name: state.vacancy_name || candidateData.vacancy_name,
           });
         }
@@ -1550,9 +1620,10 @@
   function run() {
     loadResumeFloatingUIState();
     scan();
-    const observer = new MutationObserver(() => {
-      findHuntflowLinks().forEach((link) => processLink(link));
-    });
+    var debouncedProcessLinks = debounce(function () {
+      findHuntflowLinks().forEach(function (link) { processLink(link); });
+    }, (TIMING && TIMING.DEBOUNCE_MUTATION) || 100);
+    const observer = new MutationObserver(function () { debouncedProcessLinks(); });
     if (document.body) {
       observer.observe(document.body, { childList: true, subtree: true });
     } else {
