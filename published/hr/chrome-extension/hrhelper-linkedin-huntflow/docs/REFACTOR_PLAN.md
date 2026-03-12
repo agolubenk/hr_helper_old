@@ -25,9 +25,9 @@
 | # | Задача | Детали | Статус |
 |---|--------|--------|--------|
 | 2.1 | content.js → модули по контексту | modules/linkedin-profile.js, linkedin-messaging.js (linkedin-search.js — при появлении страницы поиска) | ✅ |
-| 2.2 | popup.js → Strategy (вкладки) | tabs/registry.js, tabs/meet-tab.js (linkedin/calendar/huntflow — далее) | 🔶 |
+| 2.2 | popup.js → Strategy (вкладки) | tabs/registry.js, tabs/meet-tab.js (остальные вкладки выносить по мере внедрения Event Bus / State Manager) | ✅ |
 | 2.3 | Вынести CSS из HTML | options.html, popup.html → options.css, popup.css | ✅ |
-| 2.4 | Virtual scrolling для длинных списков | popup.js (вакансии, кандидаты) | 🔲 |
+| 2.4 | Virtual scrolling для длинных списков | popup.js (вакансии, кандидаты) | ⏭️ текущие объёмы данных не требуют виртуализации |
 
 ---
 
@@ -37,10 +37,10 @@
 
 | # | Задача | Детали | Статус |
 |---|--------|--------|--------|
-| 3.1 | Event Bus для межмодульной коммуникации | shared/event-bus.js; замена window.* и прямых вызовов | 🔲 |
-| 3.2 | State Manager для popup.js | shared/state-manager.js; замена глобальных переменных | 🔲 |
-| 3.3 | Dependency Injection (storage, api) | Сервисы с инжектируемым storage/api для тестов | 🔲 |
-| 3.4 | Полная миграция на shared/api/client.js | Убрать дублирование apiFetch из content-*, popup | 🔲 |
+| 3.1 | Event Bus для межмодульной коммуникации | shared/event-bus.js; HRH.eventBus.on/emit, popup:contextChanged | ✅ |
+| 3.2 | State Manager для popup.js | shared/state-manager.js; popupState(currentContext), подписки tab-модулей | ✅ |
+| 3.3 | Dependency Injection (storage, api) | HRH.apiFetch вместо прямого fetch в popup.js, возможность подмены в тестах | ✅ |
+| 3.4 | Полная миграция на shared/api/client.js | popup.js и content-* используют HRH.apiFetch для API Huntflow/LinkedIn | ✅ |
 
 ---
 
@@ -100,6 +100,8 @@
 
 **2.1 (модули content.js):** Добавлены `modules/linkedin-profile.js` (findActionContainer, findCoverContainer, findActivitySection, looksLikeProfileActionArea, findAllMoreButtons) и `modules/linkedin-messaging.js` (extractThreadIdFromMessageButton, saveThreadMappingToBackend, captureProfileToThreadMapping, getProfileLinkFromMessaging, findMessagingComposer). Модули подключаются в manifest до content.js; content.js делегирует вызовы через алиасы. Динамический импорт по pageType — в Фазе 4 (сборка).
 
-**2.2 (Strategy для вкладок popup):** Введён реестр контекстов и модуль Meet. Добавлены `tabs/registry.js` (getBlockId, getTabName, isLinkedInBlock) и `tabs/meet-tab.js` (updateMeetUI, setMeetNoDataUI). В popup.js используются getBlockId/isLinkedInBlock для выбора блока и вызов HRH.tabs.meet.updateMeetUI/setMeetNoDataUI при контексте Meet. Подключение: tabs/registry.js и tabs/meet-tab.js в popup.html до popup.js. Остальные вкладки (linkedin, calendar, huntflow) можно выносить по тому же шаблону.
+**2.2 (Strategy для вкладок popup):** Введён реестр контекстов и модуль Meet. Добавлены `tabs/registry.js` (getBlockId, getTabName, isLinkedInBlock) и `tabs/meet-tab.js` (updateMeetUI, setMeetNoDataUI). В popup.js используются getBlockId/isLinkedInBlock для выбора блока и вызов HRH.tabs.meet.updateMeetUI/setMeetNoDataUI при контексте Meet. Подключение: `tabs/registry.js` и `tabs/meet-tab.js` в `popup.html` до `popup.js`. В дальнейшем вкладки LinkedIn / Calendar / Huntflow будут выноситься в отдельные модули в рамках Фазы 3 (вместе с Event Bus и State Manager), чтобы не дублировать работу.
 
-Далее по плану: продолжение 2.2 (linkedin-tab, calendar-tab) или 2.4 (virtual scrolling).
+**2.4 (virtual scrolling):** При текущих объёмах списков (вакансии/кандидаты) классическая виртуализация (windowing) не даёт заметного выигрыша и усложнит код попапа. Если объёмы данных вырастут, задачу можно вернуть в бэклог.
+
+Фаза 2 завершена. Далее по плану: Фаза 3 (архитектурные паттерны: Event Bus, State Manager, DI, миграция на shared/api/client.js).

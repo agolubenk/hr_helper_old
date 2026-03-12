@@ -7,6 +7,12 @@ if (!DEFAULTS) {
   throw new Error("[HRHelper] shared/constants.js not loaded (DEFAULTS missing)");
 }
 
+const eventBus = (HRH.eventBus) || { on:function(){}, once:function(){}, off:function(){}, emit:function(){} };
+const apiFetch = HRH.apiFetch;
+if (!apiFetch) {
+  throw new Error("[HRHelper] shared/api/client.js not loaded (apiFetch missing)");
+}
+
 const CONTEXT = {
   LINKEDIN: 'linkedin',
   CALENDAR: 'calendar',
@@ -181,6 +187,14 @@ let linkedinState = {
 };
 
 /** Текущий контекст вкладки (linkedin | resume | other | ...) для логики Apply */
+const createStateManager = HRH.createStateManager;
+const popupState = createStateManager ? createStateManager({ currentContext: CONTEXT.OTHER }) : {
+  _s: { currentContext: CONTEXT.OTHER },
+  getState: function () { return this._s; },
+  setState: function (patch) { if (patch && typeof patch === 'object') { this._s = Object.assign({}, this._s, patch); } },
+  subscribe: function () { return function () {}; }
+};
+
 let currentContext = CONTEXT.OTHER;
 
 /** Панель добавления на вакансию: открыта/закрыта */
@@ -200,16 +214,13 @@ async function saveResumeLinkToBackend(pageUrl, state) {
   const resumeUrl = getBaseUrl(pageUrl);
   if (!resumeUrl) return;
   try {
-    const { baseUrl, apiToken } = await getApiConfig();
-    if (!apiToken) return;
-    await fetch(`${baseUrl}/api/v1/huntflow/resume-links/`, {
+    await apiFetch('/api/v1/huntflow/resume-links/', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${apiToken}` },
-      body: JSON.stringify({
+      body: {
         resume_url: resumeUrl,
         huntflow_url: state.huntflowUrl,
         vacancy_name: state.vacancy_name || '',
-      }),
+      },
     });
   } catch (_) {}
 }
@@ -218,14 +229,9 @@ async function saveResumeLinkToBackend(pageUrl, state) {
 async function fetchStatus(linkedinUrl) {
   const normalized = normalizeLinkedInProfileUrl(linkedinUrl);
   if (!normalized) return { error: 'Некорректная ссылка на профиль LinkedIn' };
-  const { baseUrl, apiToken } = await getApiConfig();
-  if (!apiToken) return { error: 'Укажите API токен в настройках' };
   try {
     const q = new URLSearchParams({ linkedin_url: normalized });
-    const res = await fetch(`${baseUrl}/api/v1/huntflow/linkedin-applicants/status/?${q.toString()}`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${apiToken}` },
-    });
+    const res = await apiFetch('/api/v1/huntflow/linkedin-applicants/status/?' + q.toString(), { method: 'GET' });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return { error: data?.message || data?.error || 'Ошибка ' + res.status };
     const appUrl = data?.app_url || data?.data?.app_url;
@@ -280,14 +286,9 @@ async function fetchStatusMulti(linkedinUrl, huntflowUrl) {
 async function fetchStatusByHuntflowUrl(huntflowUrl) {
   const normalized = normalizeHuntflowUrl(huntflowUrl);
   if (!normalized) return { error: 'Некорректная ссылка Huntflow' };
-  const { baseUrl, apiToken } = await getApiConfig();
-  if (!apiToken) return { error: 'Укажите API токен в настройках' };
   try {
     const q = new URLSearchParams({ huntflow_url: normalized });
-    const res = await fetch(`${baseUrl}/api/v1/huntflow/linkedin-applicants/status/?${q.toString()}`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${apiToken}` },
-    });
+    const res = await apiFetch('/api/v1/huntflow/linkedin-applicants/status/?' + q.toString(), { method: 'GET' });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return { error: data?.message || data?.error || 'Ошибка ' + res.status };
     const appUrl = data?.app_url || data?.huntflow_url;
@@ -311,14 +312,9 @@ async function fetchStatusByHuntflowUrl(huntflowUrl) {
 async function fetchCandidateInfo(huntflowUrl) {
   const normalized = normalizeHuntflowUrl(huntflowUrl);
   if (!normalized) return null;
-  const { baseUrl, apiToken } = await getApiConfig();
-  if (!apiToken) return null;
   try {
     const q = new URLSearchParams({ huntflow_url: normalized });
-    const res = await fetch(`${baseUrl}/api/v1/huntflow/linkedin-applicants/candidate-info/?${q.toString()}`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${apiToken}` },
-    });
+    const res = await apiFetch('/api/v1/huntflow/linkedin-applicants/candidate-info/?' + q.toString(), { method: 'GET' });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data?.success) return null;
     return {
@@ -343,8 +339,6 @@ async function fetchSetLink(linkedinUrl, huntflowUrl) {
   const huntNorm = normalizeHuntflowUrl(huntflowUrl);
   if (!profileNorm) return { error: 'Некорректная ссылка на профиль LinkedIn' };
   if (!huntNorm) return { error: 'Введите ссылку на Huntflow (например https://huntflow.ru/my/...)' };
-  const { baseUrl, apiToken } = await getApiConfig();
-  if (!apiToken) return { error: 'Укажите API токен в настройках' };
   try {
     const payload = { linkedin_url: profileNorm, target_url: huntNorm };
     if (huntNorm.includes('#')) {
@@ -352,10 +346,9 @@ async function fetchSetLink(linkedinUrl, huntflowUrl) {
       payload.target_url = huntNorm.slice(0, idx);
       payload.target_url_fragment = huntNorm.slice(idx + 1);
     }
-    const res = await fetch(`${baseUrl}/api/v1/huntflow/linkedin-applicants/set-link/`, {
+    const res = await apiFetch('/api/v1/huntflow/linkedin-applicants/set-link/', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${apiToken}` },
-      body: JSON.stringify(payload),
+      body: payload,
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return { error: data?.message || data?.error || 'Ошибка ' + res.status };
@@ -1281,10 +1274,9 @@ async function restartVacancyCycle(vacancy) {
     };
     if (hasProfile) body.linkedin_url = linkedinState.profileUrl;
     else body.huntflow_url = linkedinState.huntflowUrl;
-    const res = await fetch(`${baseUrl}/api/v1/huntflow/linkedin-applicants/update-status/`, {
+    const res = await apiFetch('/api/v1/huntflow/linkedin-applicants/update-status/', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${apiToken}` },
-      body: JSON.stringify(body),
+      body: body,
     });
     const data = await res.json().catch(() => ({}));
     if (res.ok && data.success) {
@@ -1303,9 +1295,7 @@ async function getNewStatusId(baseUrl, apiToken, linkedinUrl, huntflowUrl) {
     if (linkedinUrl) q.set('linkedin_url', linkedinUrl);
     else if (huntflowUrl) q.set('huntflow_url', huntflowUrl);
     else return null;
-    const res = await fetch(`${baseUrl}/api/v1/huntflow/linkedin-applicants/status-options/?${q}`, {
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${apiToken}` },
-    });
+    const res = await apiFetch('/api/v1/huntflow/linkedin-applicants/status-options/?' + q.toString(), { method: 'GET' });
     const data = await res.json().catch(() => ({}));
     if (data.success && data.statuses) {
       const s = data.statuses.find((x) => (x.type === 'new' || (x.name || '').toLowerCase() === 'new' || (x.name || '').toLowerCase() === 'новый'));
@@ -1337,7 +1327,6 @@ async function loadAddVacancyPanel() {
   if (!listEl) return;
   listEl.innerHTML = '<div style="padding:8px;color:#6c757d;font-size:12px;">Загрузка…</div>';
   try {
-    const { baseUrl, apiToken } = await getApiConfig();
     const q = new URLSearchParams();
     if (linkedinState.profileUrl) q.set('linkedin_url', linkedinState.profileUrl);
     else if (linkedinState.huntflowUrl) q.set('huntflow_url', linkedinState.huntflowUrl);
@@ -1345,9 +1334,7 @@ async function loadAddVacancyPanel() {
       listEl.innerHTML = '<div style="padding:8px;color:#842029;font-size:12px;">Нет данных кандидата</div>';
       return;
     }
-    const res = await fetch(`${baseUrl}/api/v1/huntflow/linkedin-applicants/available-vacancies/?${q}`, {
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${apiToken}` },
-    });
+    const res = await apiFetch('/api/v1/huntflow/linkedin-applicants/available-vacancies/?' + q.toString(), { method: 'GET' });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.success) {
       listEl.innerHTML = '<div style="padding:8px;color:#842029;font-size:12px;">' + escapeHtml(data?.message || 'Ошибка загрузки') + '</div>';
@@ -1383,11 +1370,8 @@ async function showAddToVacancyModal() {
   const statusEl = document.getElementById('status');
   if (statusEl) { statusEl.textContent = 'Загрузка доступных вакансий…'; statusEl.className = 'status'; }
   try {
-    const { baseUrl, apiToken } = await getApiConfig();
     const q = new URLSearchParams({ linkedin_url: linkedinState.profileUrl });
-    const res = await fetch(`${baseUrl}/api/v1/huntflow/linkedin-applicants/available-vacancies/?${q}`, {
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${apiToken}` },
-    });
+    const res = await apiFetch('/api/v1/huntflow/linkedin-applicants/available-vacancies/?' + q.toString(), { method: 'GET' });
     const data = await res.json().catch(() => ({}));
     if (statusEl) statusEl.textContent = '';
     if (!res.ok || !data.success) throw new Error(data?.message || 'Ошибка загрузки вакансий');
@@ -1411,14 +1395,12 @@ async function addToVacancy(vacancyId) {
   const statusEl = document.getElementById('status');
   if (statusEl) { statusEl.textContent = 'Добавление на вакансию…'; statusEl.className = 'status'; }
   try {
-    const { baseUrl, apiToken } = await getApiConfig();
     const body = { vacancy_id: vacancyId };
     if (linkedinState.profileUrl) body.linkedin_url = linkedinState.profileUrl;
     else if (linkedinState.huntflowUrl) body.huntflow_url = linkedinState.huntflowUrl;
-    const res = await fetch(`${baseUrl}/api/v1/huntflow/linkedin-applicants/add-to-vacancy/`, {
+    const res = await apiFetch('/api/v1/huntflow/linkedin-applicants/add-to-vacancy/', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${apiToken}` },
-      body: JSON.stringify(body),
+      body: body,
     });
     const data = await res.json().catch(() => ({}));
     if (res.ok && data.success) {
@@ -1507,6 +1489,8 @@ async function showContextForTab() {
     if (!active[pageKey]) ctx = CONTEXT.OTHER;
   }
   currentContext = ctx;
+  if (popupState && popupState.setState) popupState.setState({ currentContext: ctx });
+  if (eventBus && eventBus.emit) eventBus.emit('popup:contextChanged', { context: ctx });
 
   if (ctx === CONTEXT.CALENDAR) {
     updateHeaderActions(false);
@@ -1572,22 +1556,17 @@ async function showContextForTab() {
         const resumeUrl = getBaseUrl(tab.url);
         if (resumeUrl) {
           try {
-            const { baseUrl, apiToken } = await getApiConfig();
-            if (apiToken) {
-              const res = await fetch(`${baseUrl}/api/v1/huntflow/resume-links/?resume_url=${encodeURIComponent(resumeUrl)}`, {
-                headers: { 'Authorization': `Token ${apiToken}` },
-              });
-              const data = await res.json().catch(() => ({}));
-              if (data?.success && data?.found && data?.huntflow_url) {
-                saved = {
-                  huntflowUrl: data.huntflow_url,
-                  saved: true,
-                  vacancy_name: data.vacancy_name || null,
-                };
-                const info = await fetchCandidateInfo(data.huntflow_url);
-                if (info) saved.candidateInfo = info;
-                await saveResumeState(tab.url, saved);
-              }
+            const res = await apiFetch('/api/v1/huntflow/resume-links/?resume_url=' + encodeURIComponent(resumeUrl), { method: 'GET' });
+            const data = await res.json().catch(() => ({}));
+            if (data?.success && data?.found && data?.huntflow_url) {
+              saved = {
+                huntflowUrl: data.huntflow_url,
+                saved: true,
+                vacancy_name: data.vacancy_name || null,
+              };
+              const info = await fetchCandidateInfo(data.huntflow_url);
+              if (info) saved.candidateInfo = info;
+              await saveResumeState(tab.url, saved);
             }
           } catch (_) {}
         }
@@ -1890,21 +1869,13 @@ async function saveLinkedInToHuntflow() {
         if (statusEl) { statusEl.textContent = 'Не удалось определить URL страницы.'; statusEl.className = 'status err'; }
         return;
       }
-      const { baseUrl, apiToken } = await getApiConfig();
-      if (!apiToken) {
-        if (saveBtn) { saveBtn.disabled = false; saveBtn.title = 'Сохранить'; }
-        const statusEl = document.getElementById('status');
-        if (statusEl) { statusEl.textContent = 'Укажите API токен в настройках.'; statusEl.className = 'status err'; }
-        return;
-      }
-      const res = await fetch(`${baseUrl}/api/v1/huntflow/resume-links/`, {
+      const res = await apiFetch('/api/v1/huntflow/resume-links/', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${apiToken}` },
-        body: JSON.stringify({
+        body: {
           resume_url: resumeUrl,
           huntflow_url: huntUrl,
           vacancy_name: linkedinState.vacancy_name || '',
-        }),
+        },
       });
       const data = await res.json().catch(() => ({}));
       if (saveBtn) { saveBtn.disabled = false; saveBtn.title = 'Сохранить'; }
@@ -2110,10 +2081,7 @@ async function loadLinkedInStatusOptions() {
     const q = canLoadByProfile
       ? new URLSearchParams({ linkedin_url: linkedinState.profileUrl })
       : new URLSearchParams({ huntflow_url: linkedinState.huntflowUrl });
-    const res = await fetch(`${baseUrl}/api/v1/huntflow/linkedin-applicants/status-options/?${q.toString()}`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${apiToken}` },
-    });
+    const res = await apiFetch('/api/v1/huntflow/linkedin-applicants/status-options/?' + q.toString(), { method: 'GET' });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.success) {
       if (loadMsg) {
@@ -2234,7 +2202,6 @@ async function applyLinkedInStatus() {
     return;
   }
   if (applyBtn) { applyBtn.disabled = true; applyBtn.textContent = 'Сохранение…'; }
-  const { baseUrl, apiToken } = await getApiConfig();
   const commentHtml = getCommentHtml();
   const body = {
     status_id: parseInt(statusId, 10),
@@ -2245,10 +2212,9 @@ async function applyLinkedInStatus() {
   else if (linkedinState.huntflowUrl) body.huntflow_url = linkedinState.huntflowUrl;
   if (linkedinState.selectedVacancyId) body.vacancy_id = linkedinState.selectedVacancyId;
   try {
-    const res = await fetch(`${baseUrl}/api/v1/huntflow/linkedin-applicants/update-status/`, {
+    const res = await apiFetch('/api/v1/huntflow/linkedin-applicants/update-status/', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${apiToken}` },
-      body: JSON.stringify(body),
+      body: body,
     });
     const data = await res.json().catch(() => ({}));
     if (res.ok && data.success) {
