@@ -1,0 +1,225 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Чат: ответы на вопросы кандидата — Библиотека ответов{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/enhanced_chat.css' %}">
+<style>
+#chat-messages { max-height: 50vh; overflow-y: auto; }
+.chat-messages-list .message:first-child { margin-top: 0; }
+#chat-messages .message.system-message .message-bubble { width: 65%; max-width: 600px !important; }
+.chat-messages-list .message-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.25rem; }
+.chat-messages-list .message-bubble .btn-copy-answer { opacity: 0.6; padding: 0.2rem 0.45rem; font-size: 0.8rem; }
+.chat-messages-list .message-bubble .btn-copy-answer:hover { opacity: 1; }
+#chat-form .btn-send-message { border-radius: 0.5rem; padding: 0.5rem 1.25rem; font-weight: 500; min-height: 2.75rem; }
+#chat-form .input-group .form-control { border-radius: 0.5rem 0 0 0.5rem; }
+#chat-form .input-group .btn-send-message { border-radius: 0 0.5rem 0.5rem 0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row g-0">
+    <div class="col-12">
+        <div class="card chat-container">
+            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <h6 class="mb-0">Ответы на вопросы кандидата</h6>
+                    <small class="opacity-75">По триггерам подтягиваются блоки из справочника, ИИ отвечает только по ним.</small>
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-clear-history" title="Удалить все сообщения в чате">
+                        <i class="fas fa-trash-alt me-1"></i>Очистить историю
+                    </button>
+                    <a href="{% url 'answer_library:topic_list' %}" class="btn btn-outline-secondary btn-sm">Справочник тем</a>
+                    <a href="{% url 'answer_library:index' %}" class="btn btn-outline-secondary btn-sm">К библиотеке</a>
+                </div>
+            </div>
+            <div class="card-body">
+                {# 1) Кнопка выбора вакансии (активные у пользователя) #}
+                <div class="mb-3">
+                    <label class="form-label small text-muted">Вакансия</label>
+                    <div class="d-flex flex-wrap gap-2" id="vacancy-selector">
+                        <button type="button" class="btn btn-outline-secondary btn-sm vacancy-btn {% if not session.vacancy_id %}active{% endif %}" data-vacancy-id="">
+                            Все вакансии
+                        </button>
+                        {% for v in active_vacancies %}
+                        <button type="button" class="btn btn-outline-secondary btn-sm vacancy-btn {% if session.vacancy_id == v.id %}active{% endif %}" data-vacancy-id="{{ v.id }}">
+                            {{ v.name }}
+                        </button>
+                        {% endfor %}
+                    </div>
+                </div>
+                {# 2) Форма: вопрос кандидата #}
+                <form id="chat-form" class="mb-3">
+                    {% csrf_token %}
+                    <input type="hidden" name="session_id" value="{{ session.id }}">
+                    <input type="hidden" name="vacancy_id" id="vacancy-id-input" value="{{ session.vacancy_id|default:'' }}">
+                    <label class="form-label small text-muted">Вопрос кандидата</label>
+                    <div class="input-group">
+                        <textarea class="form-control" id="message-input" name="message" rows="3" placeholder="Вставьте сюда вопросы кандидата..." required></textarea>
+                        <button type="submit" class="btn btn-primary btn-send-message" id="send-btn" title="Отправить">
+                            <i class="fas fa-paper-plane me-1"></i> Отправить
+                        </button>
+                    </div>
+                </form>
+                {# 3) Чат: последние сообщения сверху, старые снизу #}
+                <div class="chat-messages" id="chat-messages">
+                    <div class="chat-messages-list" id="chat-messages-list">
+                        {% for msg in chat_messages %}
+                        <div class="message {% if msg.role == 'user' %}user-message{% else %}system-message{% endif %}">
+                            <div class="message-avatar">
+                                {% if msg.role == 'user' %}<i class="fas fa-user"></i>
+                                {% else %}<img src="{% static 'img/light.png' %}" alt="AI" class="ai-avatar-image light-theme-logo"><img src="{% static 'img/dark.png' %}" alt="AI" class="ai-avatar-image dark-theme-logo">{% endif %}
+                            </div>
+                            <div class="message-bubble {% if msg.role == 'user' %}user-bubble{% else %}system-bubble{% endif %}">
+                                <div class="message-header">
+                                    <span>{% if msg.role == 'user' %}<strong>Вопросы кандидата</strong>{% else %}<strong>Ответ ИИ</strong>{% endif %}</span>
+                                    <span class="d-flex align-items-center gap-1">
+                                        {% if msg.role == 'assistant' %}
+                                        <button type="button" class="btn btn-sm btn-outline-secondary btn-copy-answer" title="Копировать ответ"><i class="fas fa-copy"></i></button>
+                                        {% endif %}
+                                        <small>{{ msg.created_at|date:"H:i" }}</small>
+                                    </span>
+                                </div>
+                                <div class="message-content">{{ msg.content|linebreaks }}</div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="text-center text-muted py-5 chat-empty-state" id="chat-empty-state">
+                            <i class="fas fa-question-circle" style="font-size: 3rem; opacity: 0.3;"></i>
+                            <p class="mt-3 mb-0">Вставьте выше вопросы кандидата</p>
+                            <small>По словам-триггерам подтянутся темы из справочника, ИИ сформирует ответ</small>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="typing-indicator" id="typing-indicator" style="display: none;">
+                        <div class="message system-message">
+                            <div class="message-avatar"><img src="{% static 'img/light.png' %}" alt="AI" class="ai-avatar-image light-theme-logo"></div>
+                            <div class="message-bubble system-bubble">
+                                <div class="message-content"><span class="loading-spinner me-2"></span>Формирую ответ...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var form = document.getElementById('chat-form');
+    var input = document.getElementById('message-input');
+    var messagesListEl = document.getElementById('chat-messages-list');
+    var chatMessagesEl = document.getElementById('chat-messages');
+    var typingEl = document.getElementById('typing-indicator');
+    var vacancyIdInput = document.getElementById('vacancy-id-input');
+    var sessionId = document.querySelector('input[name="session_id"]').value;
+    var csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    var aiImg = "{% static 'img/light.png' %}";
+
+    // Выбор вакансии: переключаем активную кнопку и скрытое поле
+    document.querySelectorAll('.vacancy-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.vacancy-btn').forEach(function(b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+            vacancyIdInput.value = btn.getAttribute('data-vacancy-id') || '';
+        });
+    });
+
+    // Очистить историю
+    var btnClear = document.getElementById('btn-clear-history');
+    if (btnClear) {
+        btnClear.addEventListener('click', function() {
+            if (!confirm('Удалить всю историю сообщений в чате?')) return;
+            fetch('{% url "answer_library:clear_history" %}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf }
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    var list = document.getElementById('chat-messages-list');
+                    while (list.firstChild) list.removeChild(list.firstChild);
+                    var empty = document.createElement('div');
+                    empty.className = 'text-center text-muted py-5 chat-empty-state';
+                    empty.id = 'chat-empty-state';
+                    empty.innerHTML = '<i class="fas fa-question-circle" style="font-size: 3rem; opacity: 0.3;"></i><p class="mt-3 mb-0">Вставьте выше вопросы кандидата</p><small>По словам-триггерам подтянутся темы из справочника, ИИ сформирует ответ</small>';
+                    list.appendChild(empty);
+                }
+            });
+        });
+    }
+
+    function addMessage(role, content) {
+        var emptyState = document.getElementById('chat-empty-state');
+        if (emptyState) emptyState.remove();
+        var div = document.createElement('div');
+        div.className = 'message ' + (role === 'user' ? 'user-message' : 'system-message');
+        var avatar = document.createElement('div');
+        avatar.className = 'message-avatar';
+        avatar.innerHTML = role === 'user' ? '<i class="fas fa-user"></i>' : '<img src="' + aiImg + '" alt="AI" class="ai-avatar-image light-theme-logo">';
+        var bubble = document.createElement('div');
+        bubble.className = 'message-bubble ' + (role === 'user' ? 'user-bubble' : 'system-bubble');
+        var now = new Date();
+        var timeStr = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+        var copyBtn = role === 'assistant' ? '<button type="button" class="btn btn-sm btn-outline-secondary btn-copy-answer" title="Копировать ответ"><i class="fas fa-copy"></i></button>' : '';
+        bubble.innerHTML = '<div class="message-header"><span><strong>' + (role === 'user' ? 'Вопросы кандидата' : 'Ответ ИИ') + '</strong></span><span class="d-flex align-items-center gap-1">' + copyBtn + '<small>' + timeStr + '</small></span></div><div class="message-content">' + (content || '').replace(/\n/g, '<br>') + '</div>';
+        div.appendChild(avatar);
+        div.appendChild(bubble);
+        messagesListEl.insertBefore(div, messagesListEl.firstChild);
+        chatMessagesEl.scrollTop = 0;
+    }
+
+    messagesListEl.addEventListener('click', function(e) {
+        var btn = e.target.closest('.btn-copy-answer');
+        if (!btn) return;
+        var bubble = btn.closest('.message-bubble');
+        var contentEl = bubble && bubble.querySelector('.message-content');
+        if (!contentEl) return;
+        var text = contentEl.innerText || contentEl.textContent || '';
+        navigator.clipboard.writeText(text).then(function() {
+            var icon = btn.querySelector('i');
+            if (icon) { icon.className = 'fas fa-check'; setTimeout(function() { icon.className = 'fas fa-copy'; }, 1500); }
+        });
+    });
+
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        var text = (input.value || '').trim();
+        if (!text) return;
+        addMessage('user', text);
+        input.value = '';
+        typingEl.style.display = 'block';
+        chatMessagesEl.scrollTop = 0;
+
+        var payload = {
+            session_id: parseInt(sessionId, 10),
+            message: text
+        };
+        var vid = (vacancyIdInput.value || '').trim();
+        if (vid) payload.vacancy_id = parseInt(vid, 10);
+        else payload.vacancy_id = null;
+
+        fetch('{% url "answer_library:send_message" %}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+            body: JSON.stringify(payload)
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            typingEl.style.display = 'none';
+            if (data.success) addMessage('assistant', data.response);
+            else addMessage('assistant', 'Ошибка: ' + (data.error || 'неизвестная'));
+        })
+        .catch(function() {
+            typingEl.style.display = 'none';
+            addMessage('assistant', 'Ошибка соединения с сервером');
+        });
+    });
+});
+</script>
+{% endblock %}

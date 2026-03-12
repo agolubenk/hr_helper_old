@@ -1,0 +1,1643 @@
+{% extends 'common/base.html' %}
+
+{% block title %}Настройки структуры папок - G-данные и автоматизации - HR Helper{% endblock %}
+{% block page_title %}G-данные и автоматизации{% endblock %}
+
+
+{% block content %}
+
+{% csrf_token %}
+
+<!-- Скрытое поле с структурой для JavaScript -->
+<div id="saved-structure" data-structure='{{ settings.folder_structure|escapejs }}' style="display: none;"></div>
+<!-- Скрытое поле с защищёнными листами для JavaScript -->
+<div id="saved-protected-sheets" data-protected-sheets='{{ settings.protected_sheet_names|escapejs }}' style="display: none;"></div>
+
+<div class="row">
+    
+    <!-- Настройки структуры папок -->
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-folder-tree me-2"></i>
+                    Настройки структуры папок
+                </h5>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="openProtectedSheetsModal()">
+                        <i class="fas fa-shield-alt me-1"></i>
+                        Защищённые листы scorecard
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                
+                <!-- СКРИПТ ДЛЯ ОБНОВЛЕНИЯ ПОЛНОГО ПУТИ -->
+                <script>
+                // JavaScript загружен
+                console.log('🚀 JavaScript загружен!');
+                
+                // Функция для обновления полного пути (удалена, т.к. элемент full-path-preview больше не используется)
+                
+                // Функция для показа иерархической структуры в alert
+                function showHierarchyAlert() {
+                    const pathPreview = '{{ path_preview|escapejs }}';
+                    const pathParts = pathPreview.split('/');
+                    
+                    let hierarchyMessage = 'Иерархическая структура папок:\n\n';
+                    pathParts.forEach((part, index) => {
+                        if (part.trim()) {
+                            hierarchyMessage += `${index + 1}. ${part.trim()}`;
+                            if (index < pathParts.length - 1) {
+                                hierarchyMessage += ' /';
+                            }
+                            hierarchyMessage += '\n';
+                        }
+                    });
+                    
+                    hierarchyMessage += '\nПолный путь: G-Drive/' + pathPreview + ' | Scorecard FE.gsheet';
+                    
+                    alert(hierarchyMessage);
+                }
+                
+                // Функция для показа текущей структуры из input-ов
+                function showCurrentHierarchy() {
+                    const pathParts = folderInputs.map(folder => folder.value || '').filter(value => value.trim() !== '');
+                    
+                    let hierarchyMessage = 'Текущая иерархическая структура папок:\n\n';
+                    pathParts.forEach((part, index) => {
+                        hierarchyMessage += `${index + 1}. ${part.trim()}`;
+                        if (index < pathParts.length - 1) {
+                            hierarchyMessage += ' /';
+                        }
+                        hierarchyMessage += '\n';
+                    });
+                    
+                    const fullPath = 'G-Drive/' + pathParts.join('/') + ' | Scorecard FE.gsheet';
+                    hierarchyMessage += '\nПолный путь: ' + fullPath;
+                    
+                    alert(hierarchyMessage);
+                }
+                
+                // Функция для заполнения карточки с иерархической структурой
+                function updateHierarchyCard() {
+                    console.log('🔄 updateHierarchyCard called');
+                    const pathPreview = '{{ path_preview|escapejs }}';
+                    console.log('📋 pathPreview:', pathPreview);
+                    
+                    // Убираем кавычки, если они есть
+                    let cleanPathPreview = pathPreview;
+                    if (cleanPathPreview.startsWith('"') && cleanPathPreview.endsWith('"')) {
+                        cleanPathPreview = cleanPathPreview.slice(1, -1);
+                    }
+                    console.log('📋 cleanPathPreview:', cleanPathPreview);
+                    
+                    // Обновляем текст структуры папок
+                    const hierarchyText = document.getElementById('hierarchy-text');
+                    console.log('📋 hierarchyText element:', hierarchyText);
+                    console.log('📋 hierarchyText current content:', hierarchyText ? hierarchyText.textContent : 'ELEMENT NOT FOUND');
+                    if (hierarchyText) {
+                        hierarchyText.innerHTML = cleanPathPreview;
+                        hierarchyText.style.display = 'block';
+                        hierarchyText.style.visibility = 'visible';
+                        // Принудительно показываем родительские элементы
+                        hierarchyText.parentElement.style.display = 'block';
+                        hierarchyText.parentElement.style.visibility = 'visible';
+                        console.log('✅ hierarchyText updated to:', hierarchyText.innerHTML);
+                    } else {
+                        console.error('❌ hierarchyText element not found');
+                        // Попробуем найти все элементы с id содержащим hierarchy
+                        const allElements = document.querySelectorAll('[id*="hierarchy"]');
+                        console.log('🔍 All elements with hierarchy in id:', allElements);
+                    }
+                    
+                    // Обновляем полный путь
+                    const fullPath = 'G-Drive/' + cleanPathPreview + ' | Scorecard FE.gsheet';
+                    const fullPathElement = document.getElementById('full-hierarchy-path');
+                    console.log('📋 fullPathElement:', fullPathElement);
+                    console.log('📋 fullPathElement current content:', fullPathElement ? fullPathElement.textContent : 'ELEMENT NOT FOUND');
+                    if (fullPathElement) {
+                        fullPathElement.innerHTML = fullPath;
+                        fullPathElement.style.display = 'block';
+                        fullPathElement.style.visibility = 'visible';
+                        // Принудительно показываем родительские элементы
+                        fullPathElement.parentElement.style.display = 'block';
+                        fullPathElement.parentElement.style.visibility = 'visible';
+                        console.log('✅ fullPathElement updated to:', fullPathElement.innerHTML);
+                    } else {
+                        console.error('❌ fullPathElement not found');
+                        // Попробуем найти все элементы с id содержащим full
+                        const allFullElements = document.querySelectorAll('[id*="full"]');
+                        console.log('🔍 All elements with full in id:', allFullElements);
+                    }
+                }
+                
+                // Обновляем при загрузке страницы
+                document.addEventListener('DOMContentLoaded', function() {
+                    console.log('🚀 DOMContentLoaded - starting initialization');
+                    updateHierarchyCard();
+                    console.log('✅ DOMContentLoaded - initialization complete');
+                });
+                </script>
+                
+                <!-- Предварительный просмотр -->
+                <div class="alert alert-info mb-4">
+                    <div class="row">
+                        <!-- Левая колонка: заголовок и путь -->
+                        <div class="col-md-8">
+                            <h6 class="mb-2"><i class="fas fa-eye me-2"></i>Предварительный просмотр структуры папок:</h6>
+                            <code id="path-preview">{{ path_preview }}</code>
+                            <div class="mt-2">
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Каждый элемент в структуре создает отдельную папку. Для комбинирования добавляйте элементы в одной папке.
+                                </small>
+                            </div>
+                        </div>
+                        <!-- Правая колонка: кнопки -->
+                        <div class="col-md-4">
+                            <div class="d-flex flex-column gap-2">
+                                <button type="button" class="btn btn-info btn-sm" onclick="showHierarchyAlert()">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Показать иерархическую структуру
+                                </button>
+                                <button type="button" class="btn btn-outline-info btn-sm" onclick="showCurrentHierarchy()">
+                                    <i class="fas fa-list me-1"></i>
+                                    Показать текущую структуру
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Текущее значение защищённых листов -->
+                <div class="alert alert-secondary mb-4">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="mb-1">
+                                <i class="fas fa-shield-alt me-2"></i>
+                                Листы, которые нельзя удалять из scorecard
+                            </h6>
+                            <div class="text-muted small">
+                                Укажите названия листов (в точности как в Google Sheets) через запятую.
+                            </div>
+                            <div class="mt-2">
+                                <code id="protected-sheets-preview">
+                                    {% if settings.protected_sheet_names %}{{ settings.protected_sheet_names }}{% else %}—{% endif %}
+                                </code>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="openProtectedSheetsModal()">
+                            <i class="fas fa-pen me-1"></i>
+                            Изменить
+                        </button>
+                    </div>
+                </div>
+                
+                
+                <!-- Интерфейс с input-ами и кнопками -->
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-sitemap me-2"></i>Структура папок:</h6>
+                        <div class="mb-2">
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Создайте иерархию папок. Каждый input создает отдельную папку. 
+                                <strong>Можно вводить несколько паттернов в одну строку через пробел или разделители.</strong>
+                            </small>
+                        </div>
+                        <!-- Иерархические input-ы -->
+                        <div style="position: relative; margin-bottom: 2rem;">
+                            <div id="folder-structure" class="border rounded p-3 mb-3" style="padding-bottom: 3rem !important;">
+                                <h6>Структура папок:</h6>
+                                <div id="folder-inputs">
+                                    <!-- Первый обязательный input -->
+                                    <div class="folder-input mb-3 p-3 border rounded bg-light">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <span class="badge bg-primary me-2">📁 G-Drive</span>
+                                            <small class="text-muted">(обязательная)</small>
+                                        </div>
+                                        <div class="input-group">
+                                            <input type="text" class="form-control" id="folder-0" placeholder="Введите название первой папки" value="automations" onclick="selectFolder(0)" oninput="updateFolderValue(0, this.value)">
+                                            <button class="btn btn-outline-warning" type="button" onclick="clearFolder(0)" title="Удалить последний паттерн/слово">
+                                                <i class="fas fa-backspace"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <!-- Здесь будут дополнительные input-ы для каждой папки -->
+                                </div>
+                            </div>
+                            
+                            <!-- Кнопка "Добавить папку" частично заходящая на карточку -->
+                            <div style="position: absolute; bottom: 0; right: 20px; transform: translateY(50%); z-index: 10;">
+                                <button type="button" class="btn btn-outline-info add-folder-btn" onclick="addNewFolder()">
+                                    <i class="fas fa-folder-plus"></i>
+                                    <span class="btn-text ms-2">Добавить папку</span>
+                                </button>
+                            </div>
+                            
+                            <style>
+                                .add-folder-btn {
+                                    border-radius: 50px;
+                                    padding: 0;
+                                    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+                                    transition: all 0.3s ease;
+                                    white-space: nowrap;
+                                    overflow: hidden;
+                                    width: 48px;
+                                    height: 48px;
+                                    background-color: white;
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                }
+                                
+                                .add-folder-btn i.fa-folder-plus {
+                                    font-size: 1.25rem;
+                                    margin: 0;
+                                }
+                                
+                                .add-folder-btn .btn-text {
+                                    display: inline;
+                                    opacity: 0;
+                                    max-width: 0;
+                                    transition: all 0.3s ease;
+                                }
+                                
+                                .add-folder-btn:hover {
+                                    width: auto;
+                                    padding: 12px 20px 12px 16px;
+                                    box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+                                }
+                                
+                                .add-folder-btn:hover .btn-text {
+                                    opacity: 1;
+                                    max-width: 200px;
+                                }
+                                
+                                /* Адаптация для темной темы */
+                                [data-theme="dark"] .add-folder-btn {
+                                    background-color: #2d3748;
+                                    border-color: #0dcaf0;
+                                    color: #0dcaf0;
+                                }
+                                
+                                [data-theme="dark"] .add-folder-btn:hover {
+                                    background-color: #0dcaf0;
+                                    color: #1a202c;
+                                    box-shadow: 0 6px 12px rgba(13, 202, 240, 0.3);
+                                }
+                            </style>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-puzzle-piece me-2"></i>Доступные паттерны:</h6>
+                        <div class="mb-2">
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Нажмите на кнопки, чтобы добавить паттерны в выбранную папку. 
+                                <strong>Паттерны будут добавляться к существующему содержимому!</strong>
+                            </small>
+                        </div>
+                        <div id="available-patterns" class="border rounded p-3 mb-3">
+                            <div class="row g-2">
+                                <!-- Левая колонка: Основные паттерны, Кандидат и Дни недели -->
+                                <div class="col-6">
+                                    <!-- Основные паттерны -->
+                                    <button type="button" class="btn btn-outline-primary w-100 mb-2" onclick="addPatternToCurrentFolder('text', 'текст')">
+                                        <i class="fas fa-t me-1"></i>Текст/Text
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary w-100 mb-2" onclick="addPatternToCurrentFolder('vacancy_title')">
+                                        <i class="fas fa-briefcase me-1"></i>Вакансия
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary w-100 mb-2" onclick="addPatternToCurrentFolder('vacancy_id')">
+                                        <i class="fas fa-hashtag me-1"></i>ID вакансии
+                                    </button>
+                                    
+                                    <!-- Кандидат -->
+                                    <button type="button" class="btn btn-outline-primary w-100 mb-2" onclick="addPatternToCurrentFolder('candidate_last_name')">
+                                        <i class="fas fa-user me-1"></i>Фамилия
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary w-100 mb-2" onclick="addPatternToCurrentFolder('candidate_first_name')">
+                                        <i class="fas fa-user me-1"></i>Имя
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary w-100 mb-2" onclick="addPatternToCurrentFolder('candidate_middle_name')">
+                                        <i class="fas fa-user me-1"></i>Отчество
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary w-100 mb-2" onclick="addPatternToCurrentFolder('candidate_id')">
+                                        <i class="fas fa-id-card me-1"></i>ID кандидата
+                                    </button>
+                                
+                                <!-- Дни недели -->
+                                    <button type="button" class="btn btn-outline-primary w-100 mb-2" onclick="addPatternToCurrentFolder('weekday_short_ru')">
+                                        <i class="fas fa-calendar-week me-1"></i>День недели (ПН)
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary w-100 mb-2" onclick="addPatternToCurrentFolder('weekday_full_ru')">
+                                        <i class="fas fa-calendar-week me-1"></i>День недели (Понедельник)
+                                    </button>
+                                    
+                                    <!-- Номер недели -->
+                                    <button type="button" class="btn btn-outline-primary w-100 mb-2" onclick="addPatternToCurrentFolder('week_short_ru')">
+                                        <i class="fas fa-calendar-week me-1"></i>Неделя (Н42)
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary w-100 mb-2" onclick="addPatternToCurrentFolder('week_full_ru')">
+                                        <i class="fas fa-calendar-week me-1"></i>Неделя (Неделя 42)
+                                    </button>
+ 
+                                    <!-- Год (сокращенный) -->
+                                    <button type="button" class="btn btn-outline-primary w-100 mb-2" onclick="addPatternToCurrentFolder('year_short')">
+                                        <i class="fas fa-calendar me-1"></i>Год (25)
+                                    </button>
+                                </div>
+                                
+                                <!-- Правая колонка: Даты (Дни, Недели (EN), Месяцы, Год) -->
+                                <div class="col-6">
+                                    <!-- Дни -->
+                                    <button type="button" class="btn btn-outline-primary w-100 mb-2" onclick="addPatternToCurrentFolder('day')">
+                                        <i class="fas fa-calendar-day me-1"></i>День (08)
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary w-100 mb-2" onclick="addPatternToCurrentFolder('date')">
+                                        <i class="fas fa-calendar me-1"></i>Дата (08.09.2025)
+                                    </button>
+                                    
+                                    <!-- Месяцы -->
+                                    <button type="button" class="btn btn-outline-primary w-100 mb-2" onclick="addPatternToCurrentFolder('month_num')">
+                                        <i class="fas fa-calendar-alt me-1"></i>Месяц (09)
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary w-100 mb-2" onclick="addPatternToCurrentFolder('month_short_ru')">
+                                        <i class="fas fa-calendar-alt me-1"></i>Месяц (сен)
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary w-100 mb-2" onclick="addPatternToCurrentFolder('month_full_ru')">
+                                        <i class="fas fa-calendar-alt me-1"></i>Месяц (сентябрь)
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary w-100 mb-2" onclick="addPatternToCurrentFolder('month_short_en')">
+                                        <i class="fas fa-calendar-alt me-1"></i>Месяц (Sep)
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary w-100 mb-2" onclick="addPatternToCurrentFolder('month_full_en')">
+                                        <i class="fas fa-calendar-alt me-1"></i>Месяц (September)
+                                    </button>
+                                    
+                                    
+                                    <!-- Дни недели (EN) -->
+                                    <button type="button" class="btn btn-outline-primary w-100 mb-2" onclick="addPatternToCurrentFolder('weekday_short_en')">
+                                        <i class="fas fa-calendar-week me-1"></i>День недели (Mon)
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary w-100 mb-2" onclick="addPatternToCurrentFolder('weekday_full_en')">
+                                        <i class="fas fa-calendar-week me-1"></i>День недели (Monday)
+                                    </button>
+                                    
+                                    <!-- Номер недели (EN) -->
+                                    <button type="button" class="btn btn-outline-primary w-100 mb-2" onclick="addPatternToCurrentFolder('week_short_en')">
+                                        <i class="fas fa-calendar-week me-1"></i>Неделя (W42)
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary w-100 mb-2" onclick="addPatternToCurrentFolder('week_full_en')">
+                                        <i class="fas fa-calendar-week me-1"></i>Неделя (Week 42)
+                                    </button>
+                                    <!-- Год -->
+                                    <button type="button" class="btn btn-outline-primary w-100 mb-2" onclick="addPatternToCurrentFolder('year_full')">
+                                        <i class="fas fa-calendar me-1"></i>Год (2025)
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Дополнительные кнопки -->
+                        <div class="d-flex gap-2 flex-wrap mt-3">
+                            <button type="button" class="btn btn-outline-success w-100 mb-2" onclick="showExampleStructure()">
+                                <i class="fas fa-lightbulb me-1"></i>
+                                Показать пример
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Ряд кнопок действий -->
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <button type="button" class="btn btn-outline-secondary w-100" data-bs-toggle="modal" data-bs-target="#additionalSettingsModal">
+                            <i class="fas fa-cog me-1"></i>
+                            Дополнительные настройки
+                        </button>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-outline-secondary flex-fill" onclick="resetStructure()">
+                                <i class="fas fa-undo me-1"></i>
+                                Сбросить
+                            </button>
+                            <button type="button" class="btn btn-primary flex-fill" onclick="saveStructure()">
+                                <i class="fas fa-save me-1"></i>
+                                Сохранить структуру
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для ввода текста -->
+<div class="modal fade" id="textInputModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Введите текст</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="textInput" class="form-label">Текст для папки:</label>
+                    <input type="text" class="form-control" id="textInput" placeholder="Введите название папки">
+                    <div class="form-text">Не используйте символы: / \ : * ? " < > |</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" onclick="confirmTextInput()">Добавить</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Система с иерархическими input-ами
+let folderInputs = []; // Будет инициализировано из Django контекста
+let selectedFolderIndex = 0; // Выбираем первый input по умолчанию
+// Получаем паттерны из Django контекста
+let availablePatterns = JSON.parse('{{ available_patterns|escapejs }}');
+
+console.log('🚀 Input-based system with selection initialized');
+console.log('📋 Available patterns:', availablePatterns);
+
+// Инициализация системы с input-ами
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 DOM loaded, starting input-based system...');
+    
+    // Инициализируем folderInputs из data-атрибута
+    console.log('🔍 Debug: Loading structure from data attribute...');
+    try {
+        const savedStructureElement = document.getElementById('saved-structure');
+        console.log('📋 savedStructureElement:', savedStructureElement);
+        if (savedStructureElement && savedStructureElement.dataset.structure) {
+            const structureString = savedStructureElement.dataset.structure;
+            console.log('📋 Raw structure string:', structureString);
+            
+            // Заменяем экранированные одинарные кавычки на двойные
+            const jsonString = structureString.replace(/\\u0027/g, '"');
+            console.log('📋 Fixed JSON string:', jsonString);
+            
+            const savedStructure = JSON.parse(jsonString);
+            console.log('📋 Loaded existing structure from data attribute:', savedStructure);
+            
+            // Преобразуем структуру в формат folderInputs
+            folderInputs = savedStructure.map(item => ({
+                type: item.type || 'text',
+                value: item.value || ''
+            }));
+            console.log('📋 Converted to folderInputs:', folderInputs);
+        } else {
+            console.log('📋 No saved structure found, using default');
+            folderInputs = [{type: 'text', value: 'automations'}];
+            console.log('📋 Using default structure (no saved structure)');
+        }
+    } catch (e) {
+        console.error('❌ Error parsing structure from data attribute:', e);
+        folderInputs = [{value: 'automations'}];
+        console.log('📋 Using default structure due to parse error');
+    }
+    
+    // Убеждаемся, что есть хотя бы один input
+    if (folderInputs.length === 0) {
+        folderInputs = [{value: 'automations'}];
+    }
+    
+    // Выбираем первый input
+    selectedFolderIndex = 0;
+    
+    console.log('📋 Final folderInputs before rendering:', folderInputs);
+    renderFolderInputs();
+    updatePreview(); // Добавляем вызов updatePreview для обновления отображения
+    console.log('✅ Input-based system ready');
+});
+
+function initializeDragAndDrop() {
+    console.log('Initializing drag&drop...');
+    
+    // Делаем паттерны перетаскиваемыми
+    const patternItems = document.querySelectorAll('.pattern-item');
+    console.log('Found pattern items:', patternItems.length);
+    
+    patternItems.forEach((item, index) => {
+        item.draggable = true;
+        item.addEventListener('dragstart', handleDragStart);
+        console.log(`Pattern ${index} made draggable`);
+    });
+    
+    // Настраиваем зону сброса
+    const structureZone = document.getElementById('folder-structure');
+    if (structureZone) {
+        structureZone.addEventListener('dragover', handleDragOver);
+        structureZone.addEventListener('drop', handleDrop);
+        structureZone.addEventListener('dragenter', handleDragEnter);
+        structureZone.addEventListener('dragleave', handleDragLeave);
+        console.log('Structure zone configured');
+    } else {
+        console.error('Structure zone not found!');
+    }
+}
+
+function handleDragStart(e) {
+    console.log('Drag start event');
+    const pattern = e.target.closest('.pattern-item');
+    if (!pattern) {
+        console.error('Pattern not found');
+        return;
+    }
+    
+    const data = {
+        type: pattern.dataset.type,
+        label: pattern.dataset.label,
+        example: pattern.dataset.example,
+        inputRequired: pattern.dataset.inputRequired === 'true'
+    };
+    
+    console.log('Dragging pattern:', data);
+    e.dataTransfer.setData('text/plain', JSON.stringify(data));
+    e.dataTransfer.effectAllowed = 'copy';
+}
+
+function handleDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+}
+
+function handleDragEnter(e) {
+    e.preventDefault();
+    e.target.closest('#folder-structure').classList.add('border-primary');
+}
+
+function handleDragLeave(e) {
+    e.preventDefault();
+    e.target.closest('#folder-structure').classList.remove('border-primary');
+}
+
+function handleDrop(e) {
+    console.log('Drop event');
+    e.preventDefault();
+    e.target.closest('#folder-structure').classList.remove('border-primary');
+    
+    try {
+        const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+        console.log('Dropped data:', data);
+        
+        if (data.inputRequired) {
+            console.log('Pattern requires text input');
+            // Показываем модальное окно для ввода текста
+            currentTextInput = data;
+            document.getElementById('textInput').value = '';
+            const modal = new bootstrap.Modal(document.getElementById('textInputModal'));
+            modal.show();
+        } else {
+            console.log('Adding pattern directly');
+            // Добавляем паттерн напрямую
+            addPatternToStructure(data);
+        }
+    } catch (error) {
+        console.error('Error parsing drop data:', error);
+    }
+}
+
+// Обработчики для drag&drop внутри структуры
+function handleStructureDragStart(e) {
+    const index = parseInt(e.target.closest('.structure-item').dataset.index);
+    e.dataTransfer.setData('text/plain', JSON.stringify({
+        type: 'structure-item',
+        index: index
+    }));
+    e.dataTransfer.effectAllowed = 'move';
+    
+    // Добавляем визуальную обратную связь
+    e.target.closest('.structure-item').classList.add('dragging');
+}
+
+function handleStructureDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+}
+
+function handleStructureDrop(e) {
+    e.preventDefault();
+    const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+    
+    // Убираем визуальную обратную связь
+    document.querySelectorAll('.structure-item').forEach(item => {
+        item.classList.remove('dragging', 'border-primary');
+    });
+    
+    if (data.type === 'structure-item') {
+        const targetIndex = parseInt(e.target.closest('.structure-item').dataset.index);
+        const sourceIndex = data.index;
+        
+        if (sourceIndex !== targetIndex) {
+            // Перемещаем элемент
+            const item = currentStructure.splice(sourceIndex, 1)[0];
+            currentStructure.splice(targetIndex, 0, item);
+            renderStructure();
+            updatePreview();
+        }
+    }
+}
+
+function handleStructureDragEnter(e) {
+    e.preventDefault();
+    e.target.closest('.structure-item').classList.add('border-primary');
+}
+
+function handleStructureDragLeave(e) {
+    e.preventDefault();
+    e.target.closest('.structure-item').classList.remove('border-primary');
+}
+
+function confirmTextInput() {
+    const textValue = document.getElementById('textInput').value.trim();
+    
+    if (!textValue) {
+        alert('Пожалуйста, введите текст');
+        return;
+    }
+    
+    // Проверка на недопустимые символы
+    const invalidChars = ['/', '\\', ':', '*', '?', '"', '<', '>', '|'];
+    for (let char of invalidChars) {
+        if (textValue.includes(char)) {
+            alert(`Недопустимый символ "${char}" в тексте`);
+            return;
+        }
+    }
+    
+    // Добавляем паттерн с текстом
+    const pattern = {
+        ...currentTextInput,
+        value: textValue
+    };
+    addPatternToStructure(pattern);
+    
+    // Закрываем модальное окно
+    const modal = bootstrap.Modal.getInstance(document.getElementById('textInputModal'));
+    modal.hide();
+    currentTextInput = null;
+}
+
+function addPatternToStructure(pattern) {
+    console.log('Adding pattern to structure:', pattern);
+    currentStructure.push(pattern);
+    console.log('New structure:', currentStructure);
+    renderStructure();
+    updatePreview();
+}
+
+function removeFromStructure(index) {
+    console.log('🗑️ Removing item at index:', index);
+    currentStructure.splice(index, 1);
+    renderStructure();
+    updatePreview();
+}
+
+function moveUp(index) {
+    if (index > 0) {
+        const item = currentStructure.splice(index, 1)[0];
+        currentStructure.splice(index - 1, 0, item);
+        renderStructure();
+        updatePreview();
+    }
+}
+
+function moveDown(index) {
+    if (index < currentStructure.length - 1) {
+        const item = currentStructure.splice(index, 1)[0];
+        currentStructure.splice(index + 1, 0, item);
+        renderStructure();
+        updatePreview();
+    }
+}
+
+       function renderFolderInputs() {
+           console.log('🎨 Rendering folder inputs...');
+           console.log('📋 folderInputs array:', folderInputs);
+           console.log('📋 folderInputs length:', folderInputs.length);
+           
+           const container = document.getElementById('folder-inputs');
+           if (!container) {
+               console.error('❌ Container not found!');
+               return;
+           }
+           
+           console.log('📋 Rendering', folderInputs.length, 'folder inputs');
+           
+           // Обновляем первый input
+           const firstInput = document.getElementById('folder-0');
+           if (firstInput) {
+               firstInput.value = folderInputs[0].value || 'automations';
+               // Добавляем обработчик изменения
+               firstInput.oninput = function() {
+                   updateFolderValue(0, this.value);
+               };
+           }
+           
+           // Очищаем только дополнительные input-ы, оставляя первый
+           const additionalInputs = container.querySelectorAll('.folder-input:not(:first-child)');
+           additionalInputs.forEach(input => input.remove());
+           
+           // Добавляем дополнительные input-ы (начиная с индекса 1)
+           for (let index = 1; index < folderInputs.length; index++) {
+               const folder = folderInputs[index];
+               console.log('🔧 Rendering additional folder', index, folder);
+               
+               const folderDiv = document.createElement('div');
+               folderDiv.className = 'folder-input mb-3 p-3 border rounded bg-light';
+               folderDiv.style.marginLeft = `${index * 20}px`;
+               
+               const isSelected = selectedFolderIndex === index;
+               
+               // Получаем название родительской папки с преобразованием паттернов в примеры
+               const parentFolder = folderInputs[index - 1];
+               let parentName = getFolderDisplayValue(parentFolder) || `Папка ${index}`;
+               const parentTooltip = (parentFolder.value || `Папка ${index}`).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+               
+               // Если название слишком длинное, обрезаем его
+               if (parentName.length > 30) {
+                   parentName = parentName.substring(0, 30) + '...';
+               }
+               
+               // Экранируем HTML для безопасного отображения
+               const escapedParentName = parentName.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+               
+               folderDiv.innerHTML = `
+                   <div class="d-flex align-items-center mb-2">
+                       <span class="badge ${isSelected ? 'bg-primary' : 'bg-secondary'} me-2" title="Подпапка для: ${parentTooltip}">📁 ${escapedParentName}</span>
+                       <i class="fas fa-trash-alt ms-auto text-danger" onclick="removeFolder(${index})" title="Удалить папку" style="cursor: pointer; font-size: 1.1rem;"></i>
+                   </div>
+                   <div class="input-group mb-2">
+                       <input type="text" class="form-control" id="folder-${index}" placeholder="Введите название папки или используйте кнопки справа" value="${folder.value || ''}" onclick="selectFolder(${index})" oninput="updateFolderValue(${index}, this.value)">
+                       <button class="btn btn-outline-warning" type="button" onclick="clearFolder(${index})" title="Удалить последний паттерн/слово">
+                           <i class="fas fa-backspace"></i>
+                       </button>
+                   </div>
+                   ${isSelected ? '<div class="alert alert-info py-2 mb-0"><small><i class="fas fa-hand-pointer me-1"></i>Эта папка выбрана. Используйте кнопки справа для добавления паттернов.</small></div>' : ''}
+               `;
+               
+               container.appendChild(folderDiv);
+               
+               // Добавляем обработчик изменения для нового input-а
+               const newInput = document.getElementById(`folder-${index}`);
+               if (newInput) {
+                   newInput.oninput = function() {
+                       updateFolderValue(index, this.value);
+                   };
+               }
+           }
+           
+           // Обновляем выделение первого input-а
+           const firstBadge = container.querySelector('.badge');
+           if (firstBadge) {
+               firstBadge.className = selectedFolderIndex === 0 ? 'badge bg-primary me-2' : 'badge bg-secondary me-2';
+           }
+           
+           // Обновляем полный путь в самом верху
+           updateFullPathPreview();
+           
+           console.log('✅ Folder inputs rendered successfully');
+       }
+
+       // Функция для получения примера значения паттерна
+       function getPatternExample(patternType) {
+           const pattern = availablePatterns.find(p => p.type === patternType);
+           return pattern ? pattern.example : patternType;
+       }
+       
+       // Функция для преобразования значения папки в пример
+       function getFolderDisplayValue(folder) {
+           if (!folder.value) return '';
+           
+           let displayValue = folder.value;
+           
+           // Заменяем все паттерны в квадратных скобках на их примеры
+           const patternRegex = /\[([^\]]+)\]/g;
+           displayValue = displayValue.replace(patternRegex, (match, patternType) => {
+               return getPatternExample(patternType);
+           });
+           
+           return displayValue;
+       }
+
+       function updateFullPathPreview() {
+           console.log('🔄 Updating path preview...');
+           console.log('📋 folderInputs:', folderInputs);
+           
+           // Создаем путь из folderInputs с примерами вместо паттернов
+           const pathParts = folderInputs.map(folder => {
+               return getFolderDisplayValue(folder);
+           }).filter(value => value.trim() !== '');
+           
+           const pathPreview = pathParts.join('/');
+           
+           console.log('📋 Path parts:', pathParts);
+           console.log('📋 Path preview:', pathPreview);
+       }
+       
+       // Глобальная функция для обновления полного пути (удалена, т.к. элемент full-path-preview больше не используется)
+       
+       // Функция для обновления карточки с иерархической структурой из API
+       function updateHierarchyCardFromAPI(pathPreview) {
+           console.log('🔄 updateHierarchyCardFromAPI called with pathPreview:', pathPreview);
+           
+           // Обновляем текст структуры папок
+           const hierarchyTextElement = document.getElementById('hierarchy-text');
+           console.log('📋 hierarchyTextElement (API):', hierarchyTextElement);
+           if (hierarchyTextElement) {
+               hierarchyTextElement.textContent = pathPreview;
+               console.log('✅ hierarchyTextElement (API) updated');
+           } else {
+               console.error('❌ hierarchyTextElement (API) not found');
+           }
+           
+           // Обновляем полный путь
+           const fullPath = 'G-Drive/' + pathPreview + ' | Scorecard FE.gsheet';
+           const fullPathElement = document.getElementById('full-hierarchy-path');
+           console.log('📋 fullPathElement (API):', fullPathElement);
+           if (fullPathElement) {
+               fullPathElement.textContent = fullPath;
+               console.log('✅ fullPathElement (API) updated');
+           } else {
+               console.error('❌ fullPathElement (API) not found');
+           }
+       }
+       
+       // Функция для показа текущей иерархической структуры из input-ов
+       function showCurrentHierarchy() {
+           const pathParts = folderInputs.map(folder => folder.value || '').filter(value => value.trim() !== '');
+           
+           let hierarchyMessage = 'Текущая иерархическая структура папок:\n\n';
+           pathParts.forEach((part, index) => {
+               hierarchyMessage += `${index + 1}. ${part.trim()}`;
+               if (index < pathParts.length - 1) {
+                   hierarchyMessage += ' /';
+               }
+               hierarchyMessage += '\n';
+           });
+           
+           const fullPath = 'G-Drive/' + pathParts.join('/') + ' | Scorecard FE.gsheet';
+           hierarchyMessage += '\nПолный путь: ' + fullPath;
+           
+           alert(hierarchyMessage);
+       }
+
+       function updatePreview() {
+           console.log('🔄 updatePreview called - ТОЛЬКО обновление локального предпросмотра');
+           
+           // Просто обновляем локальный предпросмотр без сохранения на сервер
+           updateFullPathPreview();
+       }
+
+function saveStructure() {
+    // Создаем структуру для API из folderInputs
+    const structure = folderInputs.map(folder => {
+        // Если это mixed тип (содержит паттерны в квадратных скобках), сохраняем как mixed
+        if (folder.value && folder.value.includes('[') && folder.value.includes(']')) {
+            return {
+                type: 'mixed',
+                value: folder.value
+            };
+        }
+        // Иначе сохраняем оригинальный тип
+        return {
+            type: folder.type || 'text',
+            value: folder.value || ''
+        };
+    });
+    
+    fetch('{% url "google_oauth:api_scorecard_path_settings" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: JSON.stringify({
+            folder_structure: structure,
+            // Сохраняем также защищённые листы (если они заданы)
+            protected_sheet_names: (document.getElementById('saved-protected-sheets')?.dataset?.protectedSheets || '')
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Структура сохранена успешно!');
+            // Обновляем предварительные просмотры
+            document.getElementById('path-preview').textContent = data.path_preview;
+            updateHierarchyCardFromAPI(data.path_preview);
+            // Также обновляем локальный полный путь
+            updateFullPathPreview();
+        } else {
+            alert('Ошибка сохранения: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Ошибка:', error);
+        alert('Произошла ошибка при сохранении');
+    });
+}
+
+// ====== Защищённые листы (нельзя удалять из scorecard) ======
+function openProtectedSheetsModal() {
+    const el = document.getElementById('saved-protected-sheets');
+    const current = (el?.dataset?.protectedSheets || '').trim();
+    const input = document.getElementById('protectedSheetsInput');
+    if (input) input.value = current;
+    const modalEl = document.getElementById('protectedSheetsModal');
+    if (modalEl && typeof bootstrap !== 'undefined') {
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
+    }
+}
+
+function saveProtectedSheets() {
+    const input = document.getElementById('protectedSheetsInput');
+    const value = (input?.value || '').trim();
+
+    fetch('{% url "google_oauth:api_scorecard_path_settings" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: JSON.stringify({
+            protected_sheet_names: value
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Обновляем скрытое значение и превью
+            const el = document.getElementById('saved-protected-sheets');
+            if (el) el.dataset.protectedSheets = value;
+            const preview = document.getElementById('protected-sheets-preview');
+            if (preview) preview.textContent = value || '—';
+            // Закрываем модалку
+            const modalEl = document.getElementById('protectedSheetsModal');
+            if (modalEl && typeof bootstrap !== 'undefined') {
+                bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+            }
+            alert('Список защищённых листов сохранён!');
+        } else {
+            alert('Ошибка сохранения: ' + (data.message || 'unknown'));
+        }
+    })
+    .catch(error => {
+        console.error('Ошибка:', error);
+        alert('Произошла ошибка при сохранении');
+    });
+}
+
+       function resetStructure() {
+           console.log('🔄 Resetting structure to real example...');
+           // Используем реальную структуру пользователя agolubenkoby@gmail.com
+           folderInputs = [
+               {type: 'text', value: 'automations'},
+               {type: 'vacancy_title', value: ''},
+               {type: 'year_full', value: ''},
+               {type: 'mixed', value: '[day] [month_full_ru]'},
+               {type: 'mixed', value: '[day] [month_full_ru] ([weekday_short_ru])'},
+               {type: 'mixed', value: '[candidate_last_name] [candidate_first_name]'},
+               {type: 'scorecard_title', value: ''}
+           ];
+           selectedFolderIndex = 0; // Выбираем первый input
+           renderFolderInputs();
+           updateFullPathPreview();
+           updatePreview();
+       }
+
+function testAddPattern() {
+    console.log('Testing pattern addition...');
+    const testPattern = {
+        type: 'text',
+        label: 'Произвольный текст',
+        example: 'текст',
+        inputRequired: true,
+        value: 'test-folder'
+    };
+    
+    console.log('Adding test pattern:', testPattern);
+    addPatternToStructure(testPattern);
+}
+
+function showExampleStructure() {
+    console.log('📁 Showing example structure...');
+    
+    // Создаем модальное окно для показа примера
+    const exampleModal = document.createElement('div');
+    exampleModal.className = 'modal fade';
+    exampleModal.id = 'exampleModal';
+    exampleModal.innerHTML = `
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-lightbulb me-2"></i>
+                        Пример структуры папок (из реальных данных)
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Это пример реальной структуры папок. Ваши текущие данные <strong>не изменятся</strong>.
+                    </div>
+                    
+                    <h6><i class="fas fa-folder-tree me-2"></i>Пример структуры:</h6>
+                    <div class="border rounded p-3 mb-3">
+                        <div class="mb-2">
+                            <span class="badge bg-primary me-2">📁 G-Drive</span>
+                            <code>automations</code>
+                            <small class="text-muted ms-2">← кнопка <strong>text</strong> → ввод "automations"</small>
+                        </div>
+                        <div class="mb-2" style="margin-left: 20px;">
+                            <span class="badge bg-secondary me-2">📁 automations</span>
+                            <code>Название вакансии</code>
+                            <small class="text-muted ms-2">← <strong>Вакансия</strong></small>
+                        </div>
+                        <div class="mb-2" style="margin-left: 40px;">
+                            <span class="badge bg-secondary me-2">📁 Название вакансии</span>
+                            <code>2025</code>
+                            <small class="text-muted ms-2">← <strong>Год (2025)</strong></small>
+                        </div>
+                        <div class="mb-2" style="margin-left: 60px;">
+                            <span class="badge bg-secondary me-2">📁 2025</span>
+                            <code>09 сентябрь</code>
+                            <small class="text-muted ms-2">← <strong>Месяц (09)</strong> + <strong>Месяц (сентябрь)</strong></small>
+                        </div>
+                        <div class="mb-2" style="margin-left: 80px;">
+                            <span class="badge bg-secondary me-2">📁 09 сентябрь</span>
+                            <code>09 сентябрь 15 (ПН)</code>
+                            <small class="text-muted ms-2">←<strong> -//- </strong>+<strong>День (15)</strong> + <strong>text</strong> → "("+ <strong>День недели (ПН)</strong> +")"</small>
+                        </div>
+                        <div class="mb-2" style="margin-left: 100px;">
+                            <span class="badge bg-secondary me-2">📁 09 сентябрь 15 (ПН)</span>
+                            <code>Иванов Иван</code><strong> + </strong><code>Заголовок Scorecard</code>
+                            <small class="text-muted ms-2">← <strong>автоматически</strong></small>
+                        </div>
+                    </div>
+                    
+                    <h6><i class="fas fa-link me-2"></i>Итоговый путь:</h6>
+                    <div class="alert alert-success">
+                        <code>automations/Название вакансии/2025/09 сентябрь/09 сентябрь 15 (ПН)/Иванов Иван</code><strong> + </strong><code>Заголовок Scorecard</code>
+                    </div>
+                    
+                    <h6><i class="fas fa-question-circle me-2"></i>Как это работает:</h6>
+                    <ul>
+                        <li><strong>automations</strong> - редактируемая папка (вводится вручную)</li>
+                        <li><strong>Название вакансии</strong> - подставляется из вакансии (авто)</li>
+                        <li><strong>2025</strong> - год интервью (авто)</li>
+                        <li><strong>09 сентябрь</strong> - номер месяца и название месяца интервью (авто)</li>
+                        <li><strong>09 сентябрь 15 (ПН)</strong> - номер месяца, название и день месяца, день недели (авто), скобки вручную</li>
+                        <li><strong>Иванов Иван + Заголовок Scorecard</strong> - фамилия, имя и заголовок scorecard в одной папке (авто)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Добавляем модальное окно в DOM
+    document.body.appendChild(exampleModal);
+    
+    // Показываем модальное окно
+    const modal = new bootstrap.Modal(exampleModal);
+    modal.show();
+    
+    // Удаляем модальное окно после закрытия
+    exampleModal.addEventListener('hidden.bs.modal', function() {
+        document.body.removeChild(exampleModal);
+    });
+}
+
+       function addNewFolder() {
+           console.log('📁 Adding new folder...');
+           folderInputs.push({type: 'text', value: ''});
+           selectedFolderIndex = folderInputs.length - 1; // Выбираем новую папку
+           console.log('📊 New folder added, total folders:', folderInputs.length);
+           console.log('🎯 Selected folder index:', selectedFolderIndex);
+           renderFolderInputs();
+           updateFullPathPreview();
+           updatePreview();
+       }
+
+function selectFolder(index) {
+    console.log('🎯 Selecting folder:', index);
+    selectedFolderIndex = index;
+    // Обновляем только выделение, не пересоздаем поля
+    updateFolderSelection();
+}
+
+// Функция для обновления только выделения папок без пересоздания полей
+function updateFolderSelection() {
+    console.log('🎯 Updating folder selection...');
+    const badges = document.querySelectorAll('.folder-input .badge');
+    const alerts = document.querySelectorAll('.folder-input .alert');
+    
+    badges.forEach((badge, index) => {
+        if (index === selectedFolderIndex) {
+            badge.className = 'badge bg-primary me-2';
+        } else {
+            badge.className = 'badge bg-secondary me-2';
+        }
+    });
+    
+    // Убираем все alert-ы о выборе
+    alerts.forEach(alert => alert.remove());
+    
+    // Добавляем alert только для выбранной папки
+    const selectedFolder = document.querySelectorAll('.folder-input')[selectedFolderIndex];
+    if (selectedFolder && selectedFolderIndex > 0) { // Не показываем alert для первой папки
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-info py-2 mb-0';
+        alertDiv.innerHTML = '<small><i class="fas fa-hand-pointer me-1"></i>Эта папка выбрана. Используйте кнопки справа для добавления паттернов.</small>';
+        
+        const inputGroup = selectedFolder.querySelector('.input-group');
+        if (inputGroup && inputGroup.parentNode) {
+            inputGroup.parentNode.insertBefore(alertDiv, inputGroup.nextSibling);
+        }
+    }
+}
+
+       function updateFolderValue(index, value) {
+           console.log('📝 Updating folder value:', index, value);
+           folderInputs[index].value = value;
+           
+           // Если поле пустое и это текстовое поле, сбрасываем тип
+           if (!value || value.trim() === '') {
+               if (folderInputs[index].type === 'text') {
+                   folderInputs[index].patterns = [];
+               }
+               updateFullPathPreview();
+               updatePreview();
+               // Обновляем badge следующей папки, если она есть
+               updateChildFolderBadge(index);
+               return;
+           }
+           
+           // Если это mixed-тип (содержит паттерны), обновляем массив паттернов
+           if (value.includes('[') && value.includes(']')) {
+               const patterns = [];
+               const patternMatches = value.match(/\[([^\]]+)\]/g);
+               if (patternMatches) {
+                   patternMatches.forEach(match => {
+                       const patternType = getPatternTypeByLabel(match);
+                       if (patternType) {
+                           patterns.push(patternType);
+                       }
+                   });
+               }
+               folderInputs[index].patterns = patterns;
+               folderInputs[index].type = 'mixed'; // Устанавливаем тип как mixed
+           } else if (folderInputs[index].type === 'mixed') {
+               // Если это был mixed-тип, но паттерны исчезли, оставляем как есть
+               // Не меняем тип и паттерны при ручном редактировании
+           }
+           
+           updateFullPathPreview();
+           updatePreview();
+           // Обновляем badge следующей папки, если она есть
+           updateChildFolderBadge(index);
+       }
+       
+       // Функция для обновления badge дочерней папки
+       function updateChildFolderBadge(parentIndex) {
+           const childIndex = parentIndex + 1;
+           if (childIndex >= folderInputs.length) return;
+           
+           // Находим badge дочерней папки
+           const childFolderInputs = document.querySelectorAll('.folder-input');
+           if (childFolderInputs[childIndex]) {
+               const badge = childFolderInputs[childIndex].querySelector('.badge');
+               if (badge) {
+                   const parentFolder = folderInputs[parentIndex];
+                   let parentName = getFolderDisplayValue(parentFolder) || `Папка ${childIndex}`;
+                   const parentTooltip = (parentFolder.value || `Папка ${childIndex}`).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                   
+                   if (parentName.length > 30) {
+                       parentName = parentName.substring(0, 30) + '...';
+                   }
+                   
+                   const escapedParentName = parentName.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                   
+                   badge.innerHTML = `📁 ${escapedParentName}`;
+                   badge.setAttribute('title', `Подпапка для: ${parentTooltip}`);
+               }
+           }
+       }
+       
+       function getPatternTypeByLabel(label) {
+           const patternMapping = {
+               '[Название вакансии]': 'vacancy_title',
+               '[ID вакансии]': 'vacancy_id',
+               '[Год (полный)]': 'year_full',
+               '[Месяц (номер)]': 'month_num',
+               '[Месяц (полное название)]': 'month_full_ru',
+               '[День недели (полное название)]': 'weekday_full_ru',
+               '[День недели (сокращение)]': 'weekday_short_ru',
+               '[Дата]': 'date',
+               '[Фамилия кандидата]': 'candidate_last_name',
+               '[Имя кандидата]': 'candidate_first_name',
+               '[ID кандидата]': 'candidate_id',
+           };
+           return patternMapping[label];
+       }
+
+       function removeFolder(index) {
+           if (index === 0) {
+               alert('Первую папку нельзя удалить!');
+               return;
+           }
+           
+           console.log('🗑️ Removing folder at index:', index);
+           folderInputs.splice(index, 1);
+           
+           // Если удалили выбранную папку, выбираем первую
+           if (selectedFolderIndex === index) {
+               selectedFolderIndex = 0;
+           } else if (selectedFolderIndex > index) {
+               selectedFolderIndex--;
+           }
+           
+           renderFolderInputs();
+           updateFullPathPreview();
+           updatePreview();
+       }
+
+       function clearFolder(index) {
+           console.log('🧹 Removing last pattern from folder at index:', index);
+           
+           const currentValue = folderInputs[index].value || '';
+           
+           // Если поле пустое, ничего не делаем
+           if (!currentValue || currentValue.trim() === '') {
+               console.log('⚠️ Folder is already empty');
+               return;
+           }
+           
+           // Ищем последний паттерн в квадратных скобках [pattern] или последнее слово
+           let newValue = currentValue.trim();
+           
+           // Сначала пробуем удалить последний паттерн в квадратных скобках
+           const patternMatch = newValue.match(/\s*\[[^\]]+\]$/);
+           if (patternMatch) {
+               // Удаляем последний паттерн
+               newValue = newValue.substring(0, newValue.length - patternMatch[0].length).trim();
+               console.log('✅ Removed pattern from end:', patternMatch[0]);
+               
+               // Обновляем массив паттернов
+               if (folderInputs[index].patterns && folderInputs[index].patterns.length > 0) {
+                   folderInputs[index].patterns.pop();
+               }
+           } else {
+               // Если паттернов нет, удаляем последнее слово
+               const words = newValue.split(/\s+/);
+               if (words.length > 1) {
+                   words.pop();
+                   newValue = words.join(' ');
+                   console.log('✅ Removed last word');
+               } else {
+                   // Если это последнее слово, очищаем всё
+                   newValue = '';
+                   console.log('✅ Cleared folder completely');
+               }
+           }
+           
+           // Обновляем значение
+           folderInputs[index].value = newValue;
+           document.getElementById(`folder-${index}`).value = newValue;
+           
+           // Если поле стало пустым, сбрасываем тип
+           if (!newValue) {
+           folderInputs[index].type = 'text';
+               folderInputs[index].patterns = [];
+           } else if (!newValue.includes('[')) {
+               // Если паттернов больше нет, меняем тип на text
+               folderInputs[index].type = 'text';
+               folderInputs[index].patterns = [];
+           }
+           
+           updateFullPathPreview();
+           updatePreview();
+       }
+
+       function addPatternToCurrentFolder(type, value = '') {
+           if (selectedFolderIndex === -1) {
+               alert('Сначала выберите папку или создайте новую!');
+               return;
+           }
+           
+           console.log('➕ Adding pattern to current folder:', selectedFolderIndex, type, value);
+           
+           // Находим паттерн в доступных паттернах
+           const pattern = availablePatterns.find(p => p.type === type);
+           if (!pattern) {
+               console.error('❌ Pattern not found:', type);
+               return;
+           }
+           
+           // Для паттернов (не text) добавляем к существующему значению
+           if (type === 'text') {
+               const currentValue = folderInputs[selectedFolderIndex].value || '';
+               const newValue = currentValue ? `${currentValue} ${value}` : value;
+               folderInputs[selectedFolderIndex].value = newValue;
+               folderInputs[selectedFolderIndex].type = 'text';
+               document.getElementById(`folder-${selectedFolderIndex}`).value = newValue;
+           } else {
+               // Для динамических паттернов добавляем к существующему значению
+               const inputElement = document.getElementById(`folder-${selectedFolderIndex}`);
+               const currentValue = inputElement.value || '';
+               // Используем английское название типа для паттерна в квадратных скобках
+               const patternText = `[${type}]`;
+               const newValue = currentValue ? `${currentValue} ${patternText}` : patternText;
+               
+               // Обновляем структуру данных для поддержки множественных паттернов
+               if (!folderInputs[selectedFolderIndex].patterns) {
+                   folderInputs[selectedFolderIndex].patterns = [];
+               }
+               folderInputs[selectedFolderIndex].patterns.push(type);
+               folderInputs[selectedFolderIndex].value = newValue;
+               folderInputs[selectedFolderIndex].type = 'mixed'; // Устанавливаем тип как mixed
+               inputElement.value = newValue;
+               inputElement.readOnly = false; // Разрешаем редактирование для множественных паттернов
+           }
+           
+           console.log('✅ Pattern added to folder:', folderInputs[selectedFolderIndex]);
+           updateFullPathPreview();
+           updatePreview();
+       }
+
+function addPatternToFolder(folderIndex, type, value = '') {
+    console.log('➕ Adding pattern to folder:', folderIndex, type, value);
+    
+    // Находим паттерн в доступных паттернах
+    const pattern = availablePatterns.find(p => p.type === type);
+    if (!pattern) {
+        console.error('❌ Pattern not found:', type);
+        return;
+    }
+    
+    const inputElement = document.getElementById(`folder-${folderIndex}`);
+    const currentValue = inputElement.value || '';
+    
+    // Для паттернов (не text) добавляем паттерн к существующему значению
+    if (type === 'text') {
+        const newValue = currentValue ? `${currentValue} ${pattern.example}` : pattern.example;
+        folderInputs[folderIndex].value = newValue;
+        folderInputs[folderIndex].type = 'text';
+        inputElement.value = newValue;
+    } else {
+        // Для динамических паттернов добавляем к существующему значению
+        // Используем английское название типа для паттерна в квадратных скобках
+        const patternText = `[${type}]`;
+        const newValue = currentValue ? `${currentValue} ${patternText}` : patternText;
+        
+        // Обновляем структуру данных для поддержки множественных паттернов
+        if (!folderInputs[folderIndex].patterns) {
+            folderInputs[folderIndex].patterns = [];
+        }
+        folderInputs[folderIndex].patterns.push(type);
+        folderInputs[folderIndex].value = newValue;
+        folderInputs[folderIndex].type = 'mixed'; // Устанавливаем тип как mixed
+        inputElement.value = newValue;
+        inputElement.readOnly = false; // Разрешаем редактирование для множественных паттернов
+    }
+    
+    console.log('✅ Pattern added to folder:', folderInputs[folderIndex]);
+    updatePreview();
+}
+
+// Функции для работы с дополнительными настройками
+function enableAllPatterns() {
+    const checkboxes = document.querySelectorAll('#additionalSettingsModal input[type="checkbox"]');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = true;
+    });
+}
+
+function disableAllPatterns() {
+    const checkboxes = document.querySelectorAll('#additionalSettingsModal input[type="checkbox"]');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = false;
+    });
+}
+
+function savePatternSettings() {
+    const patterns = {};
+    const checkboxes = document.querySelectorAll('#additionalSettingsModal input[type="checkbox"]');
+    
+    checkboxes.forEach(checkbox => {
+        const patternId = checkbox.id.replace('pattern-', '');
+        patterns[patternId] = checkbox.checked;
+    });
+    
+    // Сохраняем настройки в localStorage для демонстрации
+    localStorage.setItem('patternSettings', JSON.stringify(patterns));
+    
+    // Показываем уведомление
+    alert('Настройки паттернов сохранены!');
+    
+    // Закрываем модальное окно
+    const modal = bootstrap.Modal.getInstance(document.getElementById('additionalSettingsModal'));
+    modal.hide();
+}
+
+// Загружаем сохраненные настройки при открытии модального окна
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('additionalSettingsModal');
+    if (modal) {
+        modal.addEventListener('show.bs.modal', function() {
+            const savedSettings = localStorage.getItem('patternSettings');
+            if (savedSettings) {
+                const patterns = JSON.parse(savedSettings);
+                Object.keys(patterns).forEach(patternId => {
+                    const checkbox = document.getElementById(`pattern-${patternId}`);
+                    if (checkbox) {
+                        checkbox.checked = patterns[patternId];
+                    }
+                });
+            }
+        });
+    }
+});
+
+</script>
+
+<!-- Модальное окно "Дополнительные настройки" -->
+<div class="modal fade" id="additionalSettingsModal" tabindex="-1" aria-labelledby="additionalSettingsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="additionalSettingsModalLabel">
+                    <i class="fas fa-cog me-2"></i>
+                    Дополнительные настройки
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Настройки замены паттернов -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6><i class="fas fa-exchange-alt me-2"></i>Настройки замены паттернов</h6>
+                        <p class="text-muted">Настройте, какие данные будут использоваться для замены паттернов в структуре папок</p>
+                        
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th width="20%">Паттерн</th>
+                                        <th width="40%">Описание</th>
+                                        <th width="30%">Пример замены</th>
+                                        <th width="10%" class="text-center">Включено</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><code>[GRADE]</code></td>
+                                        <td>Грейд кандидата</td>
+                                        <td><span class="text-success">Senior</span></td>
+                                        <td class="text-center">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" id="pattern-grade" checked>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>[LINK]</code></td>
+                                        <td>Ссылка на кандидата в Huntflow</td>
+                                        <td><span class="text-info">huntflow.ru/.../id/123</span></td>
+                                        <td class="text-center">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" id="pattern-link" checked>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>[NAME]</code></td>
+                                        <td>Имя кандидата</td>
+                                        <td><span class="text-primary">Иван</span></td>
+                                        <td class="text-center">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" id="pattern-name" checked>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>[SONAME]</code></td>
+                                        <td>Фамилия кандидата</td>
+                                        <td><span class="text-primary">Петров</span></td>
+                                        <td class="text-center">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" id="pattern-soname" checked>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>[EMAIL]</code></td>
+                                        <td>Email кандидата</td>
+                                        <td><span class="text-warning">ivan.petrov@email.com</span></td>
+                                        <td class="text-center">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" id="pattern-email" checked>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>[PHONE]</code></td>
+                                        <td>Телефон кандидата</td>
+                                        <td><span class="text-secondary">+7 (999) 123-45-67</span></td>
+                                        <td class="text-center">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" id="pattern-phone">
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>[TELEGRAM]</code></td>
+                                        <td>Telegram кандидата</td>
+                                        <td><span class="text-info">@ivan_petrov</span></td>
+                                        <td class="text-center">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" id="pattern-telegram">
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <div class="d-flex justify-content-between w-100">
+                    <div>
+                        <button type="button" class="btn btn-outline-success me-2" onclick="enableAllPatterns()">
+                            <i class="fas fa-check-double me-1"></i>
+                            Включить все
+                        </button>
+                        <button type="button" class="btn btn-outline-warning me-2" onclick="disableAllPatterns()">
+                            <i class="fas fa-times me-1"></i>
+                            Выключить все
+                        </button>
+                    </div>
+                    <div>
+                        <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Отмена</button>
+                        <button type="button" class="btn btn-primary" onclick="savePatternSettings()">
+                            <i class="fas fa-save me-1"></i>
+                            Сохранить
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно: защищённые листы scorecard -->
+<div class="modal fade" id="protectedSheetsModal" tabindex="-1" aria-labelledby="protectedSheetsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="protectedSheetsModalLabel">
+                    <i class="fas fa-shield-alt me-2"></i>
+                    Защищённые листы scorecard
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-2">
+                    Укажите названия листов (как в Google Sheets) <strong>через запятую</strong>. Эти листы не будут удаляться при обработке scorecard.
+                </div>
+                <div class="mb-2 text-muted small">
+                    Пример: <code>all, score, instructions</code>
+                </div>
+                <textarea class="form-control" id="protectedSheetsInput" rows="3" placeholder="all, score, ..."></textarea>
+                <div class="form-text">
+                    Регистр не важен, пробелы вокруг запятых игнорируются, дубли удаляются.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" onclick="saveProtectedSheets()">
+                    <i class="fas fa-save me-1"></i>
+                    Сохранить
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% load static %}
+<link href="{% static 'css/google-oauth.css' %}" rel="stylesheet">
+{% endblock %}

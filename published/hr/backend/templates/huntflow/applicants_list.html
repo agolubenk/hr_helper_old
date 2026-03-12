@@ -1,0 +1,255 @@
+{% extends 'common/base.html' %}
+
+{% block title %}Кандидаты - Huntflow{% endblock %}
+{% block page_title %}Кандидаты{% endblock %}
+
+
+
+{% block content %}
+<!-- Filters -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <form method="get" class="row g-3">
+                    <div class="col-md-2">
+                        <label for="status" class="form-label">Статус</label>
+                        <select class="form-select" id="status" name="status">
+                            <option value="">Все статусы</option>
+                            {% if statuses %}
+                                {% for status in statuses.items %}
+                                <option value="{{ status.id }}" {% if current_status == status.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ status.name }}
+                                </option>
+                                {% endfor %}
+                            {% endif %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="vacancy" class="form-label">Вакансия</label>
+                        <select class="form-select" id="vacancy" name="vacancy">
+                            <option value="">Все вакансии</option>
+                            {% if vacancies %}
+                                {% for vacancy in vacancies.items %}
+                                <option value="{{ vacancy.id }}" {% if current_vacancy == vacancy.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ vacancy.position|truncatechars:30 }}
+                                </option>
+                                {% endfor %}
+                            {% endif %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="count" class="form-label">Количество</label>
+                        <select class="form-select" id="count" name="count">
+                            <option value="10" {% if current_count == 10 %}selected{% endif %}>10</option>
+                            <option value="30" {% if current_count == 30 %}selected{% endif %}>30</option>
+                            <option value="50" {% if current_count == 50 %}selected{% endif %}>50</option>
+                            <option value="100" {% if current_count == 100 %}selected{% endif %}>100</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="page" class="form-label">Страница</label>
+                        <input type="number" class="form-control" id="page" name="page" 
+                               value="{{ current_page }}" min="1">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">&nbsp;</label>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-filter me-1"></i>
+                                Применить
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">&nbsp;</label>
+                        <div class="d-grid">
+                            <a href="{% url 'huntflow:applicants_list' account_id %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>
+                                Сбросить
+                            </a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Applicants List -->
+{% if applicants %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-users me-2"></i>
+                    Список кандидатов
+                </h5>
+                <span class="badge bg-primary">{{ applicants.total_items|default:0 }} кандидатов</span>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>ФИО</th>
+                                <th>Email</th>
+                                <th>Телефон</th>
+                                <th>Статус</th>
+                                <th>Вакансия</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for applicant in applicants.items %}
+                            <tr>
+                                <td>
+                                    <span class="badge bg-secondary">{{ applicant.id }}</span>
+                                </td>
+                                <td>
+                                    <strong>
+                                        {% if applicant.first_name or applicant.last_name %}
+                                            {{ applicant.first_name|default:"" }} {{ applicant.last_name|default:"" }}
+                                        {% else %}
+                                            Не указано
+                                        {% endif %}
+                                    </strong>
+                                    {% if applicant.middle_name %}
+                                        <br><small class="text-muted">{{ applicant.middle_name }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if applicant.email %}
+                                        <a href="mailto:{{ applicant.email }}" class="text-decoration-none">
+                                            {{ applicant.email }}
+                                        </a>
+                                    {% else %}
+                                        <span class="text-muted">Не указан</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if applicant.phone %}
+                                        <a href="tel:{{ applicant.phone }}" class="text-decoration-none">
+                                            {{ applicant.phone }}
+                                        </a>
+                                    {% else %}
+                                        <span class="text-muted">Не указан</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if applicant.status_info %}
+                                        <span class="badge bg-info">{{ applicant.status_info.name }}</span>
+                                    {% else %}
+                                        <span class="badge bg-light text-dark">Не указан</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if applicant.vacancy_info %}
+                                        <span class="badge bg-primary">{{ applicant.vacancy_info.position|truncatechars:20 }}</span>
+                                    {% else %}
+                                        <span class="badge bg-light text-dark">Не указана</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <a href="{% url 'huntflow:applicant_detail' account_id applicant.id %}" 
+                                           class="btn btn-outline-primary" title="Просмотр">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        {% if applicant.vacancy_info %}
+                                        <a href="{% url 'huntflow:vacancy_detail' account_id applicant.vacancy_info.id %}" 
+                                           class="btn btn-outline-info" title="Вакансия">
+                                            <i class="fas fa-briefcase"></i>
+                                        </a>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Pagination -->
+                {% if applicants.total > current_count %}
+                <nav aria-label="Навигация по страницам">
+                    <ul class="pagination justify-content-center">
+                        {% if current_page > 1 %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ current_page|add:'-1' }}&count={{ current_count }}&status={{ current_status }}&vacancy={{ current_vacancy }}">
+                                <i class="fas fa-chevron-left"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                        
+                        <li class="page-item active">
+                            <span class="page-link">{{ current_page }}</span>
+                        </li>
+                        
+                        {% if current_page < applicants.total|divisibleby:current_count %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ current_page|add:'1' }}&count={{ current_count }}&status={{ current_status }}&vacancy={{ current_vacancy }}">
+                                <i class="fas fa-chevron-right"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body text-center">
+                <i class="fas fa-info-circle fa-3x text-info mb-3"></i>
+                <h4>Кандидаты не найдены</h4>
+                <p class="text-muted">
+                    По заданным критериям кандидаты не найдены.
+                </p>
+                <button type="button" class="btn btn-primary" onclick="refreshApplicants()">
+                    <i class="fas fa-sync-alt me-1"></i>
+                    Обновить
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Debug Info -->
+{% if debug %}
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0">Отладочная информация</h6>
+            </div>
+            <div class="card-body">
+                <pre><code>{{ applicants|pprint }}</code></pre>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function refreshApplicants() {
+    location.reload();
+}
+
+// Автоматическое обновление каждые 5 минут
+setTimeout(function() {
+    location.reload();
+}, 300000);
+</script>
+{% endblock %}
+
+

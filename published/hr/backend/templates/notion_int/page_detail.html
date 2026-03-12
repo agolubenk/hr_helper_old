@@ -1,0 +1,916 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+
+{% block content %}
+{% csrf_token %}
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card notion-card mb-4">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-file-alt me-2"></i>
+                        {{ page.title }}
+                    </h5>
+                    <div class="d-flex gap-2">
+                        <a href="{{ page.url }}" target="_blank" class="btn notion-btn-outline">
+                            <i class="fas fa-external-link-alt me-1"></i>
+                            Открыть в Notion
+                        </a>
+                        <a href="{% url 'notion_int:pages_list' %}" class="btn notion-btn-outline">
+                            <i class="fas fa-arrow-left me-1"></i>
+                            Назад к списку
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Основная информация -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h6 class="text-primary mb-3">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Основная информация
+                        </h6>
+                        
+                        <div class="mb-3">
+                            <strong>ID страницы:</strong>
+                            <span class="badge bg-secondary ms-2">{{ page.page_id|truncatechars:20 }}</span>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <strong>Статус:</strong>
+                            {% if page.status %}
+                            <span class="status-badge status-{{ page.status|lower|slugify|default:'default' }} ms-2">
+                                {{ page.status }}
+                            </span>
+                            {% else %}
+                            <span class="text-muted ms-2">Не указан</span>
+                            {% endif %}
+                        </div>
+                        
+                        {% if page.priority %}
+                        <div class="mb-3">
+                            <strong>Приоритет:</strong>
+                            <span class="priority-badge priority-{{ page.priority|lower|slugify|default:'default' }} ms-2">
+                                {{ page.priority }}
+                            </span>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="mb-3">
+                            <strong>Создано:</strong>
+                            <span class="text-muted ms-2">{{ page.date_created|date:"d.m.Y H:i" }}</span>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <strong>Обновлено:</strong>
+                            <span class="text-muted ms-2">{{ page.date_updated|date:"d.m.Y H:i" }}</span>
+                        </div>
+                        
+                        {% if page.due_date %}
+                        <div class="mb-3">
+                            <strong>Срок выполнения:</strong>
+                            <span class="text-muted ms-2">{{ page.due_date|date:"d.m.Y" }}</span>
+                        </div>
+                        {% endif %}
+                        
+                        {% if page.interviewer %}
+                        <div class="mb-3">
+                            <strong>Интервьюер:</strong>
+                            <span class="text-muted ms-2">
+                                <i class="fas fa-user-tie me-1"></i>
+                                {{ page.interviewer }}
+                            </span>
+                        </div>
+                        {% endif %}
+                        
+                        {% if page.interview_date %}
+                        <div class="mb-3">
+                            <strong>Дата интервью:</strong>
+                            <span class="text-muted ms-2">
+                                <i class="fas fa-calendar-alt me-1"></i>
+                                {{ page.interview_date|date:"d.m.Y H:i" }}
+                            </span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h6 class="text-primary mb-3">
+                            <i class="fas fa-users me-2"></i>
+                            Участники
+                        </h6>
+                        
+                        {% if page.get_assignees_display %}
+                        <div class="mb-3">
+                            <strong>Исполнители:</strong>
+                            <div class="mt-2">
+                                {% for assignee in page.get_assignees_display %}
+                                <span class="badge bg-light text-dark me-1 mb-1">
+                                    <i class="fas fa-user me-1"></i>
+                                    {{ assignee }}
+                                </span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if page.get_tags_display %}
+                        <div class="mb-3">
+                            <strong>Теги:</strong>
+                            <div class="mt-2">
+                                {% for tag in page.get_tags_display %}
+                                <span class="badge bg-info me-1 mb-1">{{ tag }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Содержимое страницы -->
+                {% if parsed_content %}
+                <div class="mb-4">
+                    <h6 class="text-primary mb-3">
+                        <i class="fas fa-align-left me-2"></i>
+                        Содержимое
+                    </h6>
+                    <div class="bg-light p-3 rounded">
+                        {{ parsed_content|safe }}
+                    </div>
+                </div>
+                {% endif %}
+                
+                <!-- Вложения -->
+                <div class="mb-4">
+                    <h6 class="text-primary mb-3">
+                        <i class="fas fa-paperclip me-2"></i>
+                        Вложения
+                    </h6>
+                    
+                    {% if page.get_attachments_display %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Вложения загружены из Notion API ({{ page.get_attachments_display|length }})
+                        </div>
+                        <div class="row">
+                            {% for attachment in page.get_attachments_display %}
+                            <div class="col-md-6 col-lg-4 mb-3">
+                                <div class="card">
+                                    <div class="card-body p-3">
+                                        <div class="d-flex align-items-center">
+                                            {% if attachment.type == 'pdf' %}
+                                                <i class="fas fa-file-pdf text-danger me-2"></i>
+                                            {% elif attachment.type == 'image' %}
+                                                <i class="fas fa-file-image text-info me-2"></i>
+                                            {% elif attachment.type == 'video' %}
+                                                <i class="fas fa-file-video text-warning me-2"></i>
+                                            {% elif attachment.type == 'audio' %}
+                                                <i class="fas fa-file-audio text-success me-2"></i>
+                                            {% else %}
+                                                <i class="fas fa-file me-2 text-muted"></i>
+                                            {% endif %}
+                                            <div class="flex-grow-1">
+                                                <h6 class="card-title mb-1">
+                                                    <a href="{{ attachment.url }}" target="_blank" class="text-decoration-none">
+                                                        {{ attachment.name|truncatechars:30 }}
+                                                    </a>
+                                                </h6>
+                                                {% if attachment.size %}
+                                                <small class="text-muted">
+                                                    {{ attachment.size|filesizeformat }}
+                                                </small>
+                                                {% endif %}
+                                                <br><small class="text-muted">
+                                                    {{ attachment.type|title }}
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="alert alert-light">
+                            <i class="fas fa-info-circle me-2"></i>
+                            У этой страницы нет вложений
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Дополнительные свойства -->
+                {% if page.custom_properties %}
+                <div class="mb-4">
+                    <h6 class="text-primary mb-3">
+                        <i class="fas fa-cogs me-2"></i>
+                        Дополнительные свойства
+                    </h6>
+                    <div class="row">
+                        {% for prop_name, prop_data in page.custom_properties.items %}
+                            {% if prop_data.value %}
+                                <div class="col-md-6 col-lg-4 mb-3">
+                                    <div class="custom-field-item">
+                                        <div class="custom-field-name text-muted small">
+                                            {{ prop_data.name }}
+                                        </div>
+                                        <div class="custom-field-value">
+                                            {% if prop_data.type == 'multi_select' %}
+                                                {% if prop_data.value %}
+                                                    {% for item in prop_data.value %}
+                                                        <span class="badge bg-info me-1 mb-1">{{ item }}</span>
+                                                    {% endfor %}
+                                                {% endif %}
+                                            {% elif prop_data.type == 'url' %}
+                                                <a href="{{ prop_data.value }}" target="_blank" class="text-primary">
+                                                    {{ prop_data.value|truncatechars:50 }}
+                                                </a>
+                                            {% elif prop_data.type == 'date' %}
+                                                <span class="badge bg-warning">{{ prop_data.value|date:"d.m.Y" }}</span>
+                                            {% elif prop_data.type == 'number' %}
+                                                <span class="badge bg-success">{{ prop_data.value }}</span>
+                                            {% elif prop_data.type == 'checkbox' %}
+                                                {% if prop_data.value %}
+                                                    <span class="badge bg-success">Да</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">Нет</span>
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="text-dark">{{ prop_data.value }}</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Комментарии к странице -->
+        {% if page.get_comments_display %}
+        <div class="card notion-card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-comments me-2"></i>
+                    Комментарии ({{ page.get_comments_display|length }})
+                </h5>
+            </div>
+            <div class="card-body">
+                {% for comment in page.get_comments_display %}
+                <div class="comment-item mb-3 p-3 border rounded">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div class="comment-author">
+                            <strong class="text-primary">
+                                <i class="fas fa-user me-1"></i>
+                                {% if comment.author_name %}
+                                    {{ comment.author_name }}
+                                {% elif comment.author %}
+                                    {{ comment.author }}
+                                {% else %}
+                                    Неизвестно
+                                {% endif %}
+                            </strong>
+                            {% if comment.author_email and comment.author_email != comment.author_name %}
+                            <br><small class="text-muted">{{ comment.author_email }}</small>
+                            {% endif %}
+                        </div>
+                        <small class="text-muted">
+                            <i class="fas fa-clock me-1"></i>
+                            {% if comment.formatted_time %}
+                                {{ comment.formatted_time }}
+                            {% elif comment.created_time_dt %}
+                                {{ comment.created_time_dt|date:"d.m.Y H:i" }}
+                            {% elif comment.created_time %}
+                                {{ comment.created_time|date:"d.m.Y H:i" }}
+                            {% else %}
+                                Дата не указана
+                            {% endif %}
+                        </small>
+                    </div>
+                    <div class="comment-text">
+                        {{ comment.text|linebreaks }}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="col-lg-4">
+        <!-- Интеграция с Huntflow -->
+        <div class="card notion-card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-upload me-2"></i>
+                    Интеграция с Huntflow
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if huntflow_accounts %}
+                <div class="mb-3">
+                    <label class="form-label">Выберите аккаунт Huntflow:</label>
+                    <select class="form-select" id="huntflowAccount">
+                        <option value="">-- Выберите аккаунт --</option>
+                        {% for account in huntflow_accounts %}
+                        <option value="{{ account.id }}">{{ account.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn notion-btn" id="transferBtn" onclick="transferToHuntflow()">
+                        <i class="fas fa-upload me-1"></i>
+                        Перенести в Huntflow
+                    </button>
+                </div>
+                {% else %}
+                <div class="text-center py-3">
+                    <i class="fas fa-exclamation-triangle text-warning mb-2" style="font-size: 2rem;"></i>
+                    <p class="text-muted mb-0">Нет настроенных аккаунтов Huntflow</p>
+                    <a href="{% url 'huntflow:settings' %}" class="btn notion-btn-outline btn-sm mt-2">
+                        <i class="fas fa-cog me-1"></i>
+                        Настроить Huntflow
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Метаданные -->
+        <div class="card notion-card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-info me-2"></i>
+                    Метаданные
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="small text-muted">
+                    <div class="mb-2">
+                        <strong>Создано в системе:</strong><br>
+                        {{ page.date_created|date:"d.m.Y H:i" }}
+                    </div>
+                    <div class="mb-2">
+                        <strong>Обновлено в системе:</strong><br>
+                        {{ page.date_updated|date:"d.m.Y H:i" }}
+                    </div>
+                    <div class="mb-2">
+                        <strong>Пользователь:</strong><br>
+                        {{ page.user.username }}
+                    </div>
+                    <div class="mb-2">
+                        <strong>ID страницы:</strong><br>
+                        <code>{{ page.page_id }}</code>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Действия -->
+        <div class="card notion-card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-tools me-2"></i>
+                    Действия
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn notion-btn-outline" onclick="copyPageInfo()">
+                        <i class="fas fa-copy me-1"></i>
+                        Копировать информацию
+                    </button>
+                    <button type="button" class="btn notion-btn-outline" onclick="refreshPage()">
+                        <i class="fas fa-sync me-1"></i>
+                        Обновить данные
+                    </button>
+                    <a href="{% url 'notion_int:pages_list' %}" class="btn notion-btn-outline">
+                        <i class="fas fa-list me-1"></i>
+                        Все страницы
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Стили для содержимого */
+.content-wrapper {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 1.5rem;
+    border: 1px solid #e9ecef;
+}
+
+.content-wrapper h1,
+.content-wrapper h2,
+.content-wrapper h3,
+.content-wrapper h4,
+.content-wrapper h5,
+.content-wrapper h6 {
+    color: #2c3e50;
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.content-wrapper h1:first-child,
+.content-wrapper h2:first-child,
+.content-wrapper h3:first-child {
+    margin-top: 0;
+}
+
+.content-wrapper p {
+    margin-bottom: 1rem;
+    line-height: 1.6;
+}
+
+.content-wrapper ul,
+.content-wrapper ol {
+    margin-bottom: 1rem;
+    padding-left: 1.5rem;
+}
+
+.content-wrapper li {
+    margin-bottom: 0.5rem;
+}
+
+.content-wrapper blockquote {
+    border-left: 4px solid #667eea;
+    padding-left: 1rem;
+    margin: 1rem 0;
+    font-style: italic;
+    color: #6c757d;
+}
+
+.content-wrapper pre {
+    background: #2c3e50;
+    color: #ecf0f1;
+    padding: 1rem;
+    border-radius: 4px;
+    overflow-x: auto;
+    margin: 1rem 0;
+}
+
+.content-wrapper code {
+    background: #f1f2f6;
+    padding: 0.2rem 0.4rem;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9em;
+}
+
+.content-wrapper pre code {
+    background: none;
+    padding: 0;
+}
+
+.content-wrapper img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+    margin: 1rem 0;
+}
+
+.content-wrapper hr {
+    border: none;
+    border-top: 1px solid #e9ecef;
+    margin: 2rem 0;
+}
+
+/* Стили для файловых вложений */
+.file-attachment,
+.video-attachment,
+.audio-attachment,
+.bookmark-attachment,
+.embed-attachment {
+    margin: 1rem 0;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+
+.file-link,
+.bookmark-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #667eea;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.file-link:hover,
+.bookmark-link:hover {
+    color: #5a6fd8;
+    text-decoration: none;
+}
+
+/* Стили для таблиц */
+.table-placeholder {
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 4px;
+    text-align: center;
+    color: #6c757d;
+    border: 1px solid #e9ecef;
+}
+
+/* Стили для callout блоков */
+.callout-block {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem;
+    background: #e3f2fd;
+    border-radius: 8px;
+    border-left: 4px solid #2196f3;
+    margin: 1rem 0;
+}
+
+.callout-icon {
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+.callout-content {
+    flex: 1;
+}
+
+/* Стили для toggle блоков */
+.toggle-block {
+    margin: 1rem 0;
+}
+
+.toggle-block summary {
+    cursor: pointer;
+    padding: 0.5rem;
+    background: #f8f9fa;
+    border-radius: 4px;
+    border: 1px solid #e9ecef;
+    font-weight: 500;
+}
+
+.toggle-block summary:hover {
+    background: #e9ecef;
+}
+
+.toggle-content {
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 0 0 4px 4px;
+    border: 1px solid #e9ecef;
+    border-top: none;
+}
+
+/* Стили для списка вложений */
+.attachments-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.attachment-item {
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    overflow: hidden;
+    transition: all 0.2s ease;
+}
+
+.attachment-item:hover {
+    border-color: #667eea;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+}
+
+.attachment-link {
+    display: block;
+    padding: 1rem;
+    text-decoration: none;
+    color: inherit;
+}
+
+.attachment-link:hover {
+    text-decoration: none;
+    color: inherit;
+}
+
+.attachment-icon {
+    font-size: 1.5rem;
+    width: 2rem;
+    text-align: center;
+}
+
+.attachment-name {
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin-bottom: 0.25rem;
+    color: #2c3e50;
+    word-break: break-word;
+}
+
+.attachment-size {
+    font-size: 0.8rem;
+    margin-bottom: 0.25rem;
+}
+
+.attachment-type {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.attachment-arrow {
+    opacity: 0.5;
+    transition: opacity 0.2s ease;
+}
+
+.attachment-item:hover .attachment-arrow {
+    opacity: 1;
+}
+
+/* Стили для дополнительных полей */
+.custom-field-item {
+    padding: 0.75rem;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border: 1px solid #e9ecef;
+}
+
+.custom-field-name {
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.custom-field-value {
+    font-weight: 600;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    .content-wrapper {
+        padding: 1rem;
+    }
+    
+    .attachment-item {
+        margin-bottom: 0.75rem;
+    }
+    
+    .attachment-link {
+        padding: 0.75rem;
+    }
+    
+    .attachment-icon {
+        font-size: 1.25rem;
+        width: 1.75rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Функция копирования информации о странице
+function copyPageInfo() {
+    const pageInfo = `Страница: {{ page.title }}
+ID: {{ page.page_id }}
+{% if page.status %}Статус: {{ page.status }}{% endif %}
+{% if page.priority %}Приоритет: {{ page.priority }}{% endif %}
+{% if page.due_date %}Срок: {{ page.due_date|date:"d.m.Y H:i" }}{% endif %}
+{% if page.get_assignees_display %}Исполнители: {{ page.get_assignees_display|join:", " }}{% endif %}
+{% if page.get_tags_display %}Теги: {{ page.get_tags_display|join:", " }}{% endif %}
+Ссылка: {{ page.url }}`;
+    
+    navigator.clipboard.writeText(pageInfo).then(() => {
+        showNotification('Информация о странице скопирована в буфер обмена', 'success');
+    }).catch(err => {
+        showNotification('Ошибка копирования: ' + err.message, 'error');
+    });
+}
+
+function transferToHuntflow() {
+    // Проверяем, есть ли данные для переноса (PDF, LinkedIn или rabota.by)
+    const attachments = {{ page.get_attachments_display|length|default:0 }};
+    const content = '{{ page.content|default:""|escapejs }}';
+    
+    // Проверяем, есть ли хотя бы одно поле с данными
+    let hasValidData = false;
+    
+    // Проверяем PDF файлы
+    if (attachments > 0) {
+        hasValidData = true;
+    }
+    
+    // Проверяем LinkedIn или rabota.by ссылки в содержимом
+    if (content.includes('linkedin.com') || content.includes('rabota.by')) {
+        hasValidData = true;
+    }
+    
+    if (!hasValidData) {
+        showNotification('У этой страницы нет PDF файлов, LinkedIn или rabota.by ссылок для переноса', 'warning');
+        return;
+    }
+    
+    // Автоматически выбираем организацию, если она одна
+    const accountSelect = document.getElementById('huntflowAccount');
+    const accounts = accountSelect.querySelectorAll('option[value]');
+    
+    if (accounts.length === 1) {
+        // Если организация одна, автоматически выбираем её
+        accountSelect.value = accounts[0].value;
+        // Загружаем вакансии для выбранной организации
+        loadHuntflowVacancies();
+    }
+    
+    // Показываем модальное окно выбора вакансии
+    $('#huntflowModal').modal('show');
+}
+
+// Функция для подтверждения переноса
+function confirmTransfer() {
+    const accountId = $('#huntflowAccount').val();
+    // Вакансия определяется автоматически по Language через связку Notion ↔ Huntflow
+    const vacancyId = null;
+    
+    if (!accountId) {
+        showNotification('Пожалуйста, выберите организацию', 'warning');
+        return;
+    }
+    
+    // Показываем индикатор загрузки
+    const transferBtn = document.getElementById('transferBtn');
+    const modalTransferBtn = document.querySelector('#huntflowModal .btn-success');
+    const originalText = transferBtn.innerHTML;
+    const modalOriginalText = modalTransferBtn ? modalTransferBtn.innerHTML : '';
+    
+    // Анимация для кнопки в карточке
+    transferBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Переносим...';
+    transferBtn.disabled = true;
+    transferBtn.classList.add('btn-secondary');
+    transferBtn.classList.remove('btn-success');
+    
+    // Анимация для кнопки в модальном окне
+    if (modalTransferBtn) {
+        modalTransferBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Переносим...';
+        modalTransferBtn.disabled = true;
+        modalTransferBtn.classList.add('btn-secondary');
+        modalTransferBtn.classList.remove('btn-success');
+    }
+    
+    // Отправляем запрос
+    fetch('{% url "notion_int:transfer_to_huntflow" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: JSON.stringify({
+            page_id: '{{ page.page_id }}',
+            account_id: accountId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Кандидат успешно перенесен в Huntflow!', 'success');
+            
+            // Восстанавливаем кнопку в карточке при успехе
+            transferBtn.innerHTML = originalText;
+            transferBtn.disabled = false;
+            transferBtn.classList.remove('btn-secondary');
+            transferBtn.classList.add('btn-success');
+            
+            // Закрываем модальное окно с небольшой задержкой, чтобы пользователь увидел уведомление
+            setTimeout(() => {
+                $('#huntflowModal').modal('hide');
+            }, 1500);
+        } else {
+            showNotification('Ошибка переноса: ' + (data.error || 'Неизвестная ошибка'), 'error');
+            
+            // Восстанавливаем кнопки при ошибке
+            transferBtn.innerHTML = originalText;
+            transferBtn.disabled = false;
+            transferBtn.classList.remove('btn-secondary');
+            transferBtn.classList.add('btn-success');
+            
+            if (modalTransferBtn && modalOriginalText) {
+                modalTransferBtn.innerHTML = modalOriginalText;
+                modalTransferBtn.disabled = false;
+                modalTransferBtn.classList.remove('btn-secondary');
+                modalTransferBtn.classList.add('btn-success');
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Ошибка:', error);
+        showNotification('Ошибка при переносе данных: ' + error.message, 'error');
+        
+        // Восстанавливаем кнопки при ошибке
+        transferBtn.innerHTML = originalText;
+        transferBtn.disabled = false;
+        transferBtn.classList.remove('btn-secondary');
+        transferBtn.classList.add('btn-success');
+        
+        if (modalTransferBtn && modalOriginalText) {
+            modalTransferBtn.innerHTML = modalOriginalText;
+            modalTransferBtn.disabled = false;
+            modalTransferBtn.classList.remove('btn-secondary');
+            modalTransferBtn.classList.add('btn-success');
+        }
+    });
+}
+
+// Вакансия определяется автоматически по Language через связку Notion ↔ Huntflow
+// Функция loadHuntflowVacancies больше не нужна
+
+function refreshPage() {
+    const button = event.target;
+    const originalText = button.innerHTML;
+    
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Обновление...';
+    button.disabled = true;
+    
+    // Обновляем страницу
+    setTimeout(() => {
+        window.location.reload();
+    }, 1000);
+}
+
+function showNotification(message, type) {
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type === 'success' ? 'success' : type === 'error' ? 'danger' : 'info'} alert-dismissible fade show position-fixed`;
+    notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    notification.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 5000);
+}
+</script>
+
+<!-- Модальное окно для выбора вакансии Huntflow -->
+<div class="modal fade" id="huntflowModal" tabindex="-1" aria-labelledby="huntflowModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="huntflowModalLabel">
+                    <i class="fas fa-upload me-2"></i>
+                    Перенос в Huntflow
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="huntflowAccount" class="form-label">Организация:</label>
+                    <select class="form-select" id="huntflowAccount">
+                        <option value="">-- Выберите организацию --</option>
+                        {% for account in huntflow_accounts %}
+                        <option value="{{ account.id }}">{{ account.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <div class="alert alert-info mb-3">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Вакансия определится автоматически</strong><br>
+                        Вакансия будет автоматически определена по полю Language из Notion согласно связке Language → Вакансия в настройках.
+                    </div>
+                </div>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Информация:</strong> Кандидат будет создан в Huntflow на основе данных страницы Notion.
+                    {% if page.get_attachments_display %}
+                        <br>Будут обработаны вложения: {{ page.get_attachments_display|length }} файл(ов).
+                    {% endif %}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-success" onclick="confirmTransfer()">
+                    <i class="fas fa-upload me-1"></i>
+                    Перенести в Huntflow
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,586 @@
+{% extends 'common/base.html' %}
+{% load static %}
+{% load reporting_filters %}
+
+{% block title %}Отчеты по интервьюерам - HR Helper{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h2 class="mb-4">
+                <i class="fas fa-user-check me-2"></i>
+                Отчеты по интервьюерам
+            </h2>
+        </div>
+    </div>
+    
+    <!-- Фильтр по датам -->
+    <div class="row mb-4">
+        <div class="col-12 reporting-section">
+            <div class="card">
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <input type="hidden" name="sort" value="{{ sort_by }}">
+                        <div class="col-md-4">
+                            <label for="start_date" class="form-label">Дата начала</label>
+                            <input type="date" name="start_date" id="start_date" class="form-control" value="{{ start_date|date:'Y-m-d' }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="end_date" class="form-label">Дата окончания</label>
+                            <input type="date" name="end_date" id="end_date" class="form-control" value="{{ end_date|date:'Y-m-d' }}">
+                        </div>
+                        <div class="col-md-4 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-filter me-2"></i>
+                                Применить фильтр
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- График по интервьюерам -->
+    <div class="row mb-4">
+        <div class="col-12 reporting-section">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="mb-0">График по интервьюерам</h5>
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="btn-group" role="group" aria-label="Тип данных">
+                                <input type="radio" class="btn-check" name="chartDataType" id="chartDataTypeScreenings" value="screenings" autocomplete="off" checked>
+                                <label class="btn btn-outline-primary btn-sm" for="chartDataTypeScreenings">Скрининги</label>
+                                
+                                <input type="radio" class="btn-check" name="chartDataType" id="chartDataTypeInterviews" value="interviews" autocomplete="off">
+                                <label class="btn btn-outline-primary btn-sm" for="chartDataTypeInterviews">Интервью</label>
+                                
+                                <input type="radio" class="btn-check" name="chartDataType" id="chartDataTypeTotal" value="total" autocomplete="off">
+                                <label class="btn btn-outline-primary btn-sm" for="chartDataTypeTotal">Всего встреч</label>
+                                
+                                <input type="radio" class="btn-check" name="chartDataType" id="chartDataTypeTime" value="time" autocomplete="off">
+                                <label class="btn btn-outline-primary btn-sm" for="chartDataTypeTime">Время</label>
+                            </div>
+                            <button type="button" class="btn btn-success btn-sm" id="saveChartBtn" title="Сохранить график как изображение">
+                                <i class="fas fa-download me-1"></i>
+                                Сохранить график
+                            </button>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label for="chartInterviewerFilter" class="form-label">
+                                <i class="fas fa-filter me-2"></i>
+                                Фильтр по интервьюерам (только для графика)
+                                <span id="selectedCount" class="badge bg-primary ms-2">Все</span>
+                            </label>
+                            <select id="chartInterviewerFilter" class="form-select" multiple size="5" style="min-height: 150px;">
+                                {% for stat in interviewer_stats %}
+                                <option value="{{ stat.interviewer.id }}" selected>
+                                    {{ stat.interviewer.get_full_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted d-block mt-1">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Удерживайте Ctrl (Cmd на Mac) для выбора нескольких интервьюеров
+                            </small>
+                        </div>
+                        <div class="col-md-6 d-flex align-items-end">
+                            <div class="w-100">
+                                <button type="button" class="btn btn-sm btn-outline-secondary me-2" id="selectAllInterviewers">
+                                    <i class="fas fa-check-square me-1"></i>
+                                    Выбрать всех
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="deselectAllInterviewers">
+                                    <i class="fas fa-square me-1"></i>
+                                    Снять выбор
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <canvas id="interviewerChart" height="80"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Общая статистика по интервьюерам -->
+    <div class="row mb-4">
+        <div class="col-12 reporting-section">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Общая статистика по интервьюерам</h5>
+                    <a href="{% url 'reporting:export_interviewers_list_excel' %}?start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}" 
+                       class="btn btn-success btn-sm" id="exportExcelBtn">
+                        <i class="fas fa-file-excel me-1"></i>
+                        Экспорт в Excel
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if interviewer_stats %}
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>
+                                        <a href="?start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}&sort={% if sort_by == 'name_asc' %}name_desc{% else %}name_asc{% endif %}" 
+                                           class="text-decoration-none text-dark d-flex align-items-center justify-content-between">
+                                            <span>Интервьюер</span>
+                                            <span class="ms-2">
+                                                {% if sort_by == 'name_asc' %}
+                                                    <i class="fas fa-sort-up"></i>
+                                                {% elif sort_by == 'name_desc' %}
+                                                    <i class="fas fa-sort-down"></i>
+                                                {% else %}
+                                                    <i class="fas fa-sort text-muted"></i>
+                                                {% endif %}
+                                            </span>
+                                        </a>
+                                    </th>
+                                    <th class="text-center">
+                                        <a href="?start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}&sort={% if sort_by == 'screenings_asc' %}screenings_desc{% else %}screenings_asc{% endif %}" 
+                                           class="text-decoration-none text-dark d-flex align-items-center justify-content-center">
+                                            <span>Кол-во скринингов</span>
+                                            <span class="ms-2">
+                                                {% if sort_by == 'screenings_asc' %}
+                                                    <i class="fas fa-sort-up"></i>
+                                                {% elif sort_by == 'screenings_desc' %}
+                                                    <i class="fas fa-sort-down"></i>
+                                                {% else %}
+                                                    <i class="fas fa-sort text-muted"></i>
+                                                {% endif %}
+                                            </span>
+                                        </a>
+                                    </th>
+                                    <th class="text-center">
+                                        <a href="?start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}&sort={% if sort_by == 'interviews_asc' %}interviews_desc{% else %}interviews_asc{% endif %}" 
+                                           class="text-decoration-none text-dark d-flex align-items-center justify-content-center">
+                                            <span>Кол-во интервью</span>
+                                            <span class="ms-2">
+                                                {% if sort_by == 'interviews_asc' %}
+                                                    <i class="fas fa-sort-up"></i>
+                                                {% elif sort_by == 'interviews_desc' %}
+                                                    <i class="fas fa-sort-down"></i>
+                                                {% else %}
+                                                    <i class="fas fa-sort text-muted"></i>
+                                                {% endif %}
+                                            </span>
+                                        </a>
+                                    </th>
+                                    <th class="text-center">
+                                        <a href="?start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}&sort={% if sort_by == 'time_asc' %}time_desc{% else %}time_asc{% endif %}" 
+                                           class="text-decoration-none text-dark d-flex align-items-center justify-content-center">
+                                            <span>Время</span>
+                                            <span class="ms-2">
+                                                {% if sort_by == 'time_asc' %}
+                                                    <i class="fas fa-sort-up"></i>
+                                                {% elif sort_by == 'time_desc' %}
+                                                    <i class="fas fa-sort-down"></i>
+                                                {% else %}
+                                                    <i class="fas fa-sort text-muted"></i>
+                                                {% endif %}
+                                            </span>
+                                        </a>
+                                    </th>
+                                    <th class="text-center">
+                                        <a href="?start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}&sort={% if sort_by == 'conversion_asc' %}conversion_desc{% else %}conversion_asc{% endif %}" 
+                                           class="text-decoration-none text-dark d-flex align-items-center justify-content-center">
+                                            <span>Конверсия</span>
+                                            <span class="ms-2">
+                                                {% if sort_by == 'conversion_asc' %}
+                                                    <i class="fas fa-sort-up"></i>
+                                                {% elif sort_by == 'conversion_desc' %}
+                                                    <i class="fas fa-sort-down"></i>
+                                                {% else %}
+                                                    <i class="fas fa-sort text-muted"></i>
+                                                {% endif %}
+                                            </span>
+                                        </a>
+                                    </th>
+                                    <th class="text-center">Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for stat in interviewer_stats %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ stat.interviewer.get_full_name }}</strong><br>
+                                        <small class="text-muted">{{ stat.interviewer.email }}</small>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-warning">{{ stat.screenings }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-success">{{ stat.interviews }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <strong>{{ stat.total_time_minutes|format_duration_minutes }}</strong>
+                                    </td>
+                                    <td class="text-center">
+                                        {% if stat.conversion_rate is not None %}
+                                            <span class="badge bg-warning">{{ stat.conversion_rate }}%</span>
+                                        {% else %}
+                                            <span class="text-muted">N/A</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        <a href="{% url 'reporting:interviewer_report' stat.interviewer.id %}?start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}" 
+                                           class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-eye me-1"></i>
+                                            Детали
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        Нет данных за выбранный период
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const canvas = document.getElementById('interviewerChart');
+    if (!canvas) {
+        console.error('Canvas элемент не найден!');
+        return;
+    }
+    
+    // Данные из шаблона
+    const allInterviewerStats = [
+        {% for stat in interviewer_stats %}
+        {
+            id: {{ stat.interviewer.id }},
+            name: '{{ stat.interviewer.get_full_name|escapejs }}',
+            screenings: {{ stat.screenings }},
+            interviews: {{ stat.interviews }},
+            total: {{ stat.screenings|add:stat.interviews }},
+            time: {{ stat.total_time_minutes|default:0 }}
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ];
+    
+    // Функция для обновления счетчика выбранных интервьюеров
+    function updateSelectedCount() {
+        const select = document.getElementById('chartInterviewerFilter');
+        const selectedCount = select.selectedOptions.length;
+        const totalCount = select.options.length;
+        const countBadge = document.getElementById('selectedCount');
+        
+        if (selectedCount === 0 || selectedCount === totalCount) {
+            countBadge.textContent = 'Все';
+            countBadge.className = 'badge bg-primary ms-2';
+        } else {
+            countBadge.textContent = `${selectedCount} из ${totalCount}`;
+            countBadge.className = 'badge bg-info ms-2';
+        }
+    }
+    
+    // Функция для получения отфильтрованных данных
+    function getFilteredStats() {
+        const selectedIds = Array.from(document.getElementById('chartInterviewerFilter').selectedOptions)
+            .map(option => parseInt(option.value));
+        
+        // Если ничего не выбрано, показываем всех
+        if (selectedIds.length === 0) {
+            return allInterviewerStats;
+        }
+        
+        return allInterviewerStats.filter(stat => selectedIds.includes(stat.id));
+    }
+    
+    // Ждем загрузки Chart.js
+    function waitForChart(callback) {
+        if (typeof Chart !== 'undefined') {
+            callback();
+        } else {
+            setTimeout(function() {
+                waitForChart(callback);
+            }, 100);
+        }
+    }
+    
+    waitForChart(function() {
+        console.log('Chart.js загружен, инициализируем график');
+        const ctx = canvas.getContext('2d');
+        
+        let chart = null;
+        
+        function updateChart(dataType) {
+            // Получаем отфильтрованные данные
+            const interviewerStats = getFilteredStats();
+            
+            // Проверяем, есть ли данные
+            if (interviewerStats.length === 0) {
+                console.warn('Нет данных для отображения графика');
+                if (chart) {
+                    chart.destroy();
+                    chart = null;
+                }
+                return;
+            }
+            
+            const labels = interviewerStats.map(stat => stat.name);
+            let datasetData = [];
+            let label = '';
+            let backgroundColor = '';
+            let borderColor = '';
+            let isTimeType = false;
+            
+            switch(dataType) {
+                case 'screenings':
+                    datasetData = interviewerStats.map(stat => stat.screenings);
+                    label = 'Количество скринингов';
+                    backgroundColor = 'rgba(255, 193, 7, 0.5)';
+                    borderColor = 'rgba(255, 193, 7, 1)';
+                    break;
+                case 'interviews':
+                    datasetData = interviewerStats.map(stat => stat.interviews);
+                    label = 'Количество интервью';
+                    backgroundColor = 'rgba(40, 167, 69, 0.5)';
+                    borderColor = 'rgba(40, 167, 69, 1)';
+                    break;
+                case 'total':
+                    datasetData = interviewerStats.map(stat => stat.total);
+                    label = 'Общее количество встреч';
+                    backgroundColor = 'rgba(0, 123, 255, 0.5)';
+                    borderColor = 'rgba(0, 123, 255, 1)';
+                    break;
+                case 'time':
+                    datasetData = interviewerStats.map(stat => parseFloat((stat.time / 60).toFixed(2)));
+                    label = 'Время (часы)';
+                    backgroundColor = 'rgba(108, 117, 125, 0.5)';
+                    borderColor = 'rgba(108, 117, 125, 1)';
+                    isTimeType = true;
+                    break;
+            }
+            
+            // Уничтожаем предыдущий график, если он существует
+            if (chart) {
+                chart.destroy();
+            }
+            
+            // Создаем новый график
+            chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: label,
+                        data: datasetData,
+                        backgroundColor: backgroundColor,
+                        borderColor: borderColor,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let tooltipLabel = context.dataset.label || '';
+                                    if (tooltipLabel) {
+                                        tooltipLabel += ': ';
+                                    }
+                                    if (isTimeType) {
+                                        tooltipLabel += context.parsed.y.toFixed(2) + ' ч';
+                                    } else {
+                                        tooltipLabel += context.parsed.y;
+                                    }
+                                    return tooltipLabel;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    if (isTimeType) {
+                                        return value.toFixed(1) + ' ч';
+                                    }
+                                    return value;
+                                }
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                maxRotation: 45,
+                                minRotation: 45
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Функция для обновления графика с текущим типом данных
+        function refreshChart() {
+            const selectedDataType = document.querySelector('input[name="chartDataType"]:checked');
+            if (selectedDataType) {
+                updateChart(selectedDataType.value);
+            } else {
+                updateChart('screenings');
+            }
+        }
+        
+        // Инициализируем график с данными по умолчанию (скрининги)
+        refreshChart();
+        
+        // Обработчики переключения типа данных
+        document.querySelectorAll('input[name="chartDataType"]').forEach(function(radio) {
+            radio.addEventListener('change', function() {
+                if (this.checked) {
+                    updateChart(this.value);
+                }
+            });
+        });
+        
+        // Обработчик изменения фильтра по интервьюерам
+        document.getElementById('chartInterviewerFilter').addEventListener('change', function() {
+            updateSelectedCount();
+            refreshChart();
+        });
+        
+        // Кнопка "Выбрать всех"
+        document.getElementById('selectAllInterviewers').addEventListener('click', function() {
+            const select = document.getElementById('chartInterviewerFilter');
+            Array.from(select.options).forEach(option => {
+                option.selected = true;
+            });
+            updateSelectedCount();
+            refreshChart();
+        });
+        
+        // Кнопка "Снять выбор"
+        document.getElementById('deselectAllInterviewers').addEventListener('click', function() {
+            const select = document.getElementById('chartInterviewerFilter');
+            Array.from(select.options).forEach(option => {
+                option.selected = false;
+            });
+            updateSelectedCount();
+            refreshChart();
+        });
+        
+        // Инициализируем счетчик при загрузке
+        updateSelectedCount();
+        
+        // Функция сохранения графика как изображения
+        function saveChartAsImage() {
+            if (!chart) {
+                alert('График не загружен');
+                return;
+            }
+            
+            // Создаем временный canvas с высоким разрешением
+            const originalCanvas = chart.canvas;
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            // Увеличиваем разрешение в 2 раза для лучшего качества
+            const scale = 2;
+            tempCanvas.width = originalCanvas.width * scale;
+            tempCanvas.height = originalCanvas.height * scale;
+            
+            // Масштабируем контекст
+            tempCtx.scale(scale, scale);
+            
+            // Копируем стили и фон
+            tempCtx.fillStyle = '#FFFFFF';
+            tempCtx.fillRect(0, 0, originalCanvas.width, originalCanvas.height);
+            
+            // Копируем содержимое графика
+            tempCtx.drawImage(originalCanvas, 0, 0);
+            
+            // Получаем тип данных для имени файла
+            const selectedDataType = document.querySelector('input[name="chartDataType"]:checked');
+            const dataTypeLabel = selectedDataType ? selectedDataType.nextElementSibling.textContent.trim() : 'График';
+            
+            // Создаем имя файла
+            const dateStr = new Date().toISOString().split('T')[0];
+            const fileName = `График_интервьюеров_${dataTypeLabel}_${dateStr}.png`;
+            
+            // Скачиваем изображение
+            tempCanvas.toBlob(function(blob) {
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = fileName;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            }, 'image/png');
+        }
+        
+        // Обработчик кнопки сохранения графика
+        document.getElementById('saveChartBtn').addEventListener('click', saveChartAsImage);
+        
+        // Обновляем URL экспорта в Excel с учетом фильтров
+        function updateExportExcelUrl() {
+            const exportBtn = document.getElementById('exportExcelBtn');
+            if (!exportBtn) return;
+            
+            const baseUrl = exportBtn.href.split('?')[0];
+            const startDate = '{{ start_date|date:"Y-m-d" }}';
+            const endDate = '{{ end_date|date:"Y-m-d" }}';
+            
+            // Получаем выбранные интервьюеры
+            const selectedIds = Array.from(document.getElementById('chartInterviewerFilter').selectedOptions)
+                .map(option => option.value);
+            
+            // Получаем выбранный тип данных
+            const selectedDataType = document.querySelector('input[name="chartDataType"]:checked');
+            const dataType = selectedDataType ? selectedDataType.value : 'screenings';
+            
+            // Формируем URL с параметрами
+            let url = `${baseUrl}?start_date=${startDate}&end_date=${endDate}&chart_data_type=${dataType}`;
+            
+            if (selectedIds.length > 0 && selectedIds.length < document.getElementById('chartInterviewerFilter').options.length) {
+                url += `&interviewer_ids=${selectedIds.join(',')}`;
+            }
+            
+            exportBtn.href = url;
+        }
+        
+        // Обновляем URL при изменении фильтров
+        document.getElementById('chartInterviewerFilter').addEventListener('change', function() {
+            updateExportExcelUrl();
+        });
+        
+        document.querySelectorAll('input[name="chartDataType"]').forEach(function(radio) {
+            radio.addEventListener('change', function() {
+                updateExportExcelUrl();
+            });
+        });
+        
+        // Инициализируем URL при загрузке
+        updateExportExcelUrl();
+    });
+});
+</script>
+{% endblock %}
+

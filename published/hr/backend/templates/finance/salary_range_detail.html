@@ -1,0 +1,397 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Зарплатная вилка: {{ salary_range.vacancy.name }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/finance.css' %}">
+<style>
+.salary-detail-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-24);
+    margin-bottom: var(--space-16);
+}
+
+.salary-header {
+    display: flex;
+    justify-content: between;
+    align-items: flex-start;
+    margin-bottom: var(--space-20);
+    padding-bottom: var(--space-16);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.salary-amounts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--space-16);
+    margin-bottom: var(--space-20);
+}
+
+.salary-amount-card {
+    background: var(--color-background);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    padding: var(--space-16);
+    text-align: center;
+    transition: all var(--duration-normal) var(--ease-standard);
+}
+
+.salary-amount-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.currency-code {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-4);
+    text-transform: uppercase;
+    font-weight: 500;
+}
+
+.currency-amount {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-text);
+    margin-bottom: var(--space-4);
+}
+
+.currency-label {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: var(--space-16);
+    margin-bottom: var(--space-20);
+}
+
+.info-item {
+    background: var(--color-background);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    padding: var(--space-12);
+}
+
+.info-label {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-4);
+}
+
+.info-value {
+    font-size: 1.125rem;
+    font-weight: 500;
+    color: var(--color-text);
+}
+
+.currency-usd { color: var(--color-success); }
+.currency-byn { color: var(--color-info); }
+.currency-pln { color: var(--color-warning); }
+.currency-eur { color: var(--color-primary); }
+
+[data-theme="dark"] .salary-detail-card {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .salary-amount-card {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .salary-amount-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .info-item {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <!-- Хлебные крошки -->
+            <nav aria-label="breadcrumb" class="mb-4">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'finance:dashboard' %}">Финансы</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'finance:salary_ranges_list' %}">Зарплатные вилки</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">{{ salary_range.vacancy.name }}</li>
+                </ol>
+            </nav>
+
+            <!-- Заголовок -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="h3 mb-1">Детали зарплатной вилки</h1>
+                    <p class="text-muted mb-0">{{ salary_range.vacancy.name }} - {{ salary_range.grade.name }}</p>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-outline-primary" onclick="editSalaryRange({{ salary_range.pk }})">
+                        <i class="fas fa-edit me-2"></i>Редактировать
+                    </button>
+                    <button class="btn btn-outline-danger" onclick="deleteSalaryRange({{ salary_range.pk }})">
+                        <i class="fas fa-trash me-2"></i>Удалить
+                    </button>
+                    <a href="{% url 'finance:salary_ranges_list' %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Назад к списку
+                    </a>
+                </div>
+            </div>
+
+            <!-- Основная информация -->
+            <div class="salary-detail-card">
+                <div class="salary-header">
+                    <div>
+                        <h2 class="h4 mb-2">{{ salary_range.vacancy.name }}</h2>
+                        <p class="text-muted mb-0">{{ salary_range.grade.name }}</p>
+                    </div>
+                </div>
+
+                <!-- Суммы в разных валютах -->
+                <div class="salary-amounts">
+                    {% if salary_range.salary_min_usd and salary_range.salary_max_usd %}
+                    <div class="salary-amount-card">
+                        <div class="currency-code currency-usd">USD</div>
+                        <div class="currency-amount currency-usd">{{ salary_range.salary_range_usd }}</div>
+                        <div class="currency-label">Доллары США</div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if salary_range.salary_min_byn and salary_range.salary_max_byn %}
+                    <div class="salary-amount-card">
+                        <div class="currency-code currency-byn">BYN</div>
+                        <div class="currency-amount currency-byn">{{ salary_range.salary_range_byn }}</div>
+                        <div class="currency-label">Белорусские рубли</div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if salary_range.salary_min_pln and salary_range.salary_max_pln %}
+                    <div class="salary-amount-card">
+                        <div class="currency-code currency-pln">PLN</div>
+                        <div class="currency-amount currency-pln">{{ salary_range.salary_range_pln }}</div>
+                        <div class="currency-label">Польские злотые</div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if salary_range.salary_min_eur and salary_range.salary_max_eur %}
+                    <div class="salary-amount-card">
+                        <div class="currency-code currency-eur">EUR</div>
+                        <div class="currency-amount currency-eur">{{ salary_range.salary_range_eur }}</div>
+                        <div class="currency-label">Евро</div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Детальная информация -->
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">Статус</div>
+                        <div class="info-value">
+                            {% if salary_range.is_active %}
+                                <span class="badge bg-success">
+                                    <i class="fas fa-check me-1"></i>Активна
+                                </span>
+                            {% else %}
+                                <span class="badge bg-secondary">
+                                    <i class="fas fa-pause me-1"></i>Неактивна
+                                </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="info-item">
+                        <div class="info-label">Дата создания</div>
+                        <div class="info-value">
+                            <i class="fas fa-calendar me-2"></i>{{ salary_range.created_at|date:"d.m.Y H:i" }}
+                        </div>
+                    </div>
+                    
+                    <div class="info-item">
+                        <div class="info-label">Последнее обновление</div>
+                        <div class="info-value">
+                            <i class="fas fa-clock me-2"></i>{{ salary_range.updated_at|date:"d.m.Y H:i" }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Связанная информация -->
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="salary-detail-card">
+                        <h5 class="mb-3">
+                            <i class="fas fa-briefcase me-2"></i>Информация о вакансии
+                        </h5>
+                        <div class="info-item">
+                            <div class="info-label">Название</div>
+                            <div class="info-value">{{ salary_range.vacancy.name }}</div>
+                        </div>
+                        {% if salary_range.vacancy.description %}
+                        <div class="info-item mt-3">
+                            <div class="info-label">Описание</div>
+                            <div class="info-value">{{ salary_range.vacancy.description|truncatechars:200 }}</div>
+                        </div>
+                        {% endif %}
+                        <div class="info-item mt-3">
+                            <div class="info-label">Статус вакансии</div>
+                            <div class="info-value">
+                                {% if salary_range.vacancy.is_active %}
+                                    <span class="badge bg-success">Активна</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Неактивна</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="salary-detail-card">
+                        <h5 class="mb-3">
+                            <i class="fas fa-star me-2"></i>Информация о грейде
+                        </h5>
+                        <div class="info-item">
+                            <div class="info-label">Название</div>
+                            <div class="info-value">{{ salary_range.grade.name }}</div>
+                        </div>
+                        <div class="info-item mt-3">
+                            <div class="info-label">Количество зарплатных вилок</div>
+                            <div class="info-value">
+                                {{ salary_range.grade.salaryranges.count }} вилок
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Детальная таблица сумм -->
+            <div class="salary-detail-card">
+                <h5 class="mb-3">
+                    <i class="fas fa-table me-2"></i>Детальная таблица сумм
+                </h5>
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Валюта</th>
+                                <th>Минимальная сумма</th>
+                                <th>Максимальная сумма</th>
+                                <th>Диапазон</th>
+                                <th>Статус</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if salary_range.salary_min_usd and salary_range.salary_max_usd %}
+                            <tr>
+                                <td><span class="badge bg-success">USD</span></td>
+                                <td class="currency-usd">{{ salary_range.salary_min_usd|floatformat:2 }} USD</td>
+                                <td class="currency-usd">{{ salary_range.salary_max_usd|floatformat:2 }} USD</td>
+                                <td class="currency-usd">{{ salary_range.salary_max_usd|floatformat:2 }} - {{ salary_range.salary_min_usd|floatformat:2 }} USD</td>
+                                <td><span class="badge bg-success">Базовая</span></td>
+                            </tr>
+                            {% endif %}
+                            
+                            {% if salary_range.salary_min_byn and salary_range.salary_max_byn %}
+                            <tr>
+                                <td><span class="badge bg-info">BYN</span></td>
+                                <td class="currency-byn">{{ salary_range.salary_min_byn|floatformat:2 }} BYN</td>
+                                <td class="currency-byn">{{ salary_range.salary_max_byn|floatformat:2 }} BYN</td>
+                                <td class="currency-byn">{{ salary_range.salary_max_byn|floatformat:2 }} - {{ salary_range.salary_min_byn|floatformat:2 }} BYN</td>
+                                <td><span class="badge bg-info">Рассчитано</span></td>
+                            </tr>
+                            {% endif %}
+                            
+                            {% if salary_range.salary_min_pln and salary_range.salary_max_pln %}
+                            <tr>
+                                <td><span class="badge bg-warning">PLN</span></td>
+                                <td class="currency-pln">{{ salary_range.salary_min_pln|floatformat:2 }} PLN</td>
+                                <td class="currency-pln">{{ salary_range.salary_max_pln|floatformat:2 }} PLN</td>
+                                <td class="currency-pln">{{ salary_range.salary_max_pln|floatformat:2 }} - {{ salary_range.salary_min_pln|floatformat:2 }} PLN</td>
+                                <td><span class="badge bg-warning">Рассчитано</span></td>
+                            </tr>
+                            {% endif %}
+                            
+                            {% if salary_range.salary_min_eur and salary_range.salary_max_eur %}
+                            <tr>
+                                <td><span class="badge bg-primary">EUR</span></td>
+                                <td class="currency-eur">{{ salary_range.salary_min_eur|floatformat:2 }} EUR</td>
+                                <td class="currency-eur">{{ salary_range.salary_max_eur|floatformat:2 }} EUR</td>
+                                <td class="currency-eur">{{ salary_range.salary_max_eur|floatformat:2 }} - {{ salary_range.salary_min_eur|floatformat:2 }} EUR</td>
+                                <td><span class="badge bg-primary">Рассчитано</span></td>
+                            </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Функции для редактирования и удаления
+function editSalaryRange(id) {
+    // Переходим на страницу редактирования
+    window.location.href = `/finance/salary-ranges/${id}/edit/`;
+}
+
+function deleteSalaryRange(id) {
+    if (confirm('Вы уверены, что хотите удалить эту зарплатную вилку?')) {
+        fetch(`/finance/salary-ranges/${id}/delete/`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                showAlert('success', result.message);
+                setTimeout(() => {
+                    window.location.href = '{% url "finance:salary_ranges_list" %}';
+                }, 1500);
+            } else {
+                showAlert('error', result.message);
+            }
+        })
+        .catch(error => {
+            showAlert('error', 'Ошибка при удалении зарплатной вилки');
+        });
+    }
+}
+
+// Функция показа уведомлений
+function showAlert(type, message) {
+    const alertClass = type === 'success' ? 'alert-success' : 
+                      type === 'error' ? 'alert-danger' : 'alert-info';
+    
+    const alert = document.createElement('div');
+    alert.className = `alert ${alertClass} alert-dismissible fade show position-fixed`;
+    alert.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alert.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(alert);
+    
+    setTimeout(() => {
+        if (alert.parentNode) {
+            alert.parentNode.removeChild(alert);
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}

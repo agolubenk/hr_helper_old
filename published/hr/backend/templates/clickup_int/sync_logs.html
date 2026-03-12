@@ -1,0 +1,161 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card clickup-card mb-4">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-history me-2"></i>
+                        Логи синхронизации
+                    </h5>
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'clickup_int:dashboard' %}" class="btn clickup-btn-outline">
+                            <i class="fas fa-arrow-left me-1"></i>
+                            Назад к дашборду
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if page_obj %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Дата и время</th>
+                                    <th>Статус</th>
+                                    <th>Обработано</th>
+                                    <th>Создано</th>
+                                    <th>Обновлено</th>
+                                    <th>Длительность</th>
+                                    <th>Ошибка</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in page_obj %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <i class="fas fa-clock me-2 text-muted"></i>
+                                            {{ log.created_at|date:"d.m.Y H:i:s" }}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="sync-status sync-{{ log.status }}"></span>
+                                        <span class="badge 
+                                            {% if log.status == 'success' %}bg-success
+                                            {% elif log.status == 'error' %}bg-danger
+                                            {% elif log.status == 'partial' %}bg-warning
+                                            {% else %}bg-secondary{% endif %}">
+                                            {{ log.get_status_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">{{ log.tasks_processed }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-success">{{ log.tasks_created }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-primary">{{ log.tasks_updated }}</span>
+                                    </td>
+                                    <td>
+                                        {% if log.sync_duration %}
+                                            <span class="text-muted">{{ log.sync_duration|floatformat:2 }}с</span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if log.error_message %}
+                                            <button class="btn btn-sm btn-outline-danger" 
+                                                    data-bs-toggle="tooltip" 
+                                                    title="{{ log.error_message }}">
+                                                <i class="fas fa-exclamation-triangle"></i>
+                                            </button>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Пагинация -->
+                    {% if page_obj.has_other_pages %}
+                    <nav aria-label="Пагинация логов">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page=1">
+                                        <i class="fas fa-angle-double-left"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                                        <i class="fas fa-angle-left"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+                            
+                            <li class="page-item active">
+                                <span class="page-link">
+                                    {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}
+                                </span>
+                            </li>
+                            
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                                        <i class="fas fa-angle-right"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">
+                                        <i class="fas fa-angle-double-right"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-history text-muted mb-3" style="font-size: 3rem;"></i>
+                        <h5>Логи синхронизации не найдены</h5>
+                        <p class="text-muted">Выполните первую синхронизацию для создания логов</p>
+                        <a href="{% url 'clickup_int:dashboard' %}" class="btn clickup-btn">
+                            <i class="fas fa-sync me-1"></i>
+                            Синхронизировать
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Инициализация tooltips
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+// Тема инициализируется в базовом шаблоне
+</script>
+{% endblock %}
+
+
+
+
+

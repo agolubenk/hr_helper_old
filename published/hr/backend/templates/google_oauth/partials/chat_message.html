@@ -1,0 +1,288 @@
+{# templates/google_oauth/partials/chat_message.html #}
+{% load static %}
+
+<div class="message mb-3 
+    {% if message.message_type == 'user' %}user-message
+    {% elif message.message_type == 'hrscreening' %}system-message hr-screening-message
+    {% elif message.message_type == 'invite' %}system-message invite-message
+    {% elif message.message_type == 'delete' %}system-message delete-message
+    {% elif message.metadata.action_type == 'add_candidate' %}system-message add-candidate-message
+    {% else %}system-message{% endif %}">
+    
+    <div class="d-flex {% if message.message_type == 'user' %}justify-content-end{% else %}justify-content-start{% endif %} align-items-end">
+        
+        {% if message.message_type == 'user' %}
+            {# Сообщение пользователя #}
+            <div class="message-bubble user-bubble">
+                <div class="message-header">
+                    <strong>Вы</strong>
+                    <small class="text-muted ms-2">{{ message.created_at|date:"d.m.Y H:i" }}</small>
+                </div>
+                <div class="message-content user-content">{{ message.content|linebreaks }}</div>
+            </div>
+            <div class="message-avatar">
+                {% if user.photo_url %}
+                    <img src="{{ user.photo_url }}" alt="User" class="avatar-image">
+                {% else %}
+                    <i class="fas fa-user"></i>
+                {% endif %}
+            </div>
+            
+        {% elif message.message_type == 'hrscreening' %}
+            {# HR-скрининг #}
+            <div class="message-avatar me-2" style="margin-bottom: -18px; position: relative; z-index: 100;">
+                <img src="{% static 'img/light.png' %}" alt="HR Helper" class="ai-avatar-image light-theme-logo">
+                <img src="{% static 'img/dark.png' %}" alt="HR Helper" class="ai-avatar-image dark-theme-logo">
+            </div>
+            <div class="message-bubble system-bubble" style="margin-left: -26px;">
+                <div class="message-header">
+                    <i class="fas fa-clipboard-list me-1"></i>
+                    <strong>HR-скрининг</strong>
+                    <small class="text-muted ms-2">{{ message.created_at|date:"d.m.Y H:i" }}</small>
+                </div>
+                <div class="message-content bot-content-fixed">
+                    <div class="message-body-with-buttons">
+                        <div class="message-info">
+                            <div class="candidate-info-table">
+                                {% if message.metadata.candidate_name %}
+                                <div class="info-row-table">
+                                    <span class="info-label-table">Кандидат:</span>
+                                    <span class="info-value-table">{{ message.metadata.candidate_name }}</span>
+                                </div>
+                                {% endif %}
+                                {% if message.metadata.vacancy_name %}
+                                <div class="info-row-table">
+                                    <span class="info-label-table">Вакансия:</span>
+                                    <span class="info-value-table">{{ message.metadata.vacancy_name }}</span>
+                                </div>
+                                {% endif %}
+                                {% if message.metadata.extracted_salary %}
+                                <div class="info-row-table">
+                                    <span class="info-label-table">Зарплата:</span>
+                                    <span class="info-value-table">{{ message.metadata.extracted_salary }}{% if message.metadata.salary_currency %} {{ message.metadata.salary_currency }}{% endif %}</span>
+                                </div>
+                                {% endif %}
+                                {% if message.metadata.determined_grade %}
+                                <div class="info-row-table">
+                                    <span class="info-label-table">Уровень:</span>
+                                    <span class="grade-badge-inline">{{ message.metadata.determined_grade }}</span>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="status-message-compact">
+                                <i class="fas fa-check-circle me-1"></i>
+                                Данные сохранены и переданы в Huntflow
+                            </div>
+                        </div>
+                        {% if message.metadata %}
+                        <div class="action-buttons-right">
+                            {% if message.metadata.candidate_url %}
+                            <a href="{{ message.metadata.candidate_url }}" target="_blank" class="btn btn-sm btn-outline-primary" title="Открыть в Huntflow">
+                                <i class="fas fa-external-link-alt"></i>
+                            </a>
+                            {% endif %}
+                            {% if message.metadata.finance_more_template_message %}
+                            <button type="button" class="btn btn-sm btn-outline-danger copy-finance-more-template-btn" 
+                                    data-template-message="{{ message.metadata.finance_more_template_message|escapejs }}" 
+                                    data-template-title="{% if message.metadata.finance_more_template_title %}{{ message.metadata.finance_more_template_title|escapejs }}{% endif %}"
+                                    title="Скопировать шаблон отказа 'Финансы - больше'">
+                                <i class="fas fa-times"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+        {% elif message.message_type == 'invite' %}
+            {# Приглашение #}
+            <div class="message-avatar me-2" style="margin-bottom: -18px; position: relative; z-index: 100;">
+                <img src="{% static 'img/light.png' %}" alt="HR Helper" class="ai-avatar-image light-theme-logo">
+                <img src="{% static 'img/dark.png' %}" alt="HR Helper" class="ai-avatar-image dark-theme-logo">
+            </div>
+            <div class="message-bubble system-bubble" style="margin-left: -26px;">
+                <div class="message-header">
+                    <i class="fas fa-calendar-plus me-1"></i>
+                    <strong>Инвайт</strong>
+                    <small class="text-muted ms-2">{{ message.created_at|date:"d.m.Y H:i" }}</small>
+                </div>
+                <div class="message-content bot-content-fixed">
+                    <div class="message-body-with-buttons">
+                        <div class="message-info">
+                            <div class="candidate-info-table">
+                                {% if message.metadata.candidate_name %}
+                                <div class="info-row-table">
+                                    <span class="info-label-table">Кандидат:</span>
+                                    <span class="info-value-table">{{ message.metadata.candidate_name }}</span>
+                                </div>
+                                {% endif %}
+                                {% if message.metadata.vacancy_name %}
+                                <div class="info-row-table">
+                                    <span class="info-label-table">Вакансия:</span>
+                                    <span class="info-value-table">{{ message.metadata.vacancy_name }}</span>
+                                </div>
+                                {% endif %}
+                                {% if message.metadata.determined_grade %}
+                                <div class="info-row-table">
+                                    <span class="info-label-table">Уровень:</span>
+                                    <span class="grade-badge-inline">{{ message.metadata.determined_grade }}</span>
+                                </div>
+                                {% endif %}
+                                {% if message.invite.google_drive_file_url %}
+                                <div class="info-row-table">
+                                    <span class="info-label-table">Scorecard:</span>
+                                    <a href="{{ message.invite.google_drive_file_url }}" target="_blank" class="info-link-compact">
+                                        Открыть <i class="fas fa-external-link-alt ms-1"></i>
+                                    </a>
+                                </div>
+                                {% endif %}
+                                {% if message.invite %}
+                                    {% if message.invite.interview_format == 'office' %}
+                                    <div class="info-row-table">
+                                        <span class="info-label-table">Офис:</span>
+                                        <span class="info-value-table">{{ message.invite.google_meet_url }}</span>
+                                    </div>
+                                    {% elif message.invite.google_meet_url %}
+                                    <div class="info-row-table">
+                                        <span class="info-label-table">Google Meet:</span>
+                                        <a href="{{ message.invite.google_meet_url }}" target="_blank" class="info-link-compact">
+                                            Присоединиться <i class="fas fa-external-link-alt ms-1"></i>
+                                        </a>
+                                    </div>
+                                    {% endif %}
+                                {% endif %}
+                                {% if message.invite.interview_datetime %}
+                                <div class="info-row-table">
+                                    <span class="info-label-table">Дата интервью:</span>
+                                    <span class="info-value-table">{{ message.invite.interview_datetime|date:"Y-m-d H:i" }}</span>
+                                </div>
+                                {% endif %}
+                                {% if message.invite.interviewer %}
+                                <div class="info-row-table">
+                                    <span class="info-label-table">Интервьюер:</span>
+                                    <span class="info-value-table">{{ message.invite.interviewer.get_full_name }} ({{ message.invite.interviewer.email }})</span>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="status-message-compact">
+                                <i class="fas fa-check-circle me-1"></i>
+                                Инвайт отправлен и добавлен в календарь
+                            </div>
+                        </div>
+                        {% if message.metadata %}
+                        <div class="action-buttons-right">
+                            {% if message.metadata.candidate_url %}
+                            <a href="{{ message.metadata.candidate_url }}" target="_blank" class="btn btn-sm btn-outline-primary" title="Открыть в Huntflow">
+                                <i class="fas fa-external-link-alt"></i>
+                            </a>
+                            {% endif %}
+                            {% if message.invite %}
+                            <a href="{% url 'google_oauth:invite_detail' message.invite.id %}" class="btn btn-sm btn-outline-success" title="Подробности">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <button type="button" class="btn btn-sm btn-outline-warning copy-invitation-btn" data-invite-id="{{ message.invite.id }}" title="Копировать текст инвайта">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+        {% elif message.message_type == 'delete' %}
+            {# Сообщение об удалении #}
+            <div class="message-avatar me-2" style="margin-bottom: -18px; position: relative; z-index: 100;">
+                <img src="{% static 'img/light.png' %}" alt="HR Helper" class="ai-avatar-image light-theme-logo">
+                <img src="{% static 'img/dark.png' %}" alt="HR Helper" class="ai-avatar-image dark-theme-logo">
+            </div>
+            <div class="message-bubble system-bubble" style="margin-left: -26px;">
+                <div class="message-header d-flex align-items-center mb-2">
+                    <i class="fas fa-trash-alt text-danger me-2"></i>
+                    <strong>Система</strong>
+                    <small class="text-muted ms-2">{{ message.created_at|date:"d.m.Y H:i" }}</small>
+                </div>
+                <div class="message-content bot-content-fixed">{{ message.content|safe }}</div>
+            </div>
+            
+        {% elif message.metadata.action_type == 'add_candidate' %}
+            {# Добавление кандидата #}
+            <div class="message-avatar me-2" style="margin-bottom: -18px; position: relative; z-index: 100;">
+                <img src="{% static 'img/light.png' %}" alt="HR Helper" class="ai-avatar-image light-theme-logo">
+                <img src="{% static 'img/dark.png' %}" alt="HR Helper" class="ai-avatar-image dark-theme-logo">
+            </div>
+            <div class="message-bubble system-bubble" style="margin-left: -26px;">
+                <div class="message-header">
+                    <i class="fas fa-user-plus me-1"></i>
+                    <strong>Добавление кандидата</strong>
+                    <small class="text-muted ms-2">{{ message.created_at|date:"d.m.Y H:i" }}</small>
+                </div>
+                <div class="message-content bot-content-fixed">
+                    <div class="message-body-with-buttons">
+                        <div class="message-info">
+                            <div class="candidate-info-table">
+                                {% if message.metadata.candidate_name %}
+                                <div class="info-row-table">
+                                    <span class="info-label-table">Кандидат:</span>
+                                    <span class="info-value-table">{{ message.metadata.candidate_name }}</span>
+                                </div>
+                                {% endif %}
+                                {% if message.metadata.vacancy_name %}
+                                <div class="info-row-table">
+                                    <span class="info-label-table">Вакансия:</span>
+                                    <span class="info-value-table">{{ message.metadata.vacancy_name }}</span>
+                                </div>
+                                {% endif %}
+                                {% if message.metadata.applicant_id %}
+                                <div class="info-row-table">
+                                    <span class="info-label-table">ID кандидата:</span>
+                                    <span class="info-value-table">{{ message.metadata.applicant_id }}</span>
+                                </div>
+                                {% endif %}
+                                {% if message.metadata.attached_file_name %}
+                                <div class="info-row-table">
+                                    <span class="info-label-table">Файл:</span>
+                                    <span class="info-value-table">
+                                        {{ message.metadata.attached_file_name }}
+                                        {% if message.metadata.attached_file_type %}
+                                        <span class="badge bg-secondary ms-2">{{ message.metadata.attached_file_type }}</span>
+                                        {% endif %}
+                                    </span>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="status-message-compact">
+                                <i class="fas fa-check-circle me-1"></i>
+                                Данные сохранены и переданы в Huntflow
+                            </div>
+                        </div>
+                        {% if message.metadata %}
+                        <div class="action-buttons-right">
+                            {% if message.metadata.candidate_url %}
+                            <a href="{{ message.metadata.candidate_url }}" target="_blank" class="btn btn-sm btn-outline-primary" title="Открыть в Huntflow">
+                                <i class="fas fa-external-link-alt"></i>
+                            </a>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+        {% else %}
+            {# Системное сообщение #}
+            <div class="message-avatar me-2" style="margin-bottom: -18px; position: relative; z-index: 100;">
+                <img src="{% static 'img/light.png' %}" alt="HR Helper" class="ai-avatar-image light-theme-logo">
+                <img src="{% static 'img/dark.png' %}" alt="HR Helper" class="ai-avatar-image dark-theme-logo">
+            </div>
+            <div class="message-bubble system-bubble" style="margin-left: -26px;">
+                <div class="message-header">
+                    <strong>Система</strong>
+                    <small class="text-muted ms-2">{{ message.created_at|date:"d.m.Y H:i" }}</small>
+                </div>
+                <div class="message-content">{{ message.content|linebreaks }}</div>
+            </div>
+        {% endif %}
+    </div>
+</div>

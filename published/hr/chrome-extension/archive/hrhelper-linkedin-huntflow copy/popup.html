@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HR Helper</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      width: 420px;
+      margin: 0;
+      padding: 16px;
+      background: #f8f9fa;
+      font-size: 14px;
+      display: flex;
+      flex-direction: column;
+      min-height: 200px;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #dee2e6;
+      flex-shrink: 0;
+    }
+    .header img {
+      width: 32px;
+      height: 32px;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+      color: #212529;
+      flex: 1;
+    }
+    .header-settings-btn {
+      flex-shrink: 0;
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: #495057;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, color 0.2s;
+    }
+    .header-settings-btn:hover {
+      background: rgba(10, 102, 194, 0.1);
+      color: #0a66c2;
+    }
+    .header-settings-btn svg {
+      width: 18px;
+      height: 18px;
+      fill: currentColor;
+    }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .header-action-btn {
+      height: 32px;
+      min-height: 32px;
+      padding: 0 10px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 6px;
+      text-decoration: none;
+      color: #0a66c2;
+      background: rgba(10, 102, 194, 0.1);
+      border: 1px solid rgba(10, 102, 194, 0.3);
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+    }
+    .header-action-btn:hover {
+      background: #0a66c2;
+      color: white;
+    }
+    .header-action-btn.rejection {
+      background: rgba(192, 57, 43, 0.15);
+      border-color: rgba(192, 57, 43, 0.4);
+      color: #c0392b;
+    }
+    .header-action-btn.rejection:hover {
+      background: #c0392b;
+      color: white;
+    }
+    .header-add-btn {
+      width: 32px;
+      height: 32px;
+      min-width: 32px;
+      padding: 0;
+      font-size: 18px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .header-add-btn.expanded {
+      font-size: 20px;
+    }
+    .header-copy-btn {
+      width: 32px;
+      height: 32px;
+      min-width: 32px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .header-copy-btn svg {
+      fill: currentColor;
+    }
+    #add-vacancy-panel {
+      display: none;
+      padding: 10px 12px;
+      margin-bottom: 0;
+      background: #f0f7ff;
+      border-bottom: 1px solid #b6d4fe;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    #add-vacancy-panel.visible {
+      display: block;
+    }
+    .add-vacancy-item {
+      padding: 8px 10px;
+      margin-bottom: 4px;
+      border-radius: 6px;
+      background: #fff;
+      border: 1px solid #b6d4fe;
+      cursor: pointer;
+      font-size: 13px;
+      transition: background 0.2s;
+    }
+    .add-vacancy-item:hover {
+      background: #e7f1ff;
+    }
+    .add-vacancy-item:last-child {
+      margin-bottom: 0;
+    }
+    /* Контекстный блок для LinkedIn / rabota.by / hh.ru / Calendar / Meet */
+    .context-block {
+      display: none;
+      padding: 12px;
+      margin-bottom: 12px;
+      border-radius: 8px;
+      background: #e7f1ff;
+      border: 1px solid #b6d4fe;
+      flex-shrink: 0;
+    }
+    .context-block.visible {
+      display: block;
+    }
+    .context-block h2 {
+      margin: 0 0 10px 0;
+      font-size: 16px;
+      font-weight: 600;
+      color: #212529;
+    }
+    .context-block h3 {
+      margin: 0 0 6px 0;
+      font-size: 13px;
+      font-weight: 600;
+      color: #084298;
+    }
+    .context-block p {
+      margin: 0 0 8px 0;
+      font-size: 12px;
+      color: #0a58ca;
+      line-height: 1.4;
+    }
+    .context-block .ctx-data {
+      font-size: 11px;
+      color: #6c757d;
+      word-break: break-all;
+      margin-bottom: 8px;
+    }
+    .context-block .ctx-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #084298;
+      margin-bottom: 4px;
+    }
+    .context-block .ctx-input {
+      width: 100%;
+      padding: 8px 10px;
+      margin-bottom: 8px;
+      font-size: 12px;
+      border: 1px solid #b6d4fe;
+      border-radius: 6px;
+      background: #fff;
+      color: #212529;
+      box-sizing: border-box;
+    }
+    .context-block .ctx-input::placeholder {
+      color: #6c757d;
+    }
+    .context-block .ctx-input:focus {
+      outline: none;
+      border-color: #0a66c2;
+      box-shadow: 0 0 0 2px rgba(10, 102, 194, 0.2);
+    }
+    .context-block .ctx-desc {
+      margin: 0 0 8px 0;
+      font-size: 12px;
+      color: #0a58ca;
+      line-height: 1.4;
+    }
+    .context-block .ctx-fio {
+      font-size: 14px;
+      font-weight: 600;
+      color: #212529;
+      margin: 0 0 2px 0;
+      line-height: 1.3;
+    }
+    .context-block .ctx-vacancy,
+    .context-block .ctx-last-comment {
+      font-size: 12px;
+      color: #0a58ca;
+      margin-bottom: 6px;
+      line-height: 1.3;
+    }
+    .context-block .ctx-last-comment {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(6, 66, 152, 0.2);
+    }
+    .context-block .ctx-candidate-block {
+      margin-top: 2px;
+      margin-bottom: 0;
+      padding-top: 0;
+      padding-bottom: 0;
+      border-top: none;
+    }
+    .context-block .ctx-candidate-toggle {
+      display: block;
+      width: 100%;
+      padding: 2px 0;
+      font-size: 12px;
+      font-weight: 600;
+      color: #0a66c2;
+      background: none;
+      border: none;
+      cursor: pointer;
+      text-align: left;
+      appearance: none;
+    }
+    .context-block .ctx-candidate-toggle:hover {
+      text-decoration: underline;
+    }
+    .context-block .ctx-candidate-body {
+      font-size: 12px;
+      color: #333;
+      line-height: 1.5;
+      padding: 4px 0 0 0;
+    }
+    .context-block .ctx-candidate-body .ctx-candidate-row {
+      margin-bottom: 4px;
+    }
+    .context-block .ctx-candidate-body .ctx-candidate-label {
+      color: #6c757d;
+    }
+    .context-block #ctx-linkedin-apply-status {
+      width: 100%;
+      margin-top: 8px;
+    }
+    .context-block .ctx-message {
+      padding: 8px 10px;
+      margin-bottom: 8px;
+      font-size: 12px;
+      border-radius: 6px;
+      background: #fff3cd;
+      color: #664d03;
+      border: 1px solid #ffc107;
+    }
+    .context-block .btn-small {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: 36px;
+      min-height: 36px;
+      padding: 0 12px;
+      font-size: 12px;
+      background: #0a66c2;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      text-decoration: none;
+      margin-right: 6px;
+      margin-top: 0;
+      box-sizing: border-box;
+    }
+    .context-block .btn-small:hover {
+      background: #084d99;
+      color: white;
+    }
+    .context-block .btn-small.secondary {
+      background: #6c757d;
+    }
+    .context-block .btn-small.secondary:hover {
+      background: #5a6268;
+      color: white;
+    }
+    .context-block .btn-small.rejection {
+      background: #c0392b;
+      color: white;
+    }
+    .context-block .btn-small.rejection:hover {
+      background: #a93226;
+      color: white;
+    }
+    .context-block .btn-small[aria-disabled="true"],
+    .context-block .btn-small.secondary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+    .context-block .ctx-buttons-meet {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 6px;
+      min-height: 0px;
+    }
+    .context-block .ctx-meet-stack-row {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      min-width: 0;
+    }
+    .context-block .ctx-meet-stack-row .btn-small,
+    .context-block .ctx-meet-stack-btn {
+      width: 100%;
+      justify-content: center;
+    }
+    .context-block #ctx-meet-copy {
+      min-width: 0;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .context-block .ctx-meet-contact-full {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .context-block .ctx-meet-contact-full svg {
+      display: block;
+      flex-shrink: 0;
+    }
+    .context-block .ctx-meet-contact-label {
+      font-size: inherit;
+    }
+    .context-block .btn-scorecard {
+      background: #1e8e3e;
+      color: white;
+      padding: 0 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .context-block .btn-scorecard:hover {
+      background: #137333;
+      color: white;
+    }
+    .context-block .btn-scorecard svg {
+      display: block;
+      flex-shrink: 0;
+    }
+    .context-block .ctx-input-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .context-block .ctx-input-row .ctx-input {
+      flex: 1;
+      min-width: 0;
+      margin-bottom: 0;
+    }
+    .context-block .btn-icon {
+      flex-shrink: 0;
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #0a66c2;
+      color: white;
+      transition: background 0.2s;
+    }
+    .context-block .btn-icon:hover {
+      background: #084d99;
+      color: white;
+    }
+    .context-block .btn-icon.secondary {
+      background: #6c757d;
+    }
+    .context-block .btn-icon.secondary:hover {
+      background: #5a6268;
+      color: white;
+    }
+    .context-block .btn-icon svg {
+      width: 18px;
+      height: 18px;
+      fill: currentColor;
+    }
+    .context-block .btn-icon:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+    .context-block .ctx-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+      align-items: center;
+    }
+    .context-block .ctx-status-block {
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(6, 66, 152, 0.2);
+    }
+    .context-block .ctx-status-block.has-vacancies {
+      margin-top: 0;
+      padding-top: 0;
+    }
+    .context-block .ctx-status-block .ctx-label {
+      display: block;
+      margin-bottom: 6px;
+    }
+    .context-block .ctx-status-select-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .context-block .ctx-status-select-row .ctx-select {
+      flex: 1;
+      min-width: 0;
+    }
+    .context-block .ctx-status-next-btn {
+      flex-shrink: 0;
+      width: 36px;
+      height: 36px;
+      padding: 0;
+    }
+    .context-block .ctx-status-next-btn svg {
+      fill: currentColor;
+    }
+    .context-block .ctx-status-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .context-block .ctx-select {
+      width: 100%;
+      padding: 8px 10px;
+      font-size: 12px;
+      border: 1px solid #b6d4fe;
+      border-radius: 6px;
+      background: #fff;
+      color: #212529;
+      box-sizing: border-box;
+    }
+    .context-block .ctx-status-load-message {
+      margin: 0 0 6px 0;
+      font-size: 11px;
+      color: #6c757d;
+      line-height: 1.3;
+    }
+    .context-block .ctx-status-load-message.error {
+      color: #842029;
+    }
+    .context-block .ctx-comment-wrap {
+      border: 1px solid #b6d4fe;
+      border-radius: 6px;
+      overflow: hidden;
+      background: #fff;
+    }
+    .context-block .ctx-comment-wrap:focus-within {
+      border-color: #0a66c2;
+      box-shadow: 0 0 0 2px rgba(10, 102, 194, 0.2);
+    }
+    .context-block .ctx-comment-toolbar {
+      display: flex;
+      gap: 4px;
+      padding: 4px 6px;
+      flex-wrap: wrap;
+      background: #f0f7ff;
+      border-bottom: 1px solid #b6d4fe;
+    }
+    .context-block .ctx-toolbar-btn {
+      width: 28px;
+      height: 24px;
+      padding: 0;
+      border: 1px solid #b6d4fe;
+      border-radius: 4px;
+      background: #fff;
+      color: #084298;
+      cursor: pointer;
+      font-size: 11px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .context-block .ctx-toolbar-btn:hover {
+      background: #e7f1ff;
+      border-color: #0a66c2;
+    }
+    .context-block .ctx-comment-editor {
+      min-height: 60px;
+      max-height: 120px;
+      overflow-y: auto;
+      padding: 8px 10px;
+      font-size: 12px;
+      border: none;
+      background: #fff;
+      color: #212529;
+      line-height: 1.5;
+      box-sizing: border-box;
+    }
+    .context-block .ctx-comment-editor:empty::before {
+      content: attr(data-placeholder);
+      color: #6c757d;
+    }
+    .status {
+      padding: 10px 12px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+    .status.ok {
+      background: #d1e7dd;
+      color: #0f5132;
+    }
+    .status.warn {
+      background: #fff3cd;
+      color: #664d03;
+    }
+    .status.err {
+      background: #f8d7da;
+      color: #842029;
+    }
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 10px 16px;
+      margin-top: 8px;
+      background: #0a66c2;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      text-decoration: none;
+    }
+    .btn:hover {
+      background: #084d99;
+      color: white;
+    }
+    .btn.secondary {
+      background: #6c757d;
+    }
+    .btn.secondary:hover {
+      background: #5a6268;
+      color: white;
+    }
+    .hint {
+      margin-top: 12px;
+      font-size: 12px;
+      color: #6c757d;
+      flex-shrink: 0;
+    }
+    /* Форма настройки в попапе */
+    .setup-form {
+      padding: 12px 0;
+      margin-bottom: 12px;
+    }
+    .setup-form .form-group {
+      margin-bottom: 12px;
+    }
+    .setup-form label {
+      display: block;
+      margin-bottom: 4px;
+      font-weight: 600;
+      font-size: 13px;
+      color: #212529;
+    }
+    .setup-form input {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #dee2e6;
+      border-radius: 6px;
+      font-size: 13px;
+      box-sizing: border-box;
+    }
+    .setup-form input:focus {
+      outline: none;
+      border-color: #0a66c2;
+      box-shadow: 0 0 0 2px rgba(10, 102, 194, 0.2);
+    }
+    .setup-form .form-hint {
+      margin-top: 4px;
+      font-size: 11px;
+      color: #6c757d;
+      line-height: 1.4;
+    }
+    .setup-form .form-hint a {
+      color: #0a66c2;
+      word-break: break-all;
+    }
+    .setup-form .btn-save {
+      margin-top: 4px;
+    }
+    .popup-footer {
+      margin-top: auto;
+      padding-top: 12px;
+      border-top: 1px solid #dee2e6;
+    }
+    .popup-footer .btn {
+      margin-top: 0;
+    }
+    /* Множественные вакансии */
+    .ctx-employee-badge {
+      padding: 12px 16px;
+      margin-bottom: 12px;
+      background: #d1e7dd;
+      border: 1px solid #a3cfbb;
+      border-radius: 8px;
+      color: #0f5132;
+      font-weight: 600;
+      text-align: center;
+    }
+    .ctx-vacancy-card {
+      padding: 12px;
+      margin-bottom: 8px;
+      border-radius: 8px;
+      transition: box-shadow 0.2s ease;
+    }
+    .ctx-vacancy-card:hover {
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    .ctx-vacancy-card.selectable {
+      cursor: pointer;
+    }
+    .ctx-vacancy-card.selected {
+      border-color: #0a66c2;
+      box-shadow: 0 0 0 2px rgba(10, 102, 194, 0.3);
+    }
+    .ctx-vacancy-card-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .ctx-vacancy-card-name {
+      flex: 1;
+      min-width: 0;
+      font-weight: 600;
+      font-size: 13px;
+      color: #212529;
+    }
+    .ctx-vacancy-card-date {
+      flex-shrink: 0;
+      font-size: 12px;
+      color: #6c757d;
+    }
+    #ctx-linkedin-vacancies-list {
+      margin-top: 2px;
+    }
+    #ctx-linkedin-vacancies-list h4 {
+      margin: 16px 0 8px 0;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    /* Карточка отказа: название, причина, иконка перезапуска справа */
+    .ctx-vacancy-card-rejected {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .ctx-rejected-content {
+      flex: 1;
+      min-width: 0;
+    }
+    .ctx-rejected-name {
+      font-weight: 600;
+      font-size: 13px;
+      color: #212529;
+    }
+    .ctx-rejected-reason {
+      font-size: 12px;
+      color: #842029;
+      margin-top: 4px;
+      line-height: 1.3;
+    }
+    .ctx-rejected-restart-btn {
+      flex-shrink: 0;
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      border: 1px solid #f1aeb5;
+      border-radius: 6px;
+      background: #fff;
+      color: #842029;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, color 0.2s;
+    }
+    .ctx-rejected-restart-btn:hover {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    .ctx-rejected-restart-btn svg {
+      width: 18px;
+      height: 18px;
+      fill: currentColor;
+    }
+    .ctx-vacancy-card-archived {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .ctx-vacancy-copy-btn {
+      flex-shrink: 0;
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      border: 1px solid #b6d4fe;
+      border-radius: 6px;
+      background: #fff;
+      color: #0a66c2;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, color 0.2s;
+    }
+    .ctx-vacancy-copy-btn:hover {
+      background: #e7f1ff;
+      color: #084d99;
+    }
+    .ctx-vacancy-copy-btn.copied {
+      background: #d4edda;
+      border-color: #c3e6cb;
+      color: #155724;
+    }
+    .ctx-vacancy-copy-btn svg {
+      width: 18px;
+      height: 18px;
+      fill: currentColor;
+    }
+    .ctx-vacancy-copy-btn-inline {
+      margin-left: auto;
+    }
+    .ctx-vacancy-card:has(.ctx-vacancy-copy-btn-inline) {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .ctx-vacancy-card:has(.ctx-vacancy-copy-btn-inline) .ctx-vacancy-card-row {
+      flex: 1;
+      min-width: 0;
+    }
+
+    /* Круглые кнопки копирования (как на сайте, но компактно для попапа) */
+    .popup-copy-buttons {
+      display: none;
+      margin: 0 0 12px 0;
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: #fff;
+      border: 1px solid #dee2e6;
+    }
+    .popup-copy-buttons.visible {
+      display: block;
+    }
+    .popup-copy-buttons-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #212529;
+      margin-bottom: 8px;
+    }
+    .copy-buttons-buttons {
+      display: flex;
+      gap: 8px;
+      flex-wrap: nowrap;
+      align-items: center;
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+    .btn-copy {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      position: relative;
+      padding: 0;
+      color: #fff;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+    .btn-copy:hover {
+      transform: scale(1.08);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
+    }
+    .btn-copy:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+      filter: grayscale(0.9);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+    }
+    .btn-copy.copy-success {
+      background: linear-gradient(135deg, #00b894, #00cec9) !important;
+    }
+    .btn-copy svg {
+      width: 18px;
+      height: 18px;
+      fill: currentColor;
+      display: block;
+    }
+    .btn-copy .flag-emoji {
+      font-size: 12px;
+      line-height: 1;
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 50%;
+      padding: 2px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      min-height: 18px;
+      color: #111;
+    }
+    .btn-copy .flag-wrap {
+      position: absolute;
+      top: 0;
+      right: 0;
+      transform: translate(35%, -35%);
+    }
+    .btn-copy .copy-tooltip {
+      position: absolute;
+      bottom: -34px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.82);
+      color: #fff;
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      white-space: nowrap;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+      pointer-events: none;
+      z-index: 99999;
+    }
+    .btn-copy:hover .copy-tooltip {
+      opacity: 1;
+    }
+
+    .btn-copy-vacancy-link-belarus { background: linear-gradient(135deg, #e74c3c, #c0392b); }
+    .btn-copy-vacancy-link-poland { background: linear-gradient(135deg, #f39c12, #e67e22); }
+    .btn-copy-belarus { background: linear-gradient(135deg, #ff6b6b, #ee5a24); }
+    .btn-copy-poland { background: linear-gradient(135deg, #4834d4, #686de0); }
+    .btn-copy-current-week { background: linear-gradient(135deg, #fd79a8, #e84393); }
+    .btn-copy-next-week { background: linear-gradient(135deg, #0984e3, #74b9ff); }
+    .btn-add-week { background: linear-gradient(135deg, #00b894, #00cec9); }
+    .btn-copy-all-slots { background: linear-gradient(135deg, #6c5ce7, #a29bfe); }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <img src="icons/icon-48.png" alt="HR Helper" />
+    <h1>HR Helper</h1>
+    <div id="header-actions" class="header-actions" style="display:none;">
+      <button type="button" id="headerAddVacancyBtn" class="header-action-btn header-add-btn" title="Взять на другую вакансию" aria-label="Добавить">+</button>
+      <button type="button" id="headerMeetReminderBtn" class="header-action-btn header-meet-reminder-btn" style="display:none;" title="Скрыть напоминание на странице" aria-label="Напоминание на странице Meet">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+      </button>
+      <a href="#" id="headerHuntflowBtn" class="header-action-btn" target="_blank" rel="noopener" title="Открыть в Huntflow" aria-label="Huntflow">Huntflow</a>
+      <button type="button" id="headerCopyHuntflowBtn" class="header-action-btn header-copy-btn" title="Копировать ссылку Huntflow" aria-label="Копировать">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+      </button>
+    </div>
+    <button type="button" id="headerSettingsBtn" class="header-settings-btn" title="Настройки API-токена" aria-label="Настройки">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.04.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+    </button>
+  </div>
+
+  <div id="add-vacancy-panel">
+    <div style="font-size:12px;font-weight:600;color:#084298;margin-bottom:6px;">Добавить на вакансию</div>
+    <div id="add-vacancy-list"></div>
+  </div>
+
+  <!-- Контекстные блоки: показывается один в зависимости от страницы -->
+  <div id="context-linkedin" class="context-block" data-ctx="linkedin">
+    <h2 id="ctx-linkedin-title">LinkedIn</h2>
+    <div id="ctx-linkedin-desc" class="ctx-desc" style="display:none;"></div>
+    <div id="ctx-linkedin-candidate-block" class="ctx-candidate-block" style="display:none;">
+      <button type="button" id="ctx-linkedin-candidate-toggle" class="ctx-candidate-toggle" aria-expanded="false">Данные кандидата</button>
+      <div id="ctx-linkedin-candidate-body" class="ctx-candidate-body" hidden></div>
+    </div>
+    <h3 id="ctx-linkedin-vacancy" class="ctx-vacancy" style="display:none;"></h3>
+    <div id="ctx-linkedin-message" class="ctx-message" style="display:none;"></div>
+    <div id="ctx-linkedin-form-row">
+      <label for="ctx-linkedin-input" class="ctx-label">Ссылка на кандидата в Huntflow</label>
+      <div class="ctx-input-row">
+        <input type="url" id="ctx-linkedin-input" class="ctx-input" placeholder="https://huntflow.ru/my/..." autocomplete="off" />
+        <button type="button" id="ctx-linkedin-save" class="btn-icon" style="display:none;" title="Сохранить" aria-label="Сохранить">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>
+        </button>
+        <button type="button" id="ctx-linkedin-apply" class="btn-icon" style="display:none;" title="Применить" aria-label="Применить">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="ctx-buttons">
+      <a href="#" id="ctx-linkedin-huntflow" class="btn-small" target="_blank" rel="noopener" style="display:none;">Открыть в Huntflow</a>
+      <button type="button" id="ctx-linkedin-copy" class="btn-icon secondary" style="display:none;" title="Копировать ссылку" aria-label="Копировать ссылку">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+      </button>
+      <button type="button" id="ctx-linkedin-edit" class="btn-icon secondary" style="display:none;" title="Редактировать ссылку" aria-label="Редактировать ссылку">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+      </button>
+    </div>
+    <div id="ctx-linkedin-status-block" class="ctx-status-block" style="display:none;">
+      <div id="ctx-linkedin-status-form">
+      <span class="ctx-label">Изменение статуса / Причина</span>
+      <p id="ctx-linkedin-status-load-message" class="ctx-status-load-message" style="display:none;"></p>
+      <div class="ctx-status-row">
+        <div class="ctx-status-select-row">
+          <select id="ctx-linkedin-status" class="ctx-select">
+            <option value="">— Статус —</option>
+          </select>
+          <button type="button" id="ctx-linkedin-status-next" class="btn-icon secondary ctx-status-next-btn" title="Следующий статус" aria-label="Следующий статус">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="18" height="18"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+          </button>
+        </div>
+      </div>
+      <div id="ctx-linkedin-reason-row" class="ctx-status-row" style="display:none;">
+        <select id="ctx-linkedin-reason" class="ctx-select ctx-select-reason">
+          <option value="">— Причина отказа —</option>
+        </select>
+      </div>
+      <div id="ctx-linkedin-comment-row" class="ctx-status-row">
+        <label for="ctx-linkedin-comment" class="ctx-label">Комментарий</label>
+        <div class="ctx-comment-wrap">
+          <div class="ctx-comment-toolbar">
+            <button type="button" class="ctx-toolbar-btn" data-cmd="bold" title="Жирный"><b>B</b></button>
+            <button type="button" class="ctx-toolbar-btn" data-cmd="italic" title="Курсив"><i>I</i></button>
+            <button type="button" class="ctx-toolbar-btn" data-cmd="insertUnorderedList" title="Маркированный список">•</button>
+            <button type="button" class="ctx-toolbar-btn" data-cmd="insertOrderedList" title="Нумерованный список">1.</button>
+            <button type="button" class="ctx-toolbar-btn" data-cmd="createLink" title="Вставить ссылку">🔗</button>
+          </div>
+          <div id="ctx-linkedin-comment" class="ctx-comment-editor" contenteditable="true" data-placeholder="Добавить комментарий к статусу..."></div>
+        </div>
+      </div>
+      <button type="button" id="ctx-linkedin-apply-status" class="btn-small">Применить статус</button>
+      </div>
+    </div>
+    <div id="ctx-linkedin-last-comment" class="ctx-last-comment" style="display:none;"></div>
+  </div>
+  <div id="context-calendar" class="context-block" data-ctx="calendar">
+    <h3>Google Calendar</h3>
+    <p>Синхронизация с HR Helper. Логика календаря в приложении.</p>
+    <div id="context-calendar-data" class="ctx-data"></div>
+  </div>
+  <div id="context-resume" class="context-block" data-ctx="resume">
+    <h3>Страница резюме</h3>
+    <p>Под ссылками на Huntflow на странице отображаются данные кандидата из HR Helper.</p>
+    <div id="context-resume-data" class="ctx-data"></div>
+  </div>
+  <div id="context-meet" class="context-block" data-ctx="meet">
+    <h3>Google Meet</h3>
+    <p id="ctx-meet-hint" class="ctx-meet-hint" style="display:none;">Кнопки активны при наличии данных.</p>
+    <div id="context-meet-data" class="ctx-data"></div>
+    <a href="#" id="ctx-meet-huntflow" class="btn ctx-meet-huntflow-btn" target="_blank" rel="noopener" style="display:none; margin-bottom:8px;">Huntflow</a>
+    <div class="ctx-buttons ctx-buttons-meet">
+      <div class="ctx-meet-stack-row">
+        <button type="button" id="ctx-meet-copy" class="btn-small secondary" disabled>Вакансия и грейд</button>
+        <a href="https://hr.sftntx.com/extension/" id="ctx-meet-settings-link" class="btn-small secondary" target="_blank" rel="noopener" style="display:none;">Настройка кнопок</a>
+      </div>
+      <a href="#" id="ctx-meet-scorecard" class="btn-small btn-scorecard ctx-meet-stack-btn" target="_blank" rel="noopener" aria-disabled="true" aria-label="Scorecard" title="Scorecard"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H6v-2h3v2zm0-4H6v-2h3v2zm0-4H6V7h3v2zm4 8h-2V7h2v10zm4 0h-2v-4h2v4zm0-6h-2V7h2v4z"/></svg> Скоркард</a>
+      <a href="#" id="ctx-meet-contact" class="btn-small ctx-meet-contact-full ctx-meet-stack-btn" target="_blank" rel="noopener" aria-disabled="true">Контакт</a>
+    </div>
+  </div>
+
+  <div id="popup-copy-buttons" class="popup-copy-buttons" aria-label="Кнопки копирования">
+    <div class="popup-copy-buttons-title">Быстрое копирование</div>
+    <div class="copy-buttons-buttons">
+      <button type="button" id="btn-copy-vacancy-link-belarus" class="btn-copy btn-copy-vacancy-link-belarus" title="Скопировать ссылку на вакансию (Беларусь)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+        <span class="flag-wrap"><span class="flag-emoji">🇧🇾</span></span>
+        <span class="copy-tooltip">Ссылка (🇧🇾)</span>
+      </button>
+
+      <button type="button" id="btn-copy-questions-belarus" class="btn-copy btn-copy-belarus" title="Скопировать вопросы для Беларуси">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 17h-1.5v-1.5H12V19zm1.9-7.6c-.5.5-.9.9-.9 1.6V14h-2v-.7c0-1.2.6-1.9 1.2-2.5.5-.5.9-.9.9-1.5 0-.9-.7-1.6-1.6-1.6s-1.6.7-1.6 1.6H8c0-2 1.6-3.6 3.6-3.6S15.2 7.3 15.2 9.3c0 1.3-.7 2.1-1.4 2.8z"/></svg>
+        <span class="flag-wrap"><span class="flag-emoji">🇧🇾</span></span>
+        <span class="copy-tooltip">Вопросы (🇧🇾)</span>
+      </button>
+
+      <button type="button" id="btn-copy-vacancy-link-poland" class="btn-copy btn-copy-vacancy-link-poland" title="Скопировать ссылку на вакансию (Польша)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+        <span class="flag-wrap"><span class="flag-emoji">🇵🇱</span></span>
+        <span class="copy-tooltip">Ссылка (🇵🇱)</span>
+      </button>
+
+      <button type="button" id="btn-copy-questions-poland" class="btn-copy btn-copy-poland" title="Скопировать вопросы для Польши">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 17h-1.5v-1.5H12V19zm1.9-7.6c-.5.5-.9.9-.9 1.6V14h-2v-.7c0-1.2.6-1.9 1.2-2.5.5-.5.9-.9.9-1.5 0-.9-.7-1.6-1.6-1.6s-1.6.7-1.6 1.6H8c0-2 1.6-3.6 3.6-3.6S15.2 7.3 15.2 9.3c0 1.3-.7 2.1-1.4 2.8z"/></svg>
+        <span class="flag-wrap"><span class="flag-emoji">🇵🇱</span></span>
+        <span class="copy-tooltip">Вопросы (🇵🇱)</span>
+      </button>
+
+      <button type="button" id="btn-copy-current-week" class="btn-copy btn-copy-current-week" title="Скопировать слоты текущей недели">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11zm0-13H5V6h14v1z"/></svg>
+        <span class="copy-tooltip">Слоты: текущая</span>
+      </button>
+
+      <button type="button" id="btn-copy-next-week" class="btn-copy btn-copy-next-week" title="Скопировать слоты следующей недели">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11zm0-13H5V6h14v1zM12 11h5v5h-2v-3h-3v-2z"/></svg>
+        <span class="copy-tooltip">Слоты: следующая</span>
+      </button>
+
+      <button type="button" id="btn-add-third-week" class="btn-copy btn-add-week" title="Загрузить слоты третьей недели">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11zM13 11v3h3v2h-3v3h-2v-3H8v-2h3v-3h2z"/></svg>
+        <span class="copy-tooltip">3-я неделя</span>
+      </button>
+
+      <button type="button" id="btn-copy-all-slots" class="btn-copy btn-copy-all-slots" title="Скопировать все слоты">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+        <span class="copy-tooltip">Все слоты</span>
+      </button>
+    </div>
+  </div>
+
+  <div id="status" class="status"></div>
+  <div id="before-setup-block" class="setup-form" style="display:none;">
+    <div class="form-group">
+      <label for="popup-baseUrl">Base URL HRHelper</label>
+      <input type="url" id="popup-baseUrl" placeholder="https://hr.sftntx.com" />
+      <div class="form-hint">По умолчанию: <code>https://hr.sftntx.com</code></div>
+    </div>
+    <div class="form-group">
+      <label for="popup-apiToken">API Token (DRF)</label>
+      <input type="password" id="popup-apiToken" placeholder="Вставьте ваш API токен" />
+      <div class="form-hint">
+        Получить токен: откройте в браузере (будучи залогиненным в HR Helper)
+        <a id="popup-token-link" href="https://hr.sftntx.com/api/v1/accounts/users/token/" target="_blank" rel="noopener">/api/v1/accounts/users/token/</a>
+        — скопируйте значение из <code>data.token</code> (без «Token » и без кавычек). Можно вставить и весь JSON — расширение возьмёт ключ само.
+      </div>
+    </div>
+    <button type="button" id="popup-save" class="btn btn-save">Сохранить</button>
+    <p class="hint" style="margin-top: 12px;">Расширение добавляет кнопку Huntflow на профили LinkedIn и работает с календарём и Meet.</p>
+    <a href="https://hr.sftntx.com/google-oauth/chat/" target="_blank" rel="noopener" class="btn secondary" style="margin-top: 8px;">Открыть HR Helper</a>
+  </div>
+  <script src="vacancy-utils.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

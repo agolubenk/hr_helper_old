@@ -1,0 +1,223 @@
+{% extends 'common/base.html' %}
+
+{% block title %}{{ title }} - HR Helper{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-cog me-2"></i>
+                    {{ title }}
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <!-- Основная информация -->
+                    <div class="mb-4">
+                        <h6 class="text-primary mb-3">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Основная информация
+                        </h6>
+                        
+                        <div class="row">
+                            <div class="col-md-12 mb-3">
+                                <label for="{{ form.name.id_for_label }}" class="form-label">
+                                    {{ form.name.label }}
+                                    <span class="text-danger">*</span>
+                                </label>
+                                {{ form.name }}
+                                {% if form.name.help_text %}
+                                    <div class="form-text">{{ form.name.help_text }}</div>
+                                {% endif %}
+                                {% if form.name.errors %}
+                                    <div class="text-danger">
+                                        {% for error in form.name.errors %}
+                                            <small>{{ error }}</small>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-12 mb-3">
+                                <label for="{{ form.description.id_for_label }}" class="form-label">
+                                    {{ form.description.label }}
+                                </label>
+                                {{ form.description }}
+                                {% if form.description.help_text %}
+                                    <div class="form-text">{{ form.description.help_text }}</div>
+                                {% endif %}
+                                {% if form.description.errors %}
+                                    <div class="text-danger">
+                                        {% for error in form.description.errors %}
+                                            <small>{{ error }}</small>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Лимиты привлечения -->
+                    <div class="mb-4">
+                        <h6 class="text-primary mb-3">
+                            <i class="fas fa-chart-bar me-1"></i>
+                            Лимиты привлечения
+                        </h6>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.daily_limit.id_for_label }}" class="form-label">
+                                    {{ form.daily_limit.label }}
+                                    <span class="text-danger">*</span>
+                                </label>
+                                {{ form.daily_limit }}
+                                {% if form.daily_limit.help_text %}
+                                    <div class="form-text">{{ form.daily_limit.help_text }}</div>
+                                {% endif %}
+                                {% if form.daily_limit.errors %}
+                                    <div class="text-danger">
+                                        {% for error in form.daily_limit.errors %}
+                                            <small>{{ error }}</small>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.weekly_limit.id_for_label }}" class="form-label">
+                                    {{ form.weekly_limit.label }}
+                                    <span class="text-danger">*</span>
+                                </label>
+                                {{ form.weekly_limit }}
+                                {% if form.weekly_limit.help_text %}
+                                    <div class="form-text">{{ form.weekly_limit.help_text }}</div>
+                                {% endif %}
+                                {% if form.weekly_limit.errors %}
+                                    <div class="text-danger">
+                                        {% for error in form.weekly_limit.errors %}
+                                            <small>{{ error }}</small>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Грейды -->
+                    <div class="mb-4">
+                        <h6 class="text-primary mb-3">
+                            <i class="fas fa-layer-group me-1"></i>
+                            Диапазон грейдов
+                        </h6>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.min_grade.id_for_label }}" class="form-label">
+                                    {{ form.min_grade.label }}
+                                    <span class="text-danger">*</span>
+                                </label>
+                                {{ form.min_grade }}
+                                {% if form.min_grade.help_text %}
+                                    <div class="form-text">{{ form.min_grade.help_text }}</div>
+                                {% endif %}
+                                {% if form.min_grade.errors %}
+                                    <div class="text-danger">
+                                        {% for error in form.min_grade.errors %}
+                                            <small>{{ error }}</small>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.max_grade.id_for_label }}" class="form-label">
+                                    {{ form.max_grade.label }}
+                                    <span class="text-danger">*</span>
+                                </label>
+                                {{ form.max_grade }}
+                                {% if form.max_grade.help_text %}
+                                    <div class="form-text">{{ form.max_grade.help_text }}</div>
+                                {% endif %}
+                                {% if form.max_grade.errors %}
+                                    <div class="text-danger">
+                                        {% for error in form.max_grade.errors %}
+                                            <small>{{ error }}</small>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Статус -->
+                    <div class="mb-4">
+                        <h6 class="text-primary mb-3">
+                            <i class="fas fa-toggle-on me-1"></i>
+                            Статус
+                        </h6>
+                        
+                        <div class="form-check form-switch">
+                            {{ form.is_active }}
+                            <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                                {{ form.is_active.label }}
+                            </label>
+                        </div>
+                        {% if form.is_active.help_text %}
+                            <div class="form-text">{{ form.is_active.help_text }}</div>
+                        {% endif %}
+                        {% if form.is_active.errors %}
+                            <div class="text-danger">
+                                {% for error in form.is_active.errors %}
+                                    <small>{{ error }}</small>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        
+                        <div class="alert alert-info mt-2">
+                            <i class="fas fa-info-circle me-1"></i>
+                            <strong>Важно:</strong> При активации этого правила все остальные правила автоматически станут неактивными.
+                        </div>
+                    </div>
+
+                    <!-- Кнопки -->
+                    <div class="d-flex justify-content-between">
+                        <a href="{% if rule %}{% url 'interviewers:rule_detail' rule.pk %}{% else %}{% url 'interviewers:rule_list' %}{% endif %}" 
+                           class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-1"></i>Отмена
+                        </a>
+                        
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-save me-1"></i>{{ submit_text }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Предупреждение при активации правила
+    const isActiveCheckbox = document.getElementById('{{ form.is_active.id_for_label }}');
+    if (isActiveCheckbox) {
+        isActiveCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                if (!confirm('При активации этого правила все остальные правила автоматически станут неактивными. Продолжить?')) {
+                    this.checked = false;
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
+
+
+
+

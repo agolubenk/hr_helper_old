@@ -1,0 +1,118 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Конфигурации HeadHunter.ru - HR Helper{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="mb-0">
+                    <i class="fas fa-cog me-2"></i>
+                    Мои конфигурации OAuth
+                </h2>
+                <a href="{% url 'hhru:configuration_create' %}" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>
+                    Создать конфигурацию
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        {% for config in configurations %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">{{ config.name }}</h5>
+                    <div>
+                        {% if config.is_default %}
+                        <span class="badge bg-primary">По умолчанию</span>
+                        {% endif %}
+                        {% if config.is_active %}
+                        <span class="badge bg-success">Активна</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Неактивна</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body">
+                    <p class="mb-2">
+                        <strong>Client ID:</strong> <code>{{ config.client_id|truncatechars:30 }}</code>
+                    </p>
+                    <p class="mb-2">
+                        <strong>Redirect URI:</strong> <code>{{ config.redirect_uri|truncatechars:40 }}</code>
+                    </p>
+                    <p class="mb-0 text-muted small">
+                        Создана: {{ config.created_at|date:"d.m.Y H:i" }}
+                    </p>
+                </div>
+                <div class="card-footer">
+                    <div class="btn-group w-100" role="group">
+                        <a href="{% url 'hhru:configuration_edit' config.id %}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-edit"></i> Редактировать
+                        </a>
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteConfiguration({{ config.id }})">
+                            <i class="fas fa-trash"></i> Удалить
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-cog fa-3x text-muted mb-3"></i>
+                    <h4>Нет конфигураций</h4>
+                    <p class="text-muted">Создайте конфигурацию OAuth для работы с HeadHunter.ru</p>
+                    <a href="{% url 'hhru:configuration_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>
+                        Создать конфигурацию
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+function deleteConfiguration(configId) {
+    if (confirm('Вы уверены, что хотите удалить эту конфигурацию?')) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{% url "hhru:configuration_delete" 0 %}'.replace('0', configId);
+        
+        // Получаем CSRF токен из мета-тега или cookie
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (csrfToken) {
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrfmiddlewaretoken';
+            csrfInput.value = csrfToken.value;
+            form.appendChild(csrfInput);
+        } else {
+            // Альтернативный способ получения CSRF токена
+            const cookies = document.cookie.split(';');
+            for (let cookie of cookies) {
+                const [name, value] = cookie.trim().split('=');
+                if (name === 'csrftoken') {
+                    const csrfInput = document.createElement('input');
+                    csrfInput.type = 'hidden';
+                    csrfInput.name = 'csrfmiddlewaretoken';
+                    csrfInput.value = value;
+                    form.appendChild(csrfInput);
+                    break;
+                }
+            }
+        }
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+</script>
+{% endblock %}
+

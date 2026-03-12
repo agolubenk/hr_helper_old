@@ -1,0 +1,93 @@
+{% extends "common/base.html" %}
+{% load static %}
+
+{% block title %}Тест Google OAuth - HR Helper{% endblock %}
+
+{% block auth_content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">Тест Google OAuth</h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <h5>Информация о текущем состоянии:</h5>
+                        <ul>
+                            <li><strong>Пользователь авторизован:</strong> {{ user.is_authenticated|yesno:"Да,Нет" }}</li>
+                            {% if user.is_authenticated %}
+                            <li><strong>Имя пользователя:</strong> {{ user.username }}</li>
+                            <li><strong>Email:</strong> {{ user.email }}</li>
+                            <li><strong>Имя:</strong> {{ user.first_name }} {{ user.last_name }}</li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6>Django Allauth Google OAuth</h6>
+                                </div>
+                                <div class="card-body">
+                                    <p>Использует стандартную систему allauth для Google OAuth.</p>
+                                    <a href="/auth/google/login/" class="btn btn-primary btn-block">
+                                        Войти через Google (Allauth)
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6>Кастомная Google OAuth</h6>
+                                </div>
+                                <div class="card-body">
+                                    <p>Использует кастомную систему Google OAuth.</p>
+                                    <a href="{% url 'google_oauth:oauth_start' %}" class="btn btn-danger btn-block">
+                                        Войти через Google (Кастомная)
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% if user.is_authenticated %}
+                    <div class="mt-4">
+                        <div class="alert alert-success">
+                            <h5>Пользователь успешно авторизован!</h5>
+                            <p>Вы можете перейти к основному функционалу приложения.</p>
+                            <a href="{% url 'accounts:profile' %}" class="btn btn-success">
+                                Перейти к профилю
+                            </a>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="mt-4">
+                        <h5>Отладочная информация:</h5>
+                        <div class="card">
+                            <div class="card-body">
+                                <h6>Настройки Google OAuth:</h6>
+                                <ul>
+                                    <li><strong>Client ID:</strong> {{ settings.GOOGLE_OAUTH2_CLIENT_ID|truncatechars:20 }}...</li>
+                                    <li><strong>Redirect URI:</strong> {{ settings.GOOGLE_OAUTH_REDIRECT_URI }}</li>
+                                    <li><strong>Allauth включен:</strong> {{ settings.INSTALLED_APPS|yesno:"Да,Нет" }}</li>
+                                </ul>
+                                
+                                <h6>Состояние сессии:</h6>
+                                <ul>
+                                    <li><strong>Google OAuth State:</strong> {{ request.session.google_oauth_state|default:"Не установлен" }}</li>
+                                    <li><strong>Session Key:</strong> {{ request.session.session_key|default:"Не установлен" }}</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

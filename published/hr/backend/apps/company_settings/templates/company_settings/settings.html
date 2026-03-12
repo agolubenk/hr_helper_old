@@ -1,0 +1,424 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Настройки компании{% endblock %}
+
+{% block page_title %}Настройки компании{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Карточка просмотра текущих настроек -->
+        <div class="col-12 mb-4">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="fas fa-eye me-2"></i>
+                        Текущие настройки компании
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <h6 class="text-muted mb-2">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Название компании
+                            </h6>
+                            <p class="mb-0">
+                                <strong>{{ settings.company_name|default:"Не указано" }}</strong>
+                            </p>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <h6 class="text-muted mb-2">
+                                <i class="fas fa-palette me-2"></i>
+                                Тема оформления
+                            </h6>
+                            <p class="mb-0">
+                                <span class="badge bg-{% if settings.theme == 'light' %}primary{% elif settings.theme == 'dark' %}dark{% else %}secondary{% endif %}">
+                                    {% if settings.theme == 'light' %}Светлая
+                                    {% elif settings.theme == 'dark' %}Тёмная
+                                    {% else %}Автоматическая
+                                    {% endif %}
+                                </span>
+                            </p>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <h6 class="text-muted mb-2">
+                                <i class="fas fa-calendar-alt me-2"></i>
+                                Главный календарь
+                            </h6>
+                            <p class="mb-0">
+                                {% if settings.main_calendar_id %}
+                                    <code class="small">{{ settings.main_calendar_id }}</code>
+                                    {% if available_calendars %}
+                                        {% for calendar in available_calendars %}
+                                            {% if calendar.id == settings.main_calendar_id %}
+                                                <br><small class="text-muted">{{ calendar.name }}</small>
+                                            {% endif %}
+                                        {% endfor %}
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">Не указан</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <h6 class="text-muted mb-2">
+                                <i class="fas fa-layer-group me-2"></i>
+                                Активные грейды компании
+                            </h6>
+                            <p class="mb-0">
+                                {% if active_grades %}
+                                    <div class="d-flex flex-wrap gap-2">
+                                        {% for grade in active_grades %}
+                                            <span class="badge bg-primary">{{ grade.name }}</span>
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted">Не выбрано</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <h6 class="text-muted mb-2">
+                                <i class="fas fa-sitemap me-2"></i>
+                                Оргструктура
+                            </h6>
+                            <p class="mb-0">
+                                {% if settings.org_structure %}
+                                    <span class="badge bg-success">Настроена</span>
+                                    <button type="button" class="btn btn-sm btn-link p-0 ms-2" data-bs-toggle="modal" data-bs-target="#orgStructureModal">
+                                        <i class="fas fa-eye"></i> Просмотр
+                                    </button>
+                                {% else %}
+                                    <span class="text-muted">Не настроена</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Форма редактирования -->
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-edit me-2"></i>
+                        Редактирование настроек
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="company-settings-form">
+                        {% csrf_token %}
+                        
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <h6 class="border-bottom pb-2 mb-3">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    Основная информация
+                                </h6>
+                                
+                                <div class="mb-3">
+                                    <label for="{{ form.company_name.id_for_label }}" class="form-label">
+                                        {{ form.company_name.label }}
+                                    </label>
+                                    {{ form.company_name }}
+                                    {% if form.company_name.help_text %}
+                                        <small class="form-text text-muted">{{ form.company_name.help_text }}</small>
+                                    {% endif %}
+                                    {% if form.company_name.errors %}
+                                        <div class="text-danger small">{{ form.company_name.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="{{ form.theme.id_for_label }}" class="form-label">
+                                        {{ form.theme.label }}
+                                    </label>
+                                    {{ form.theme }}
+                                    {% if form.theme.help_text %}
+                                        <small class="form-text text-muted">{{ form.theme.help_text }}</small>
+                                    {% endif %}
+                                    {% if form.theme.errors %}
+                                        <div class="text-danger small">{{ form.theme.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <h6 class="border-bottom pb-2 mb-3">
+                                    <i class="fas fa-calendar-alt me-2"></i>
+                                    Календарь
+                                </h6>
+                                
+                                <div class="mb-3">
+                                    <label for="{{ form.main_calendar_id.id_for_label }}" class="form-label">
+                                        {{ form.main_calendar_id.label }}
+                                    </label>
+                                    {% if available_calendars %}
+                                        <select class="form-select" name="main_calendar_id" id="{{ form.main_calendar_id.id_for_label }}">
+                                            <option value="">-- Выберите календарь --</option>
+                                            {% for calendar in available_calendars %}
+                                                <option value="{{ calendar.id }}" {% if settings.main_calendar_id == calendar.id %}selected{% endif %}>
+                                                    {{ calendar.name }}
+                                                    {% if calendar.description %} - {{ calendar.description }}{% endif %}
+                                                </option>
+                                            {% endfor %}
+                                            <option value="custom" data-toggle="custom-input">Указать вручную</option>
+                                        </select>
+                                        <input type="text" 
+                                               class="form-control mt-2" 
+                                               name="main_calendar_id_custom" 
+                                               id="main_calendar_id_custom"
+                                               placeholder="Введите ID календаря"
+                                               style="display: {% if settings.main_calendar_id and not calendar_id_in_list %}block{% else %}none{% endif %};"
+                                               value="{% if settings.main_calendar_id and not calendar_id_in_list %}{{ settings.main_calendar_id }}{% endif %}">
+                                    {% else %}
+                                        {{ form.main_calendar_id }}
+                                    {% endif %}
+                                    {% if form.main_calendar_id.help_text %}
+                                        <small class="form-text text-muted">{{ form.main_calendar_id.help_text }}</small>
+                                    {% endif %}
+                                    {% if form.main_calendar_id.errors %}
+                                        <div class="text-danger small">{{ form.main_calendar_id.errors }}</div>
+                                    {% endif %}
+                                    {% if not available_calendars %}
+                                        <small class="form-text text-warning">
+                                            <i class="fas fa-exclamation-triangle me-1"></i>
+                                            Для выбора календаря необходимо подключить Google OAuth
+                                        </small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="border-bottom pb-2 mb-3">
+                                    <i class="fas fa-layer-group me-2"></i>
+                                    Активные грейды компании
+                                </h6>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">
+                                        {{ form.active_grades.label }}
+                                    </label>
+                                    {% if form.active_grades.help_text %}
+                                        <small class="form-text text-muted d-block mb-2">{{ form.active_grades.help_text }}</small>
+                                    {% endif %}
+                                    
+                                    <div class="row">
+                                        {% for checkbox in form.active_grades %}
+                                            <div class="col-md-4 col-lg-3 mb-3">
+                                                <div class="form-check p-2 border rounded" style="background-color: #f8f9fa; transition: background-color 0.2s;">
+                                                    {{ checkbox.tag }}
+                                                    <label class="form-check-label ms-2" for="{{ checkbox.id_for_label }}" style="cursor: pointer; user-select: none;">
+                                                        <strong>{{ checkbox.choice_label }}</strong>
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        {% empty %}
+                                            <div class="col-12">
+                                                <div class="alert alert-info">
+                                                    <i class="fas fa-info-circle me-2"></i>
+                                                    Нет доступных грейдов. Добавьте грейды в разделе 
+                                                    <a href="{% url 'admin:finance_grade_changelist' %}" target="_blank" class="alert-link">
+                                                        Админка → Финансы → Грейды
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                    
+                                    {% if form.active_grades.errors %}
+                                        <div class="text-danger small mt-2">{{ form.active_grades.errors }}</div>
+                                    {% endif %}
+                                    
+                                    <small class="form-text text-info d-block mt-2">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        Выберите грейды, которые используются в вашей компании. Эти грейды будут использоваться в связке с внешними ресурсами и системами.
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="border-bottom pb-2 mb-3">
+                                    <i class="fas fa-sitemap me-2"></i>
+                                    Оргструктура организации
+                                </h6>
+                                
+                                <div class="mb-3">
+                                    <label for="{{ form.org_structure.id_for_label }}" class="form-label">
+                                        {{ form.org_structure.label }}
+                                    </label>
+                                    <textarea class="form-control font-monospace" 
+                                              name="org_structure" 
+                                              id="{{ form.org_structure.id_for_label }}" 
+                                              rows="15"
+                                              placeholder='{"departments": [], "employees": []}'>{{ org_structure_json }}</textarea>
+                                    {% if form.org_structure.help_text %}
+                                        <small class="form-text text-muted">{{ form.org_structure.help_text }}</small>
+                                    {% endif %}
+                                    {% if form.org_structure.errors %}
+                                        <div class="text-danger small">{{ form.org_structure.errors }}</div>
+                                    {% endif %}
+                                    <small class="form-text text-info">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        Оргструктура хранится в формате JSON. Пример структуры:
+                                        <code>{"departments": [{"name": "IT", "head": "Иван Иванов"}], "employees": []}</code>
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between align-items-center">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>
+                                Сохранить настройки
+                            </button>
+                            <a href="{% url 'google_oauth:dashboard' %}" class="btn btn-secondary">
+                                <i class="fas fa-times me-2"></i>
+                                Отмена
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Стили для чекбоксов грейдов */
+.form-check.p-2.border.rounded {
+    transition: all 0.2s ease;
+}
+
+.form-check.p-2.border.rounded:hover {
+    background-color: #e9ecef !important;
+    border-color: #0d6efd !important;
+}
+
+.form-check.p-2.border.rounded input[type="checkbox"]:checked ~ label {
+    color: #0d6efd;
+}
+
+.form-check.p-2.border.rounded input[type="checkbox"]:checked {
+    border-color: #0d6efd;
+    background-color: #0d6efd;
+}
+
+.form-check.p-2.border.rounded input[type="checkbox"]:checked + label {
+    font-weight: 600;
+}
+
+/* Подсветка выбранных грейдов */
+.form-check.p-2.border.rounded:has(input[type="checkbox"]:checked) {
+    background-color: #e7f3ff !important;
+    border-color: #0d6efd !important;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Обработка выбора календаря
+    const calendarSelect = document.querySelector('select[name="main_calendar_id"]');
+    const customInput = document.getElementById('main_calendar_id_custom');
+    
+    if (calendarSelect && customInput) {
+        calendarSelect.addEventListener('change', function() {
+            if (this.value === 'custom') {
+                customInput.style.display = 'block';
+                customInput.required = true;
+                this.value = '';
+            } else {
+                customInput.style.display = 'none';
+                customInput.required = false;
+            }
+        });
+        
+        // При отправке формы, если выбран "custom", берем значение из input
+        const form = document.getElementById('company-settings-form');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                if (customInput.style.display !== 'none' && customInput.value) {
+                    calendarSelect.value = customInput.value;
+                }
+            });
+        }
+    }
+    
+    // Валидация JSON перед отправкой
+    const orgStructureTextarea = document.getElementById('{{ form.org_structure.id_for_label }}');
+    if (orgStructureTextarea) {
+        const form = document.getElementById('company-settings-form');
+        form.addEventListener('submit', function(e) {
+            try {
+                JSON.parse(orgStructureTextarea.value);
+            } catch (error) {
+                e.preventDefault();
+                alert('Ошибка: Неверный формат JSON в поле "Оргструктура".\n\n' + error.message);
+                orgStructureTextarea.focus();
+                return false;
+            }
+        });
+    }
+    
+    // Подсветка выбранных чекбоксов грейдов
+    const gradeCheckboxes = document.querySelectorAll('input[name="active_grades"]');
+    gradeCheckboxes.forEach(function(checkbox) {
+        checkbox.addEventListener('change', function() {
+            const formCheck = this.closest('.form-check');
+            if (this.checked) {
+                formCheck.style.backgroundColor = '#e7f3ff';
+                formCheck.style.borderColor = '#0d6efd';
+            } else {
+                formCheck.style.backgroundColor = '#f8f9fa';
+                formCheck.style.borderColor = '';
+            }
+        });
+        
+        // Инициализация состояния при загрузке
+        if (checkbox.checked) {
+            const formCheck = checkbox.closest('.form-check');
+            if (formCheck) {
+                formCheck.style.backgroundColor = '#e7f3ff';
+                formCheck.style.borderColor = '#0d6efd';
+            }
+        }
+    });
+});
+</script>
+
+<!-- Модальное окно для просмотра оргструктуры -->
+{% if settings.org_structure %}
+<div class="modal fade" id="orgStructureModal" tabindex="-1" aria-labelledby="orgStructureModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="orgStructureModalLabel">
+                    <i class="fas fa-sitemap me-2"></i>
+                    Оргструктура компании
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <pre class="bg-light p-3 rounded" style="max-height: 500px; overflow-y: auto;"><code>{{ org_structure_json }}</code></pre>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+

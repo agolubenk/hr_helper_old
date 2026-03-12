@@ -1,0 +1,51 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Выбор вакансии - HR Helper{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h2 class="mb-4">
+                <i class="fas fa-briefcase me-2"></i>
+                Выберите вакансию для отчета
+            </h2>
+        </div>
+    </div>
+    
+    <div class="row">
+        {% for vacancy in vacancies %}
+        <div class="col-md-6 mb-3">
+            <div class="card {% if not vacancy.is_active %}border-secondary{% endif %}">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        {{ vacancy.name }}
+                        {% if not vacancy.is_active %}
+                            <span class="badge bg-secondary">Неактивна</span>
+                        {% else %}
+                            <span class="badge bg-success">Активна</span>
+                        {% endif %}
+                    </h5>
+                    <p class="card-text">
+                        <small class="text-muted">
+                            Рекрутер: {{ vacancy.recruiter.get_full_name|default:vacancy.recruiter.username }}
+                        </small>
+                    </p>
+                    <a href="{% url 'reporting:vacancy_report' vacancy.id %}" class="btn btn-primary">
+                        Открыть отчет
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="alert alert-info">
+                Вакансии не найдены
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+

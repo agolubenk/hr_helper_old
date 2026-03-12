@@ -1,0 +1,33 @@
+{% extends 'account/base.html' %}
+
+{% block auth_title %}Тест входа - HR Helper{% endblock %}
+{% block auth_page_title %}Тест входа{% endblock %}
+
+{% block auth_header %}Тест Google OAuth{% endblock %}
+
+{% block auth_content %}
+{% load socialaccount %}
+
+<h6>Отладочная информация:</h6>
+<ul>
+    <li>Django версия: {{ django_version }}</li>
+    <li>Пользователь: {{ user }}</li>
+    <li>Авторизован: {{ user.is_authenticated }}</li>
+</ul>
+
+<h6>Google OAuth:</h6>
+<div class="mb-2">
+    <strong>Google</strong> (google)
+    <br>
+    <a href="{% provider_login_url 'google' %}" class="btn btn-primary btn-sm">
+        Войти через Google
+    </a>
+</div>
+
+<hr>
+<div class="text-center">
+    <a href="{% url 'admin:login' %}" class="btn btn-secondary">
+        Админ панель
+    </a>
+</div>
+{% endblock %}

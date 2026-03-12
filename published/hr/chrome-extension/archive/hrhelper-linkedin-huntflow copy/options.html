@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Настройки HRHelper</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    h1 {
+      color: #333;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #333;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    input:focus {
+      outline: none;
+      border-color: #0a66c2;
+      box-shadow: 0 0 0 3px rgba(10, 102, 194, 0.1);
+    }
+    .hint {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #666;
+    }
+    .hint.err {
+      color: #c41e47;
+      font-weight: 600;
+    }
+    .hint.ok {
+      color: #0a66c2;
+      font-weight: 600;
+    }
+    .hint a {
+      word-break: break-all;
+      color: #0a66c2;
+    }
+    button {
+      background: #0a66c2;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background: #084d99;
+    }
+    #status {
+      display: block;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Настройки</h1>
+
+  <div class="form-group">
+    <label for="baseUrl">Base URL HRHelper</label>
+    <input type="url" id="baseUrl" placeholder="https://hr.sftntx.com" />
+    <div class="hint">По умолчанию: <code>https://hr.sftntx.com</code></div>
+  </div>
+
+  <div class="form-group">
+    <label for="apiToken">API Token (DRF)</label>
+    <input type="password" id="apiToken" placeholder="Вставьте ваш API токен" />
+    <div class="hint">
+      Получить токен: откройте в браузере (будучи залогиненным в HR Helper)
+      <a href="https://hr.sftntx.com/api/v1/accounts/users/token/" target="_blank" rel="noopener">/api/v1/accounts/users/token/</a>
+      — скопируйте в это поле <strong>только значение из <code>data.token</code></strong> (одна длинная строка), без префикса «Token » и без кавычек. Можно вставить и весь JSON ответ — расширение возьмёт ключ само.
+    </div>
+  </div>
+
+  <button id="save">Сохранить</button>
+  <div id="status"></div>
+
+  <div class="hint" style="margin-top: 40px; color: #666;">
+    Для работы расширения нужно быть залогиненным в HRHelper в этом же профиле Chrome (cookies).
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>

@@ -1,0 +1,140 @@
+{% load huntflow_filters %}
+
+<ul class="nav flex-column">
+    {% for item in menu_items %}
+        <!-- Основной элемент меню -->
+        <li class="nav-item">
+            {% if item.type == 'organization' %}
+                <!-- Заголовок "Организации" -->
+                <span class="nav-link text-white-50">
+                    <i class="{{ item.icon }} me-2"></i>
+                    {{ item.name }}
+                </span>
+            {% else %}
+                <!-- Обычная ссылка -->
+                {% if item.url_kwargs %}
+                    {% if item.url_kwargs.account_id and item.url_kwargs.vacancy_id and item.url_kwargs.applicant_id %}
+                        <a class="nav-link {% if item.active %}active{% endif %}" 
+                           href="{% url item.url account_id=item.url_kwargs.account_id vacancy_id=item.url_kwargs.vacancy_id applicant_id=item.url_kwargs.applicant_id %}">
+                    {% elif item.url_kwargs.account_id and item.url_kwargs.vacancy_id %}
+                        <a class="nav-link {% if item.active %}active{% endif %}" 
+                           href="{% url item.url account_id=item.url_kwargs.account_id vacancy_id=item.url_kwargs.vacancy_id %}">
+                    {% elif item.url_kwargs.account_id and item.url_kwargs.applicant_id %}
+                        <a class="nav-link {% if item.active %}active{% endif %}" 
+                           href="{% url item.url account_id=item.url_kwargs.account_id applicant_id=item.url_kwargs.applicant_id %}">
+                    {% elif item.url_kwargs.account_id %}
+                        <a class="nav-link {% if item.active %}active{% endif %}" 
+                           href="{% url item.url account_id=item.url_kwargs.account_id %}">
+                    {% else %}
+                        <a class="nav-link {% if item.active %}active{% endif %}" 
+                           href="{% url item.url %}">
+                    {% endif %}
+                {% else %}
+                    <a class="nav-link {% if item.active %}active{% endif %}" 
+                       href="{% url item.url %}">
+                {% endif %}
+                    <i class="{{ item.icon }} me-2"></i>
+                    {{ item.name }}
+                </a>
+            {% endif %}
+        </li>
+        
+        <!-- Дочерние элементы (организации) -->
+        {% for child in item.children %}
+            <li class="nav-item ms-3">
+                {% if child.url %}
+                    {% if child.url_kwargs %}
+                        {% if child.url_kwargs.account_id and child.url_kwargs.vacancy_id and child.url_kwargs.applicant_id %}
+                            <a class="nav-link {% if child.active %}active{% endif %}" 
+                               href="{% url child.url account_id=child.url_kwargs.account_id vacancy_id=child.url_kwargs.vacancy_id applicant_id=child.url_kwargs.applicant_id %}">
+                        {% elif child.url_kwargs.account_id and child.url_kwargs.vacancy_id %}
+                            <a class="nav-link {% if child.active %}active{% endif %}" 
+                               href="{% url child.url account_id=child.url_kwargs.account_id vacancy_id=child.url_kwargs.vacancy_id %}">
+                        {% elif child.url_kwargs.account_id and child.url_kwargs.applicant_id %}
+                            <a class="nav-link {% if child.active %}active{% endif %}" 
+                               href="{% url child.url account_id=child.url_kwargs.account_id applicant_id=child.url_kwargs.applicant_id %}">
+                        {% elif child.url_kwargs.account_id %}
+                            <a class="nav-link {% if child.active %}active{% endif %}" 
+                               href="{% url child.url account_id=child.url_kwargs.account_id %}">
+                        {% else %}
+                            <a class="nav-link {% if child.active %}active{% endif %}" 
+                               href="{% url child.url %}">
+                        {% endif %}
+                    {% else %}
+                        <a class="nav-link {% if child.active %}active{% endif %}" 
+                           href="{% url child.url %}">
+                    {% endif %}
+                        <i class="{{ child.icon }} me-2"></i>
+                        {{ child.name|truncatechars:20 }}
+                    </a>
+                {% else %}
+                    <!-- Элемент без ссылки (например, организация на дашборде) -->
+                    <span class="nav-link {% if child.active %}active{% endif %}">
+                        <i class="{{ child.icon }} me-2"></i>
+                        {{ child.name|truncatechars:20 }}
+                    </span>
+                {% endif %}
+            </li>
+            
+            <!-- Внутренние дочерние элементы (вакансии/кандидаты) -->
+            {% for grandchild in child.children %}
+                <li class="nav-item ms-4">
+                    {% if grandchild.url_kwargs %}
+                        {% if grandchild.url_kwargs.account_id and grandchild.url_kwargs.vacancy_id and grandchild.url_kwargs.applicant_id %}
+                            <a class="nav-link {% if grandchild.active %}active{% endif %}" 
+                               href="{% url grandchild.url account_id=grandchild.url_kwargs.account_id vacancy_id=grandchild.url_kwargs.vacancy_id applicant_id=grandchild.url_kwargs.applicant_id %}">
+                        {% elif grandchild.url_kwargs.account_id and grandchild.url_kwargs.vacancy_id %}
+                            <a class="nav-link {% if grandchild.active %}active{% endif %}" 
+                               href="{% url grandchild.url account_id=grandchild.url_kwargs.account_id vacancy_id=grandchild.url_kwargs.vacancy_id %}">
+                        {% elif grandchild.url_kwargs.account_id and grandchild.url_kwargs.applicant_id %}
+                            <a class="nav-link {% if grandchild.active %}active{% endif %}" 
+                               href="{% url grandchild.url account_id=grandchild.url_kwargs.account_id applicant_id=grandchild.url_kwargs.applicant_id %}">
+                        {% elif grandchild.url_kwargs.account_id %}
+                            <a class="nav-link {% if grandchild.active %}active{% endif %}" 
+                               href="{% url grandchild.url account_id=grandchild.url_kwargs.account_id %}">
+                        {% else %}
+                            <a class="nav-link {% if grandchild.active %}active{% endif %}" 
+                               href="{% url grandchild.url %}">
+                        {% endif %}
+                    {% else %}
+                        <a class="nav-link {% if grandchild.active %}active{% endif %}" 
+                           href="{% url grandchild.url %}">
+                    {% endif %}
+                        <i class="{{ grandchild.icon }} me-2"></i>
+                        {{ grandchild.name|truncatechars:18 }}
+                    </a>
+                </li>
+                
+                <!-- Четвертый уровень (конкретные вакансии/кандидаты) -->
+                {% for great_grandchild in grandchild.children %}
+                    <li class="nav-item ms-5">
+                        {% if great_grandchild.url_kwargs %}
+                            {% if great_grandchild.url_kwargs.account_id and great_grandchild.url_kwargs.vacancy_id and great_grandchild.url_kwargs.applicant_id %}
+                                <a class="nav-link {% if great_grandchild.active %}active{% endif %}" 
+                                   href="{% url great_grandchild.url account_id=great_grandchild.url_kwargs.account_id vacancy_id=great_grandchild.url_kwargs.vacancy_id applicant_id=great_grandchild.url_kwargs.applicant_id %}">
+                            {% elif great_grandchild.url_kwargs.account_id and great_grandchild.url_kwargs.vacancy_id %}
+                                <a class="nav-link {% if great_grandchild.active %}active{% endif %}" 
+                                   href="{% url great_grandchild.url account_id=great_grandchild.url_kwargs.account_id vacancy_id=great_grandchild.url_kwargs.vacancy_id %}">
+                            {% elif great_grandchild.url_kwargs.account_id and great_grandchild.url_kwargs.applicant_id %}
+                                <a class="nav-link {% if great_grandchild.active %}active{% endif %}" 
+                                   href="{% url great_grandchild.url account_id=great_grandchild.url_kwargs.account_id applicant_id=great_grandchild.url_kwargs.applicant_id %}">
+                            {% elif great_grandchild.url_kwargs.account_id %}
+                                <a class="nav-link {% if great_grandchild.active %}active{% endif %}" 
+                                   href="{% url great_grandchild.url account_id=great_grandchild.url_kwargs.account_id %}">
+                            {% else %}
+                                <a class="nav-link {% if great_grandchild.active %}active{% endif %}" 
+                                   href="{% url great_grandchild.url %}">
+                            {% endif %}
+                        {% else %}
+                            <a class="nav-link {% if great_grandchild.active %}active{% endif %}" 
+                               href="{% url great_grandchild.url %}">
+                        {% endif %}
+                            <i class="{{ great_grandchild.icon }} me-2"></i>
+                            {{ great_grandchild.name|truncatechars:16 }}
+                        </a>
+                    </li>
+                {% endfor %}
+            {% endfor %}
+        {% endfor %}
+    {% endfor %}
+</ul>

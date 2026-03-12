@@ -1,0 +1,248 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Отчетность - HR Helper{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+                <h2 class="mb-0">
+                    <i class="fas fa-chart-bar me-2"></i>
+                    Отчетность
+                </h2>
+                <div class="d-flex flex-wrap gap-2">
+                    <button id="syncBtn" class="btn btn-primary" onclick="syncCalendarEvents()">
+                        <i class="fas fa-sync-alt me-2"></i>
+                        Синхронизировать события
+                    </button>
+                </div>
+            </div>
+
+            <!-- Блок импорт/экспорт -->
+            <div class="card mb-4 border-secondary">
+                <div class="card-header bg-light">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-file-export me-2"></i>
+                        Импорт и экспорт данных
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">События календаря отчётности можно выгрузить в JSON или загрузить из ранее экспортированного файла. При импорте существующие записи обновляются по <code>event_id</code>.</p>
+                    <div class="d-flex flex-wrap gap-2">
+                        <a href="{% url 'reporting:export_calendar_events_json' %}" class="btn btn-success" title="Скачать все события календаря в JSON">
+                            <i class="fas fa-download me-1"></i>Экспорт в JSON
+                        </a>
+                        <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#importReportingJsonModal" title="Загрузить события календаря из JSON">
+                            <i class="fas fa-upload me-1"></i>Импорт из JSON
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Модальное окно импорта событий календаря -->
+            <div class="modal fade" id="importReportingJsonModal" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title"><i class="fas fa-upload me-2"></i>Импорт событий календаря из JSON</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <form method="post" action="{% url 'reporting:import_calendar_events_json' %}" enctype="multipart/form-data" id="importReportingJsonForm">
+                            {% csrf_token %}
+                            <div class="modal-body">
+                                <p class="text-muted small mb-3">При импорте существующие записи перезаписываются по <code>event_id</code>. Рекрутеры — по <code>username</code>, вакансии — по <code>external_id</code>. Укажите файл <strong>или</strong> вставьте JSON с ключом <code>calendar_events</code>.</p>
+                                <div class="mb-3">
+                                    <label for="id_reporting_json_file" class="form-label">Файл JSON</label>
+                                    <input type="file" name="json_file" id="id_reporting_json_file" class="form-control" accept=".json,application/json">
+                                </div>
+                                <div class="mb-0">
+                                    <label for="id_reporting_json_data" class="form-label">Или вставьте JSON</label>
+                                    <textarea name="json_data" id="id_reporting_json_data" class="form-control font-monospace small" rows="6" placeholder='{"calendar_events": [...], "version": 1}'></textarea>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                                <button type="submit" class="btn btn-primary" id="importReportingSubmitBtn"><i class="fas fa-upload me-1"></i>Загрузить</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div id="syncStatus" class="alert alert-info d-none" role="alert"></div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-6 col-lg-3 mb-4">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <i class="fas fa-building fa-3x text-primary mb-3"></i>
+                    <h5 class="card-title">По компании</h5>
+                    <p class="card-text">Общая статистика по всем вакансиям и рекрутерам</p>
+                    <a href="{% url 'reporting:company_report' %}" class="btn btn-primary">
+                        Открыть отчет
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 col-lg-3 mb-4">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <i class="fas fa-users fa-3x text-success mb-3"></i>
+                    <h5 class="card-title">Сводный отчет по рекрутерам</h5>
+                    <p class="card-text">Статистика по всем рекрутерам с разбивкой по скринингам и интервью</p>
+                    <a href="{% url 'reporting:recruiters_summary_report' %}" class="btn btn-success">
+                        Открыть отчет
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 col-lg-3 mb-4">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <i class="fas fa-user-tie fa-3x text-info mb-3"></i>
+                    <h5 class="card-title">По рекрутеру</h5>
+                    <p class="card-text">Детальная статистика по конкретному рекрутеру</p>
+                    <a href="{% url 'reporting:recruiter_list' %}" class="btn btn-info">
+                        Выбрать рекрутера
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 col-lg-3 mb-4">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <i class="fas fa-briefcase fa-3x text-info mb-3"></i>
+                    <h5 class="card-title">По вакансии</h5>
+                    <p class="card-text">Статистика по конкретной вакансии</p>
+                    <a href="{% url 'reporting:vacancy_list' %}" class="btn btn-info">
+                        Выбрать вакансию
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 col-lg-3 mb-4">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <i class="fas fa-user-check fa-3x text-warning mb-3"></i>
+                    <h5 class="card-title">По интервьюеру</h5>
+                    <p class="card-text">Статистика по каждому интервьюеру</p>
+                    <a href="{% url 'reporting:interviewer_list' %}" class="btn btn-warning">
+                        Выбрать интервьюера
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    var form = document.getElementById('importReportingJsonForm');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            var fileInput = document.getElementById('id_reporting_json_file');
+            var textarea = document.getElementById('id_reporting_json_data');
+            var hasFile = fileInput && fileInput.files && fileInput.files.length > 0;
+            var hasText = textarea && textarea.value && textarea.value.trim().length > 0;
+            if (!hasFile && !hasText) {
+                e.preventDefault();
+                alert('Укажите файл JSON или вставьте JSON в поле.');
+                return false;
+            }
+        });
+    }
+})();
+function syncCalendarEvents() {
+    const btn = document.getElementById('syncBtn');
+    const status = document.getElementById('syncStatus');
+    
+    // Блокируем кнопку и показываем статус
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Синхронизация...';
+    status.className = 'alert alert-info';
+    status.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Запущена синхронизация событий календаря...';
+    status.classList.remove('d-none');
+    
+    // Получаем CSRF токен
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    const csrftoken = getCookie('csrftoken') || document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+    
+    // Отправляем запрос с параметрами за 2025 год
+    const startDate = '2025-01-01';
+    const endDate = '2025-12-31';
+    const syncUrl = '{% url "reporting:api_sync_events" %}?start_date=' + startDate + '&end_date=' + endDate;
+    
+    fetch(syncUrl, {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': csrftoken,
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            status.className = 'alert alert-success';
+            let message = `<i class="fas fa-check-circle me-2"></i>${data.message}`;
+            message += `<br><strong>Обработано рекрутеров:</strong> ${data.processed_recruiters || 0} из ${data.total_recruiters || 0}`;
+            
+            if (data.synced_count > 0) {
+                message += `<br><strong>Синхронизировано событий:</strong> ${data.synced_count}`;
+                if (data.recruiters && data.recruiters.length > 0) {
+                    message += '<br><strong>По рекрутерам:</strong><ul class="mb-0">';
+                    data.recruiters.forEach(r => {
+                        message += `<li>${r.name}: ${r.count} событий</li>`;
+                    });
+                    message += '</ul>';
+                }
+            } else {
+                message += '<br>Новых событий не найдено.';
+            }
+            
+            if (data.skipped_recruiters && data.skipped_recruiters.length > 0) {
+                message += '<br><strong>Пропущено рекрутеров:</strong><ul class="mb-0 small">';
+                data.skipped_recruiters.forEach(r => {
+                    message += `<li>${r.name}: ${r.reason}</li>`;
+                });
+                message += '</ul>';
+            }
+            status.innerHTML = message;
+        } else {
+            status.className = 'alert alert-danger';
+            status.innerHTML = `<i class="fas fa-exclamation-circle me-2"></i>Ошибка: ${data.error || 'Неизвестная ошибка'}`;
+        }
+    })
+    .catch(error => {
+        status.className = 'alert alert-danger';
+        status.innerHTML = `<i class="fas fa-exclamation-circle me-2"></i>Ошибка при выполнении запроса: ${error.message}`;
+    })
+    .finally(() => {
+        // Разблокируем кнопку
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-sync-alt me-2"></i>Синхронизировать события';
+    });
+}
+</script>
+{% endblock %}
+

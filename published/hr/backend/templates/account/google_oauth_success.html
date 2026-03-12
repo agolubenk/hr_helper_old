@@ -1,0 +1,89 @@
+{% extends "common/base.html" %}
+{% load static %}
+
+{% block title %}Google OAuth успешно подключен - HR Helper{% endblock %}
+
+{% block auth_content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-check-circle me-2"></i>
+                        Google OAuth успешно подключен!
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-success">
+                        <h6><i class="fas fa-info-circle me-2"></i>Что произошло:</h6>
+                        <ul class="mb-0">
+                            <li>Ваш Google аккаунт успешно связан с системой</li>
+                            <li>Вы получили доступ к Google Calendar, Drive и Sheets</li>
+                            <li>Теперь вы можете использовать все функции интеграции с Google</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6><i class="fas fa-user me-2"></i>Информация о пользователе</h6>
+                                </div>
+                                <div class="card-body">
+                                    {% if user.is_authenticated %}
+                                        <p><strong>Имя:</strong> {{ user.full_name|default:user.username }}</p>
+                                        <p><strong>Email:</strong> {{ user.email }}</p>
+                                        <p><strong>Статус:</strong> 
+                                            {% if user.is_observer %}
+                                                <span class="badge bg-info">Наблюдатель</span>
+                                            {% elif user.is_recruiter %}
+                                                <span class="badge bg-primary">Рекрутер</span>
+                                            {% elif user.is_interviewer %}
+                                                <span class="badge bg-success">Интервьюер</span>
+                                            {% elif user.is_admin %}
+                                                <span class="badge bg-warning">Администратор</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Пользователь</span>
+                                            {% endif %}
+                                        </p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6><i class="fas fa-cogs me-2"></i>Доступные функции</h6>
+                                </div>
+                                <div class="card-body">
+                                    <ul class="list-unstyled">
+                                        <li><i class="fas fa-calendar text-primary me-2"></i>Google Calendar</li>
+                                        <li><i class="fas fa-cloud text-info me-2"></i>Google Drive</li>
+                                        <li><i class="fas fa-table text-success me-2"></i>Google Sheets</li>
+                                        <li><i class="fas fa-video text-danger me-2"></i>Google Meet</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 text-center">
+                        <a href="{% url 'accounts:profile' %}" class="btn btn-primary me-2">
+                            <i class="fas fa-user me-2"></i>
+                            Перейти в профиль
+                        </a>
+                        <a href="{% url 'google_oauth:dashboard' %}" class="btn btn-outline-primary">
+                            <i class="fas fa-tachometer-alt me-2"></i>
+                            Google OAuth Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+

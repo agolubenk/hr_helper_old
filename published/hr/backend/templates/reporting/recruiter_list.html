@@ -1,0 +1,42 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Выбор рекрутера - HR Helper{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h2 class="mb-4">
+                <i class="fas fa-user-tie me-2"></i>
+                Выберите рекрутера для отчета
+            </h2>
+        </div>
+    </div>
+    
+    <div class="row">
+        {% for recruiter in recruiters %}
+        <div class="col-md-4 mb-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">{{ recruiter.get_full_name|default:recruiter.username }}</h5>
+                    <p class="card-text">
+                        <i class="fas fa-envelope me-2"></i>{{ recruiter.email }}
+                    </p>
+                    <a href="{% url 'reporting:recruiter_report' recruiter.id %}" class="btn btn-primary">
+                        Открыть отчет
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="alert alert-info">
+                Рекрутеры не найдены
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+

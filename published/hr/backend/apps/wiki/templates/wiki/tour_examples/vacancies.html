@@ -1,0 +1,193 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Вакансии - Пример{% endblock %}
+
+{% block page_title %}Вакансии - Пример данных{% endblock %}
+
+{% block extra_css %}
+<style>
+    .tour-example-banner {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        text-align: center;
+    }
+    .example-data {
+        background: #f8f9fa;
+        border-left: 4px solid #dc3545;
+        padding: 15px;
+        margin: 10px 0;
+    }
+    .vacancy-card {
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 15px;
+        transition: all 0.3s;
+    }
+    .vacancy-card:hover {
+        border-color: #007bff;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="tour-example-banner">
+        <h4><i class="fas fa-info-circle me-2"></i>Это пример страницы с демонстрационными данными</h4>
+        <p class="mb-0">Здесь показано, как будут выглядеть вакансии после создания</p>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-briefcase me-2"></i>Список вакансий</h5>
+                    <span class="badge bg-primary">Всего: 3</span>
+                </div>
+                <div class="card-body">
+                    <!-- Вакансия 1 -->
+                    <div class="vacancy-card">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <h5 class="mb-1">
+                                    <i class="fas fa-code text-primary me-2"></i>
+                                    Backend Developer
+                                </h5>
+                                <p class="text-muted mb-0">Senior • Python, Django, PostgreSQL</p>
+                            </div>
+                            <span class="badge bg-success">Активна</span>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                <p class="mb-1"><strong>Зарплатная вилка:</strong></p>
+                                <p class="text-success mb-0">350,000 - 500,000 RUB</p>
+                            </div>
+                            <div class="col-md-6">
+                                <p class="mb-1"><strong>Рекрутер:</strong></p>
+                                <p class="mb-0">
+                                    <i class="fas fa-user me-1"></i>Иван Иванов
+                                    <i class="fab fa-telegram ms-2 text-info"></i>@ivan_ivanov
+                                </p>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <span class="badge bg-info me-1">Huntflow ID: 12345</span>
+                            <span class="badge bg-secondary">3 кандидата</span>
+                        </div>
+                    </div>
+
+                    <!-- Вакансия 2 -->
+                    <div class="vacancy-card">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <h5 class="mb-1">
+                                    <i class="fas fa-paint-brush text-success me-2"></i>
+                                    Frontend Developer
+                                </h5>
+                                <p class="text-muted mb-0">Middle • React, TypeScript, CSS</p>
+                            </div>
+                            <span class="badge bg-success">Активна</span>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                <p class="mb-1"><strong>Зарплатная вилка:</strong></p>
+                                <p class="text-success mb-0">200,000 - 300,000 RUB</p>
+                            </div>
+                            <div class="col-md-6">
+                                <p class="mb-1"><strong>Рекрутер:</strong></p>
+                                <p class="mb-0">
+                                    <i class="fas fa-user me-1"></i>Мария Петрова
+                                    <i class="fab fa-telegram ms-2 text-info"></i>@maria_petrova
+                                </p>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <span class="badge bg-info me-1">Huntflow ID: 12346</span>
+                            <span class="badge bg-secondary">5 кандидатов</span>
+                        </div>
+                    </div>
+
+                    <!-- Вакансия 3 -->
+                    <div class="vacancy-card">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <h5 class="mb-1">
+                                    <i class="fas fa-server text-warning me-2"></i>
+                                    DevOps Engineer
+                                </h5>
+                                <p class="text-muted mb-0">Senior • Kubernetes, Docker, AWS</p>
+                            </div>
+                            <span class="badge bg-secondary">Неактивна</span>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                <p class="mb-1"><strong>Зарплатная вилка:</strong></p>
+                                <p class="text-success mb-0">400,000 - 600,000 RUB</p>
+                            </div>
+                            <div class="col-md-6">
+                                <p class="mb-1"><strong>Рекрутер:</strong></p>
+                                <p class="mb-0">
+                                    <i class="fas fa-user me-1"></i>Иван Иванов
+                                    <i class="fab fa-telegram ms-2 text-info"></i>@ivan_ivanov
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0"><i class="fas fa-lightbulb me-2"></i>Подсказки</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled">
+                        <li class="mb-3">
+                            <i class="fas fa-check-circle text-success me-2"></i>
+                            <strong>Грейд</strong> определяет уровень специалиста
+                        </li>
+                        <li class="mb-3">
+                            <i class="fas fa-check-circle text-success me-2"></i>
+                            <strong>Зарплатная вилка</strong> берется из финансового модуля
+                        </li>
+                        <li class="mb-3">
+                            <i class="fas fa-check-circle text-success me-2"></i>
+                            <strong>Рекрутер</strong> должен быть настроен для работы с инвайтами
+                        </li>
+                        <li>
+                            <i class="fas fa-check-circle text-success me-2"></i>
+                            <strong>Huntflow ID</strong> для синхронизации с внешней системой
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-body text-center">
+                    <a href="{% url 'vacancies:vacancy_list' %}" class="btn btn-danger btn-lg" target="_blank">
+                        <i class="fas fa-external-link-alt me-2"></i>
+                        Перейти к вакансиям
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Intro.js JS -->
+<script src="https://cdn.jsdelivr.net/npm/intro.js@7.2.0/minified/intro.min.js"></script>
+<!-- Wiki Tour Script -->
+<script src="{% static 'js/wiki-tour.js' %}"></script>
+{% endblock %}
+

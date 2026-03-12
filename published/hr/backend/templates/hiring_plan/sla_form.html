@@ -1,0 +1,232 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}{% if object %}Редактирование{% else %}Создание{% endif %} SLA - HR Helper{% endblock %}
+{% block page_title %}{% if object %}Редактирование SLA{% else %}Создание SLA{% endif %}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-{% if object %}edit{% else %}plus{% endif %} me-2"></i>
+                    {% if object %}Редактирование SLA{% else %}Создание SLA{% endif %}
+                </h5>
+                    <div class="btn-group" role="group">
+                        <a href="{% url 'hiring_plan:sla_list' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Назад
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="card-title mb-0">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                Основная информация
+                            </h6>
+                        </div>
+                                <div class="card-body">
+                            <div class="mb-3">
+                                        <label for="{{ form.vacancy.id_for_label }}" class="form-label">Вакансия <span class="text-danger">*</span></label>
+                                        {% if object %}
+                                            <!-- При редактировании - только для чтения -->
+                                            <div class="form-control-plaintext">
+                                                <strong>{{ object.vacancy.name }}</strong>
+                                            </div>
+                                            {{ form.vacancy.as_hidden }}
+                                        {% else %}
+                                            <!-- При создании - обычное поле -->
+                                {{ form.vacancy }}
+                                {% endif %}
+                                {% if form.vacancy.errors %}
+                                            <div class="text-danger">{{ form.vacancy.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="{{ form.grade.id_for_label }}" class="form-label">Грейд <span class="text-danger">*</span></label>
+                                        {% if object %}
+                                            <!-- При редактировании - только для чтения -->
+                                            <div class="form-control-plaintext">
+                                                <strong>{{ object.grade.name }}</strong>
+                        </div>
+                                            {{ form.grade.as_hidden }}
+                                        {% else %}
+                                            <!-- При создании - обычное поле -->
+                                {{ form.grade }}
+                                        {% endif %}
+                                {% if form.grade.errors %}
+                                            <div class="text-danger">{{ form.grade.errors.0 }}</div>
+                                        {% endif %}
+                                        <div class="form-text" id="grade-help-text">
+                                            {% if object %}
+                                                Грейд зафиксирован для редактирования
+                                            {% else %}
+                                                Выберите вакансию, чтобы увидеть доступные грейды
+                                {% endif %}
+                        </div>
+                    </div>
+
+                            <div class="mb-3">
+                                        <div class="form-check">
+                                            {{ form.is_active }}
+                                            <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                                                Активен
+                                </label>
+                            </div>
+                                        {% if form.is_active.errors %}
+                                            <div class="text-danger">{{ form.is_active.errors.0 }}</div>
+                                {% endif %}
+                                        <div class="form-text">Неактивные SLA не будут автоматически подтягиваться при создании заявок</div>
+                            </div>
+                            </div>
+                        </div>
+                    </div>
+
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="card-title mb-0">
+                                        <i class="fas fa-chart-line me-2"></i>
+                                        Целевые показатели
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label for="{{ form.time_to_offer.id_for_label }}" class="form-label">Time-to-Offer (дни) <span class="text-danger">*</span></label>
+                                        {{ form.time_to_offer }}
+                                        {% if form.time_to_offer.errors %}
+                                            <div class="text-danger">{{ form.time_to_offer.errors.0 }}</div>
+                                        {% endif %}
+                                        <div class="form-text">Целевое время от открытия до предложения кандидату</div>
+                                    </div>
+                                    
+                            <div class="mb-3">
+                                        <label for="{{ form.time_to_hire.id_for_label }}" class="form-label">Time-to-Hire (дни) <span class="text-danger">*</span></label>
+                                        {{ form.time_to_hire }}
+                                        {% if form.time_to_hire.errors %}
+                                            <div class="text-danger">{{ form.time_to_hire.errors.0 }}</div>
+                                {% endif %}
+                                        <div class="form-text">Целевое время от первого контакта до оффера</div>
+                            </div>
+                        </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Кнопки -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <div class="d-flex justify-content-end">
+                                <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>
+                                {% if object %}Сохранить изменения{% else %}Создать SLA{% endif %}
+                            </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const vacancySelect = document.getElementById('{{ form.vacancy.id_for_label }}');
+    const gradeSelect = document.getElementById('{{ form.grade.id_for_label }}');
+    const gradeHelpText = document.getElementById('grade-help-text');
+    const isEditMode = {% if object %}true{% else %}false{% endif %};
+    
+    function updateGradeField(availableGrades, totalGrades, existingGrades) {
+        // Очищаем список грейдов
+        gradeSelect.innerHTML = '<option value="">Выберите грейд</option>';
+        
+        // Удаляем предыдущие скрытые поля
+        const existingHidden = gradeSelect.parentNode.querySelector('input[type="hidden"][name="' + gradeSelect.name + '"]');
+        if (existingHidden) {
+            existingHidden.remove();
+        }
+        
+        if (availableGrades && availableGrades.length > 0) {
+            availableGrades.forEach(grade => {
+                const option = document.createElement('option');
+                option.value = grade.id;
+                option.textContent = grade.name;
+                gradeSelect.appendChild(option);
+            });
+            
+            // Если доступен только один грейд - автоматически его выбираем
+            if (availableGrades.length === 1) {
+                gradeSelect.value = availableGrades[0].id;
+                gradeSelect.disabled = true;
+                gradeHelpText.textContent = `Автоматически выбран единственный доступный грейд: ${availableGrades[0].name}`;
+                gradeHelpText.className = 'form-text text-success';
+                
+                // Создаем скрытое поле для передачи значения
+                const hiddenInput = document.createElement('input');
+                hiddenInput.type = 'hidden';
+                hiddenInput.name = gradeSelect.name;
+                hiddenInput.value = availableGrades[0].id;
+                gradeSelect.parentNode.appendChild(hiddenInput);
+                
+                // Принудительно обновляем значение в форме
+                gradeSelect.dispatchEvent(new Event('change'));
+            } else {
+                gradeSelect.disabled = false;
+                gradeHelpText.textContent = `Доступно грейдов: ${availableGrades.length} из ${totalGrades}`;
+                gradeHelpText.className = 'form-text';
+            }
+        } else {
+            gradeSelect.disabled = true;
+            gradeHelpText.textContent = 'Для этой вакансии уже созданы SLA для всех грейдов';
+            gradeHelpText.className = 'form-text text-warning';
+        }
+    }
+    
+    // Только для режима создания
+    if (!isEditMode && vacancySelect && gradeSelect) {
+        vacancySelect.addEventListener('change', function() {
+            const vacancyId = this.value;
+            
+            if (vacancyId) {
+                // Отправляем AJAX запрос для получения доступных грейдов
+                fetch(`/hiring-plans/sla/get-available-grades/?vacancy_id=${vacancyId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        updateGradeField(
+                            data.available_grades, 
+                            data.total_grades, 
+                            data.existing_grades
+                        );
+                    })
+                    .catch(error => {
+                        console.error('Ошибка при загрузке грейдов:', error);
+                        gradeHelpText.textContent = 'Ошибка при загрузке грейдов';
+                        gradeHelpText.className = 'form-text text-danger';
+                    });
+            } else {
+                gradeSelect.innerHTML = '<option value="">Выберите грейд</option>';
+                gradeSelect.disabled = false;
+                gradeHelpText.textContent = 'Выберите вакансию, чтобы увидеть доступные грейды';
+                gradeHelpText.className = 'form-text';
+            }
+        });
+        
+        // Инициализация при загрузке страницы
+        if (vacancySelect.value) {
+            vacancySelect.dispatchEvent(new Event('change'));
+        }
+    }
+});
+</script>
+{% endblock %}

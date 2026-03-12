@@ -1,0 +1,97 @@
+{% extends 'common/base.html' %}
+
+{% block title %}Удаление позиции - HR Helper{% endblock %}
+{% block page_title %}Удаление позиции{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Внимание! Это действие необратимо
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-danger">
+                    <h6 class="alert-heading">
+                        <i class="fas fa-warning me-2"></i>
+                        Вы собираетесь удалить позицию:
+                    </h6>
+                    <h4 class="mb-3">{{ object.vacancy.name }}</h4>
+                    
+                    <p class="mb-3">Это действие приведет к удалению:</p>
+                    <ul class="mb-3">
+                        <li>Позиции из плана найма</li>
+                        <li>Всех связанных данных (приоритет, дедлайн, грейды)</li>
+                        <li>Статистики по этой позиции</li>
+                    </ul>
+                    
+                    <p class="mb-0">
+                        <strong>Это действие нельзя отменить!</strong>
+                        Убедитесь, что вы действительно хотите удалить эту позицию.
+                    </p>
+                </div>
+
+                <!-- Информация о позиции -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h6>Информация о позиции:</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>Вакансия:</strong> {{ object.vacancy.name }}</li>
+                            <li><strong>Приоритет:</strong> {{ object.get_priority_display }}</li>
+                            {% if object.urgency_deadline %}
+                            <li><strong>Дедлайн:</strong> {{ object.urgency_deadline|date:"d.m.Y" }}</li>
+                            {% endif %}
+                            <li><strong>Статус:</strong> 
+                                {% if object.is_active %}
+                                <span class="badge bg-success">Активна</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Неактивна</span>
+                                {% endif %}
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Статистика:</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>Требуется:</strong> {{ object.headcount_needed }}</li>
+                            <li><strong>Нанято:</strong> {{ object.headcount_hired }}</li>
+                            <li><strong>В процессе:</strong> {{ object.headcount_in_progress }}</li>
+                            <li><strong>Прогресс:</strong> {{ object.fulfillment_rate }}%</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Грейды -->
+                {% if object.grades.all %}
+                <div class="mb-4">
+                    <h6>Грейды:</h6>
+                    {% for grade in object.grades.all %}
+                    <span class="badge bg-info me-1">{{ grade.name }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- Форма удаления -->
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+                        <div>
+                            <a href="{% url 'hiring_plan:plan_detail' hiring_plan.pk %}" class="btn btn-outline-secondary btn-lg">
+                                <i class="fas fa-times me-2"></i>Отмена
+                            </a>
+                        </div>
+                        <div>
+                            <button type="submit" class="btn btn-danger btn-lg">
+                                <i class="fas fa-trash me-2"></i>Да, удалить позицию
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

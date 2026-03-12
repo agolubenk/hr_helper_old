@@ -1,0 +1,246 @@
+{% extends 'common/base.html' %}
+
+{% block title %}{{ title }} - HR Helper{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-money-bill-wave"></i> {{ title }}
+                    </h3>
+                    <div class="card-tools">
+                        <a href="{% url 'vacancies:salary_ranges_list' %}" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-arrow-left"></i> Назад к списку
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        {% if next_url %}
+                            <input type="hidden" name="next" value="{{ next_url }}">
+                        {% endif %}
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.vacancy.id_for_label }}">{{ form.vacancy.label }}</label>
+                                    {{ form.vacancy }}
+                                    {% if form.vacancy.help_text %}
+                                        <small class="form-text text-muted">{{ form.vacancy.help_text }}</small>
+                                    {% endif %}
+                                    {% if form.vacancy.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.vacancy.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.grade.id_for_label }}">{{ form.grade.label }}</label>
+                                    {{ form.grade }}
+                                    {% if form.grade.help_text %}
+                                        <small class="form-text text-muted">{{ form.grade.help_text }}</small>
+                                    {% endif %}
+                                    {% if form.grade.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.grade.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <div class="form-check">
+                                        {{ form.is_active }}
+                                        <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                                            {{ form.is_active.label }}
+                                        </label>
+                                    </div>
+                                    {% if form.is_active.help_text %}
+                                        <small class="form-text text-muted">{{ form.is_active.help_text }}</small>
+                                    {% endif %}
+                                    {% if form.is_active.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.is_active.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.salary_min_usd.id_for_label }}">{{ form.salary_min_usd.label }}</label>
+                                    {{ form.salary_min_usd }}
+                                    {% if form.salary_min_usd.help_text %}
+                                        <small class="form-text text-muted">{{ form.salary_min_usd.help_text }}</small>
+                                    {% endif %}
+                                    {% if form.salary_min_usd.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.salary_min_usd.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.salary_max_usd.id_for_label }}">{{ form.salary_max_usd.label }}</label>
+                                    {{ form.salary_max_usd }}
+                                    {% if form.salary_max_usd.help_text %}
+                                        <small class="form-text text-muted">{{ form.salary_max_usd.help_text }}</small>
+                                    {% endif %}
+                                    {% if form.salary_max_usd.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.salary_max_usd.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Информация о автоматическом расчете -->
+                        <div class="alert alert-info">
+                            <h5><i class="fas fa-info-circle"></i> Автоматический расчет валют</h5>
+                            <p>При сохранении зарплатной вилки система автоматически рассчитает эквивалентные суммы в других валютах:</p>
+                            <ul>
+                                <li><strong>BYN</strong> - рассчитывается на основе курса USD к BYN</li>
+                                <li><strong>PLN</strong> - рассчитывается на основе курсов USD к BYN и PLN к BYN</li>
+                            </ul>
+                            <p class="mb-0">Курсы валют берутся из системы и обновляются автоматически.</p>
+                        </div>
+                        
+                        <!-- Показываем рассчитанные значения, если это редактирование -->
+                        {% if salary_range %}
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="card-title">BYN (автоматически рассчитано)</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        {% if salary_range.salary_min_byn and salary_range.salary_max_byn %}
+                                            <p class="mb-0">
+                                                <strong>{{ salary_range.salary_min_byn }} - {{ salary_range.salary_max_byn }} BYN</strong>
+                                            </p>
+                                        {% else %}
+                                            <p class="mb-0 text-muted">Не рассчитано</p>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="card-title">PLN (автоматически рассчитано)</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        {% if salary_range.salary_min_pln and salary_range.salary_max_pln %}
+                                            <p class="mb-0">
+                                                <strong>{{ salary_range.salary_min_pln }} - {{ salary_range.salary_max_pln }} PLN</strong>
+                                            </p>
+                                        {% else %}
+                                            <p class="mb-0 text-muted">Не рассчитано</p>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Общие ошибки формы -->
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger">
+                                {% for error in form.non_field_errors %}
+                                    <p class="mb-0">{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        
+                        <div class="form-group mt-4">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> {{ submit_text }}
+                            </button>
+                            <a href="{% url 'vacancies:salary_ranges_list' %}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Отмена
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Валидация формы
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form');
+    const vacancySelect = document.getElementById('{{ form.vacancy.id_for_label }}');
+    const gradeSelect = document.getElementById('{{ form.grade.id_for_label }}');
+    const minSalaryInput = document.getElementById('{{ form.salary_min_usd.id_for_label }}');
+    const maxSalaryInput = document.getElementById('{{ form.salary_max_usd.id_for_label }}');
+    
+    function validateSalaryRange() {
+        const minSalary = parseFloat(minSalaryInput.value);
+        const maxSalary = parseFloat(maxSalaryInput.value);
+        
+        if (minSalary && maxSalary && minSalary > maxSalary) {
+            maxSalaryInput.setCustomValidity('Максимальная зарплата должна быть больше минимальной');
+        } else {
+            maxSalaryInput.setCustomValidity('');
+        }
+    }
+    
+    function validateVacancyGrade() {
+        const vacancy = vacancySelect.value;
+        const grade = gradeSelect.value;
+        
+        if (vacancy && grade) {
+            // Проверяем, не существует ли уже такая комбинация
+            // Это можно сделать через AJAX запрос, но для простоты оставим как есть
+            vacancySelect.setCustomValidity('');
+            gradeSelect.setCustomValidity('');
+        }
+    }
+    
+    minSalaryInput.addEventListener('input', validateSalaryRange);
+    maxSalaryInput.addEventListener('input', validateSalaryRange);
+    vacancySelect.addEventListener('change', validateVacancyGrade);
+    gradeSelect.addEventListener('change', validateVacancyGrade);
+    
+    form.addEventListener('submit', function(e) {
+        validateSalaryRange();
+        validateVacancyGrade();
+        if (!form.checkValidity()) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        form.classList.add('was-validated');
+    });
+});
+</script>
+{% endblock %}

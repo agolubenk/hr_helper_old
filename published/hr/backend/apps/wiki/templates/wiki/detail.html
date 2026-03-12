@@ -1,0 +1,579 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}{{ page.title }} - Вики{% endblock %}
+
+{% block page_title %}{{ page.title }}{% endblock %}
+
+{% block extra_css %}
+<!-- Intro.js CSS -->
+<link href="https://cdn.jsdelivr.net/npm/intro.js@7.2.0/minified/introjs.min.css" rel="stylesheet">
+<style>
+    /* Кастомные стили для Intro.js тура */
+    .introjs-tooltip {
+        min-width: 320px !important;
+        max-width: 480px !important;
+        font-size: 15px !important;
+        line-height: 1.5 !important;
+        padding: 20px 24px !important;
+        background: #fff !important;
+        border: 1px solid #dee2e6 !important;
+        border-radius: 8px !important;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.12) !important;
+        position: relative !important;
+        overflow: visible !important;
+    }
+    
+    .introjs-tooltip h4 {
+        font-size: 22px !important;
+        font-weight: 700 !important;
+        margin-bottom: 16px !important;
+        margin-top: 0 !important;
+        color: #000000 !important;
+        line-height: 1.3 !important;
+    }
+    
+    .introjs-tooltip p {
+        margin-bottom: 14px !important;
+        color: #212529 !important;
+        font-weight: 400 !important;
+        line-height: 1.7 !important;
+    }
+    
+    .introjs-tooltip ul, .introjs-tooltip ol {
+        margin: 12px 0 12px 24px !important;
+        padding-left: 24px !important;
+    }
+    
+    .introjs-tooltip li {
+        margin-bottom: 10px !important;
+        color: #212529 !important;
+        line-height: 1.6 !important;
+    }
+    
+    .introjs-tooltip strong {
+        font-weight: 700 !important;
+        color: #000000 !important;
+    }
+    
+    .introjs-tooltipReferenceLayer {
+        z-index: 999999 !important;
+    }
+    
+    .introjs-overlay {
+        z-index: 999998 !important;
+        opacity: 0.5 !important;
+        background: #000 !important;
+    }
+    .introjs-showElement {
+        z-index: 999999 !important;
+        outline: 2px solid #0d6efd !important;
+        outline-offset: 2px !important;
+        border-radius: 4px !important;
+    }
+    
+    .introjs-tooltipbuttons {
+        text-align: right !important;
+        padding-top: 18px !important;
+        border-top: 3px solid #e0e0e0 !important;
+        margin-top: 18px !important;
+        display: flex !important;
+        justify-content: flex-end !important;
+        align-items: center !important;
+        flex-wrap: wrap !important;
+        gap: 10px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    
+    .introjs-button {
+        padding: 12px 24px !important;
+        font-size: 15px !important;
+        border-radius: 6px !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        font-weight: 600 !important;
+        white-space: nowrap !important;
+        min-width: auto !important;
+        box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15) !important;
+        transition: all 0.2s ease !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        max-width: 100% !important;
+    }
+    
+    .introjs-button.introjs-nextbutton,
+    .introjs-button.introjs-donebutton {
+        background-color: #28a745 !important;
+        color: #ffffff !important;
+        border: 3px solid #28a745 !important;
+        font-weight: 700 !important;
+    }
+    
+    .introjs-button.introjs-nextbutton:hover,
+    .introjs-button.introjs-donebutton:hover {
+        background-color: #218838 !important;
+        border-color: #1e7e34 !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 5px 12px rgba(40, 167, 69, 0.4) !important;
+    }
+    
+    .introjs-button.introjs-prevbutton {
+        background-color: #6c757d !important;
+        color: #ffffff !important;
+        border: 3px solid #6c757d !important;
+        font-weight: 600 !important;
+    }
+    
+    .introjs-button.introjs-prevbutton:hover {
+        background-color: #5a6268 !important;
+        border-color: #545b62 !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 5px 12px rgba(108, 117, 125, 0.4) !important;
+    }
+    
+    .introjs-button.introjs-skipbutton {
+        background-color: #ffffff !important;
+        color: #495057 !important;
+        border: 3px solid #6c757d !important;
+        padding: 12px 20px !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        max-width: 150px !important;
+        font-weight: 600 !important;
+        box-sizing: border-box !important;
+    }
+    
+    .introjs-button.introjs-skipbutton:hover {
+        background-color: #f8f9fa !important;
+        color: #212529 !important;
+        border-color: #495057 !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 5px 12px rgba(0, 0, 0, 0.2) !important;
+    }
+    
+    /* Исправляем позиционирование кнопки "Пропустить" если она выходит за границы */
+    .introjs-tooltip .introjs-skipbutton {
+        position: relative !important;
+        display: inline-block !important;
+        vertical-align: middle !important;
+    }
+    
+    .introjs-helperNumberLayer {
+        font-size: 20px !important;
+        width: 36px !important;
+        height: 36px !important;
+        line-height: 36px !important;
+        background-color: #0056b3 !important;
+        color: #ffffff !important;
+        font-weight: 700 !important;
+        border: 4px solid #ffffff !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+    }
+    
+    .introjs-progressbar {
+        height: 6px !important;
+        background-color: #0056b3 !important;
+        border-radius: 3px !important;
+        box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1) !important;
+    }
+    
+    .introjs-bullets {
+        text-align: center !important;
+        padding: 14px 0 !important;
+    }
+    
+    .introjs-bullets ul li a {
+        background-color: rgba(0, 86, 179, 0.4) !important;
+        border: 3px solid #0056b3 !important;
+        width: 12px !important;
+        height: 12px !important;
+    }
+    
+    .introjs-bullets ul li a.active {
+        background-color: #0056b3 !important;
+        border-color: #004085 !important;
+        box-shadow: 0 0 8px rgba(0, 86, 179, 0.6) !important;
+    }
+    
+    /* Дополнительные стили для улучшения видимости */
+    .introjs-tooltiptext {
+        color: #212529 !important;
+        font-weight: 400 !important;
+    }
+    
+    /* Улучшаем контрастность текста в тултипе */
+    .introjs-tooltip .introjs-tooltiptext {
+        background-color: transparent !important;
+        color: #212529 !important;
+    }
+    
+    /* Исправляем переполнение текста в кнопках */
+    .introjs-tooltipbuttons {
+        min-height: 60px !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+    }
+    
+    /* Улучшаем видимость прогресс-бара */
+    .introjs-progress {
+        background-color: rgba(0, 86, 179, 0.25) !important;
+        border-radius: 3px !important;
+        height: 6px !important;
+        border: 1px solid rgba(0, 86, 179, 0.3) !important;
+    }
+    
+    /* Улучшаем контрастность всего тултипа */
+    .introjs-tooltip * {
+        text-shadow: none !important;
+    }
+    
+    /* Улучшаем видимость заголовка */
+    .introjs-tooltip h4 {
+        text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8) !important;
+    }
+    
+    /* Исправляем переполнение контента */
+    .introjs-tooltip {
+        overflow: visible !important;
+        word-wrap: break-word !important;
+    }
+    
+    .introjs-tooltip .introjs-tooltiptext {
+        overflow: visible !important;
+        word-wrap: break-word !important;
+        max-width: 100% !important;
+    }
+    
+    @media (max-width: 768px) {
+        .introjs-tooltip {
+            min-width: 90% !important;
+            max-width: 95% !important;
+            font-size: 14px !important;
+            padding: 20px !important;
+            border-width: 2px !important;
+        }
+        
+        .introjs-tooltip h4 {
+            font-size: 18px !important;
+        }
+        
+        .introjs-button {
+            padding: 8px 14px !important;
+            font-size: 13px !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+        }
+        
+        .introjs-button.introjs-skipbutton {
+            padding: 8px 14px !important;
+            font-size: 13px !important;
+        }
+        
+        .introjs-tooltipbuttons {
+            flex-direction: column !important;
+            align-items: stretch !important;
+        }
+        
+        .introjs-tooltipbuttons .introjs-button {
+            width: 100% !important;
+            margin-bottom: 8px !important;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'wiki:list' %}">Вики</a></li>
+                    {% if page.category %}
+                        <li class="breadcrumb-item"><a href="{% url 'wiki:list' %}?category={{ page.category }}">{{ page.category }}</a></li>
+                    {% endif %}
+                    {% if page.related_app %}
+                        <li class="breadcrumb-item"><a href="{% url 'wiki:list' %}?app={{ page.related_app }}">{{ page.get_related_app_display }}</a></li>
+                    {% endif %}
+                    <li class="breadcrumb-item active">{{ page.title }}</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-9">
+            <div class="card">
+                <div class="card-header" id="wiki-detail-tour-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h3 class="mb-0">{{ page.title }}</h3>
+                        <div>
+                            {% if page.slug == 'welcome' %}
+                                <button type="button" class="btn btn-sm btn-success me-2" onclick="return startWikiTour('quick-start', event);" id="start-quick-tour-btn">
+                                    <i class="fas fa-rocket me-1"></i>
+                                    Быстрый старт
+                                </button>
+                            {% endif %}
+                            <button type="button" class="btn btn-sm btn-info me-2" onclick="return startWikiTour('detail', event);" id="start-tour-btn">
+                                <i class="fas fa-route me-1"></i>
+                                Путеводитель
+                            </button>
+                            {% if can_edit %}
+                                <a href="{% url 'wiki:page_edit' slug=page.slug %}" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-edit me-2"></i>
+                                    Редактировать
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3" id="wiki-detail-tour-badges">
+                        {% if page.category %}
+                            <span class="badge bg-secondary me-1">{{ page.category }}</span>
+                        {% endif %}
+                        {% if page.related_app %}
+                            <span class="badge bg-info me-1">
+                                <i class="fas fa-cube me-1"></i>{{ page.get_related_app_display }}
+                            </span>
+                        {% endif %}
+                        {% for tag in page.tags.all %}
+                            <a href="{% url 'wiki:list' %}?tag={{ tag.name }}" class="badge me-1 text-decoration-none" style="background-color: {{ tag.color }}; color: white;">
+                                #{{ tag.name }}
+                            </a>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="wiki-content" id="wiki-content-html">
+                        {{ page.content|safe }}
+                    </div>
+                </div>
+                <div class="card-footer text-muted">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <small>
+                                <i class="fas fa-user me-1"></i>
+                                Автор: {% if page.author %}{{ page.author.get_full_name|default:page.author.username }}{% else %}Неизвестен{% endif %}
+                            </small>
+                        </div>
+                        <div class="col-md-6 text-md-end">
+                            <small>
+                                <i class="fas fa-clock me-1"></i>
+                                Обновлено: {{ page.updated_at|date:"d.m.Y H:i" }}
+                                {% if page.last_edited_by %}
+                                    ({{ page.last_edited_by.get_full_name|default:page.last_edited_by.username }})
+                                {% endif %}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- История изменений -->
+            {% if history %}
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-history me-2"></i>
+                            История изменений
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="list-group list-group-flush">
+                            {% for entry in history %}
+                                <div class="list-group-item">
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            <strong>{{ entry.created_at|date:"d.m.Y H:i" }}</strong>
+                                            {% if entry.edited_by %}
+                                                <span class="text-muted"> - {{ entry.edited_by.get_full_name|default:entry.edited_by.username }}</span>
+                                            {% endif %}
+                                            {% if entry.change_note %}
+                                                <br><small class="text-muted">{{ entry.change_note }}</small>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="col-lg-3">
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h6 class="mb-0">Действия</h6>
+                </div>
+                <div class="card-body">
+                    <a href="{% url 'wiki:list' %}" class="btn btn-outline-secondary w-100 mb-2">
+                        <i class="fas fa-arrow-left me-2"></i>
+                        Вернуться к списку
+                    </a>
+                    {% if can_edit %}
+                        <a href="{% url 'wiki:page_edit' slug=page.slug %}" class="btn btn-primary w-100 mb-2">
+                            <i class="fas fa-edit me-2"></i>
+                            Редактировать
+                        </a>
+                    {% endif %}
+                    <hr class="my-2">
+                    <a href="/privacy/" class="small text-muted text-decoration-none">Политика конфиденциальности</a>
+                </div>
+            </div>
+            
+            <!-- Связанные страницы -->
+            {% if related_pages %}
+                <div class="card" id="wiki-detail-tour-related">
+                    <div class="card-header">
+                        <h6 class="mb-0">Связанные страницы</h6>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-unstyled mb-0">
+                            {% for related in related_pages %}
+                                <li class="mb-2">
+                                    <a href="{% url 'wiki:page_detail' slug=related.slug %}" class="text-decoration-none">
+                                        {{ related.title }}
+                                    </a>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.wiki-content {
+    line-height: 1.8;
+    font-size: 1.05rem;
+}
+
+.wiki-content p {
+    margin-bottom: 1rem;
+}
+
+.wiki-content h1, .wiki-content h2, .wiki-content h3 {
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+}
+
+.wiki-content ul, .wiki-content ol {
+    margin-bottom: 1rem;
+    padding-left: 2rem;
+}
+
+.wiki-content code {
+    background-color: #f8f9fa;
+    padding: 0.2rem 0.4rem;
+    border-radius: 0.25rem;
+    font-size: 0.9em;
+}
+
+.wiki-content pre {
+    background-color: #f8f9fa;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    overflow-x: auto;
+}
+
+.wiki-content a {
+    color: #0d6efd;
+    text-decoration: underline;
+}
+
+.wiki-content a:hover {
+    color: #0a58ca;
+}
+
+/* Обёртка для таблиц: горизонтальная прокрутка на узких экранах */
+.wiki-content .table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    margin-bottom: 1.5rem;
+    -webkit-overflow-scrolling: touch;
+}
+
+.wiki-content table {
+    width: 100%;
+    min-width: 300px;
+    margin-bottom: 0;
+    border-collapse: collapse;
+    border-spacing: 0;
+    table-layout: auto;
+}
+
+.wiki-content table th,
+.wiki-content table td {
+    padding: 0.6rem 0.75rem;
+    border: 1px solid #dee2e6;
+    vertical-align: top;
+    text-align: left;
+}
+
+.wiki-content table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.wiki-content table tbody tr:nth-child(even) {
+    background-color: rgba(0, 0, 0, 0.02);
+}
+
+.wiki-content table tbody tr:hover {
+    background-color: rgba(0, 0, 0, 0.03);
+}
+
+.wiki-content blockquote {
+    border-left: 4px solid #0d6efd;
+    padding-left: 1rem;
+    margin-left: 0;
+    color: #6c757d;
+    font-style: italic;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var container = document.getElementById('wiki-content-html');
+    if (container) {
+        var tables = container.querySelectorAll('table');
+        tables.forEach(function(table) {
+            if (table.parentElement && table.parentElement.classList.contains('table-wrapper')) return;
+            var wrapper = document.createElement('div');
+            wrapper.className = 'table-wrapper';
+            table.parentNode.insertBefore(wrapper, table);
+            wrapper.appendChild(table);
+        });
+    }
+});
+</script>
+
+<!-- Intro.js JS (должен загружаться до wiki-tour.js) -->
+<script src="https://cdn.jsdelivr.net/npm/intro.js@7.2.0/minified/intro.min.js"></script>
+<script src="{% static 'js/wiki-tour.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof window.startWikiTour === 'undefined') {
+        window.startWikiTour = function(name, e) {
+            if (e) { e.preventDefault(); e.stopPropagation(); }
+            setTimeout(function() {
+                if (typeof window.startWikiTour !== 'undefined' && window.startWikiTour.toString().indexOf('startWikiTour') !== -1)
+                    window.startWikiTour(name, e);
+                else
+                    alert('Тур загружается. Подождите секунду и нажмите кнопку снова.');
+            }, 800);
+            return false;
+        };
+    }
+});
+</script>
+{% endblock %}
+

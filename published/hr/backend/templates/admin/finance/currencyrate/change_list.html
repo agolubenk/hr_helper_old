@@ -1,0 +1,11 @@
+{% extends "admin/change_list.html" %}
+{% load i18n admin_urls %}
+
+{% block object-tools-items %}
+    <li>
+        <a href="update-rates/" class="addlink" style="background: #79aec8; color: white; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight: bold;">
+            🔄 Обновить курсы из НБРБ
+        </a>
+    </li>
+    {{ block.super }}
+{% endblock %}

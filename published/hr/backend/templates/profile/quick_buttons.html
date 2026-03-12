@@ -1,0 +1,477 @@
+{% extends 'profile/base.html' %}
+{% load static %}
+
+{% block profile_title %}Быстрые кнопки - HR Helper{% endblock %}
+{% block profile_page_title %}Управление быстрыми кнопками{% endblock %}
+
+{% block extra_css %}
+    <style>
+        .quick-button-card {
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: move;
+        }
+        
+        .quick-button-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .quick-button-card.dragging {
+            opacity: 0.5;
+        }
+        
+        .button-icon-preview {
+            font-size: 1.5rem;
+            margin-right: 10px;
+        }
+        
+        .button-type-badge {
+            font-size: 0.75rem;
+        }
+        
+        .sortable-handle {
+            cursor: move;
+            color: var(--color-text-muted);
+        }
+        
+        .sortable-handle:hover {
+            color: var(--color-primary);
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: var(--color-text-muted);
+        }
+        
+        .empty-state i {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+    </style>
+{% endblock %}
+
+{% block profile_content %}
+<!-- Блок "Фраза-напоминание" — хранится зашифрованно, доступна только владельцу -->
+<div class="card profile-card mb-4">
+    <div class="card-header">
+        <h5 class="card-title mb-0">
+            <i class="fas fa-lock me-2"></i>
+            Фраза-напоминание
+        </h5>
+    </div>
+    <div class="card-body">
+        <p class="text-muted small mb-3">
+            Текст хранится в зашифрованном виде и доступен только вам. Не отображается в админке и нигде в явном виде.
+        </p>
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="save_reminder_phrase">
+            <div class="mb-3">
+                <label for="reminderPhrase" class="form-label">Ваша фраза</label>
+                <textarea class="form-control" id="reminderPhrase" name="reminder_phrase" rows="3" 
+                          placeholder="Введите фразу-напоминание...">{{ reminder_phrase|default:"" }}</textarea>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">
+                <i class="fas fa-save me-1"></i>
+                Сохранить
+            </button>
+        </form>
+    </div>
+</div>
+
+<div class="card profile-card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0">
+            <i class="fas fa-bolt me-2"></i>
+            Быстрые кнопки
+        </h5>
+        <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createButtonModal">
+            <i class="fas fa-plus me-1"></i>
+            Добавить кнопку
+        </button>
+    </div>
+    <div class="card-body">
+        {% if quick_buttons %}
+            <div id="buttonsList" class="row">
+                {% for button in quick_buttons %}
+                <div class="col-md-6 col-lg-4 mb-3" data-button-id="{{ button.id }}">
+                    <div class="card quick-button-card h-100">
+                        <div class="card-body">
+                            <div class="d-flex align-items-start mb-2">
+                                <i class="{{ button.icon }} button-icon-preview"></i>
+                                <div class="flex-grow-1">
+                                    <h6 class="card-title mb-1">{{ button.name }}</h6>
+                                    <span class="badge button-type-badge bg-secondary">
+                                        {{ button.get_button_type_display }}
+                                    </span>
+                                </div>
+                                <i class="fas fa-grip-vertical sortable-handle ms-2" title="Перетащите для изменения порядка"></i>
+                            </div>
+                            <p class="card-text text-muted small mb-2">
+                                {% if button.button_type == 'link' %}
+                                    <i class="fas fa-link me-1"></i>
+                                    <a href="{{ button.value }}" target="_blank" class="text-decoration-none">{{ button.value|truncatechars:40 }}</a>
+                                {% elif button.button_type == 'text' %}
+                                    <i class="fas fa-text-width me-1"></i>
+                                    {{ button.value|truncatechars:40 }}
+                                {% elif button.button_type == 'datetime' %}
+                                    <i class="fas fa-calendar-alt me-1"></i>
+                                    {{ button.value }}
+                                {% endif %}
+                            </p>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-sm btn-outline-primary" 
+                                        onclick="editButton({{ button.id }}, '{{ button.name|escapejs }}', '{{ button.icon|escapejs }}', '{{ button.button_type|escapejs }}', '{{ button.value|escapejs }}', {{ button.order }}, '{{ button.color|escapejs }}')">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-danger" 
+                                        onclick="deleteButton({{ button.id }}, '{{ button.name|escapejs }}')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <i class="fas fa-bolt"></i>
+                <h5>Нет быстрых кнопок</h5>
+                <p>Создайте свою первую быструю кнопку для быстрого доступа к важной информации</p>
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createButtonModal">
+                    <i class="fas fa-plus me-1"></i>
+                    Добавить кнопку
+                </button>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Модальное окно для создания/редактирования кнопки -->
+<div class="modal fade" id="createButtonModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" id="buttonForm">
+                {% csrf_token %}
+                <input type="hidden" name="action" id="formAction" value="create">
+                <input type="hidden" name="button_id" id="buttonId">
+                
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalTitle">Добавить быструю кнопку</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="buttonName" class="form-label">Название <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="buttonName" name="name" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="buttonIcon" class="form-label">Иконка <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <select class="form-select" id="buttonIcon" name="icon" required>
+                                <option value="">Выберите иконку...</option>
+                                {% if popular_icons %}
+                                    <optgroup label="Популярные">
+                                        {% for icon_class, icon_name in popular_icons %}
+                                        <option value="{{ icon_class }}" data-icon="{{ icon_class }}">{{ icon_name }} ({{ icon_class }})</option>
+                                        {% endfor %}
+                                    </optgroup>
+                                {% endif %}
+                                {% if all_icons_by_style %}
+                                    {% if all_icons_by_style.fas %}
+                                        <optgroup label="Все (Solid)">
+                                            {% for icon_class, icon_name in all_icons_by_style.fas %}
+                                            <option value="{{ icon_class }}" data-icon="{{ icon_class }}">{{ icon_name }} ({{ icon_class }})</option>
+                                            {% endfor %}
+                                        </optgroup>
+                                    {% endif %}
+                                    {% if all_icons_by_style.far %}
+                                        <optgroup label="Все (Regular)">
+                                            {% for icon_class, icon_name in all_icons_by_style.far %}
+                                            <option value="{{ icon_class }}" data-icon="{{ icon_class }}">{{ icon_name }} ({{ icon_class }})</option>
+                                            {% endfor %}
+                                        </optgroup>
+                                    {% endif %}
+                                    {% if all_icons_by_style.fab %}
+                                        <optgroup label="Все (Brands)">
+                                            {% for icon_class, icon_name in all_icons_by_style.fab %}
+                                            <option value="{{ icon_class }}" data-icon="{{ icon_class }}">{{ icon_name }} ({{ icon_class }})</option>
+                                            {% endfor %}
+                                        </optgroup>
+                                    {% endif %}
+                                {% endif %}
+                                {% if not popular_icons and not all_icons_by_style %}
+                                    <option value="fas fa-circle">Круг (fas fa-circle)</option>
+                                {% endif %}
+                            </select>
+                            <span class="input-group-text">
+                                <i id="iconPreview" class="fas fa-circle"></i>
+                            </span>
+                        </div>
+                        <div class="form-text">
+                            Выберите иконку из списка или введите свой класс Font Awesome ниже
+                        </div>
+                        <div class="mt-2">
+                            <input type="text" class="form-control form-control-sm" id="customIcon" 
+                                   placeholder="Или введите свой класс (например: fas fa-custom-icon)">
+                            <small class="form-text text-muted">Для кастомных иконок</small>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="buttonType" class="form-label">Тип <span class="text-danger">*</span></label>
+                        <select class="form-select" id="buttonType" name="button_type" required>
+                            <option value="">Выберите тип...</option>
+                            {% if button_types %}
+                                {% for value, label in button_types %}
+                                <option value="{{ value }}">{{ label }}</option>
+                                {% endfor %}
+                            {% else %}
+                                <option value="link">Ссылка</option>
+                                <option value="text">Текст</option>
+                                <option value="datetime">Дата и время</option>
+                            {% endif %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="buttonValue" class="form-label">Значение <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="buttonValue" name="value" rows="3" required></textarea>
+                        <div class="form-text" id="valueHelp">
+                            Для типа "Ссылка" укажите URL (начинается с http://, https://, /, mailto: или tel:)
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="buttonColor" class="form-label">Цвет фона</label>
+                        <div class="input-group">
+                            <input type="color" class="form-control form-control-color" id="buttonColor" name="color" value="#007bff" title="Выберите цвет">
+                            <input type="text" class="form-control" id="buttonColorHex" value="#007bff" placeholder="#007bff" pattern="^#[0-9A-Fa-f]{6}$">
+                        </div>
+                        <div class="form-text">Выберите цвет фона для кнопки</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="buttonOrder" class="form-label">Порядок</label>
+                        <input type="number" class="form-control" id="buttonOrder" name="order" value="0" min="0">
+                        <div class="form-text">Меньшее значение = выше в списке</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для подтверждения удаления -->
+<div class="modal fade" id="deleteButtonModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="button_id" id="deleteButtonId">
+                
+                <div class="modal-header">
+                    <h5 class="modal-title">Подтверждение удаления</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Вы уверены, что хотите удалить кнопку "<span id="deleteButtonName"></span>"?</p>
+                    <p class="text-muted small mb-0">Это действие нельзя отменить.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-danger">Удалить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+<script>
+    // Предпросмотр иконки из выпадающего списка
+    document.getElementById('buttonIcon').addEventListener('change', function() {
+        const iconPreview = document.getElementById('iconPreview');
+        const selectedOption = this.options[this.selectedIndex];
+        if (selectedOption && selectedOption.value) {
+            iconPreview.className = selectedOption.value;
+            // Очищаем кастомное поле при выборе из списка
+            document.getElementById('customIcon').value = '';
+        } else {
+            iconPreview.className = 'fas fa-circle';
+        }
+    });
+    
+    // Предпросмотр иконки из кастомного поля
+    document.getElementById('customIcon').addEventListener('input', function() {
+        const iconPreview = document.getElementById('iconPreview');
+        const iconSelect = document.getElementById('buttonIcon');
+        if (this.value.trim()) {
+            iconPreview.className = this.value.trim();
+            // Сбрасываем выпадающий список при вводе кастомной иконки
+            iconSelect.value = '';
+        } else {
+            // Если кастомное поле пустое, показываем иконку из выпадающего списка
+            const selectedOption = iconSelect.options[iconSelect.selectedIndex];
+            if (selectedOption && selectedOption.value) {
+                iconPreview.className = selectedOption.value;
+            } else {
+                iconPreview.className = 'fas fa-circle';
+            }
+        }
+    });
+    
+    // При отправке формы используем кастомную иконку, если она указана
+    document.getElementById('buttonForm').addEventListener('submit', function(e) {
+        const customIcon = document.getElementById('customIcon').value.trim();
+        const iconSelect = document.getElementById('buttonIcon');
+        
+        if (customIcon) {
+            // Если указана кастомная иконка, используем её
+            iconSelect.value = customIcon;
+        }
+        
+        // Проверяем, что иконка выбрана
+        if (!iconSelect.value) {
+            e.preventDefault();
+            alert('Пожалуйста, выберите иконку или введите кастомный класс');
+            return false;
+        }
+    });
+    
+    // Изменение подсказки в зависимости от типа
+    document.getElementById('buttonType').addEventListener('change', function() {
+        const valueHelp = document.getElementById('valueHelp');
+        const buttonValue = document.getElementById('buttonValue');
+        
+        if (this.value === 'link') {
+            valueHelp.textContent = 'Для типа "Ссылка" укажите URL (начинается с http://, https://, /, mailto: или tel:)';
+            buttonValue.placeholder = 'https://example.com или /path/to/page';
+        } else if (this.value === 'text') {
+            valueHelp.textContent = 'Для типа "Текст" укажите любой текст';
+            buttonValue.placeholder = 'Введите текст...';
+        } else if (this.value === 'datetime') {
+            valueHelp.textContent = 'Для типа "Дата и время" укажите дату в формате YYYY-MM-DD HH:MM:SS, YYYY-MM-DD или DD.MM.YYYY HH:MM';
+            buttonValue.placeholder = '2024-01-15 14:30:00';
+        }
+    });
+    
+    // Синхронизация color picker и текстового поля
+    document.getElementById('buttonColor').addEventListener('input', function() {
+        document.getElementById('buttonColorHex').value = this.value;
+    });
+    
+    document.getElementById('buttonColorHex').addEventListener('input', function() {
+        const colorValue = this.value;
+        if (/^#[0-9A-Fa-f]{6}$/.test(colorValue)) {
+            document.getElementById('buttonColor').value = colorValue;
+        }
+    });
+    
+    // Функция редактирования кнопки
+    function editButton(id, name, icon, type, value, order, color) {
+        document.getElementById('formAction').value = 'update';
+        document.getElementById('buttonId').value = id;
+        document.getElementById('buttonName').value = name;
+        
+        // Устанавливаем иконку
+        const iconSelect = document.getElementById('buttonIcon');
+        const customIcon = document.getElementById('customIcon');
+        const iconPreview = document.getElementById('iconPreview');
+        
+        // Проверяем, есть ли иконка в списке
+        let foundInList = false;
+        for (let option of iconSelect.options) {
+            if (option.value === icon) {
+                iconSelect.value = icon;
+                foundInList = true;
+                customIcon.value = '';
+                break;
+            }
+        }
+        
+        // Если иконки нет в списке, используем кастомное поле
+        if (!foundInList) {
+            iconSelect.value = '';
+            customIcon.value = icon;
+        }
+        
+        iconPreview.className = icon;
+        
+        document.getElementById('buttonType').value = type;
+        document.getElementById('buttonValue').value = value;
+        document.getElementById('buttonOrder').value = order;
+        
+        // Устанавливаем цвет
+        const colorValue = color || '#007bff';
+        document.getElementById('buttonColor').value = colorValue;
+        document.getElementById('buttonColorHex').value = colorValue;
+        
+        document.getElementById('modalTitle').textContent = 'Редактировать быструю кнопку';
+        
+        // Триггерим изменение типа для обновления подсказки
+        document.getElementById('buttonType').dispatchEvent(new Event('change'));
+        
+        const modal = new bootstrap.Modal(document.getElementById('createButtonModal'));
+        modal.show();
+    }
+    
+    // Функция удаления кнопки
+    function deleteButton(id, name) {
+        document.getElementById('deleteButtonId').value = id;
+        document.getElementById('deleteButtonName').textContent = name;
+        const modal = new bootstrap.Modal(document.getElementById('deleteButtonModal'));
+        modal.show();
+    }
+    
+    // Сброс формы при закрытии модального окна
+    document.getElementById('createButtonModal').addEventListener('hidden.bs.modal', function() {
+        document.getElementById('buttonForm').reset();
+        document.getElementById('formAction').value = 'create';
+        document.getElementById('buttonId').value = '';
+        document.getElementById('iconPreview').className = 'fas fa-circle';
+        document.getElementById('customIcon').value = '';
+        document.getElementById('modalTitle').textContent = 'Добавить быструю кнопку';
+    });
+    
+    // Сортировка кнопок (если используется SortableJS)
+    {% if quick_buttons %}
+    const buttonsList = document.getElementById('buttonsList');
+    if (buttonsList) {
+        const sortable = Sortable.create(buttonsList, {
+            handle: '.sortable-handle',
+            animation: 150,
+            onEnd: function(evt) {
+                // Обновляем порядок кнопок
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.innerHTML = '{% csrf_token %}<input type="hidden" name="action" value="reorder">';
+                
+                const items = buttonsList.querySelectorAll('[data-button-id]');
+                items.forEach((item, index) => {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'button_order[]';
+                    input.value = item.dataset.buttonId + ':' + index;
+                    form.appendChild(input);
+                });
+                
+                document.body.appendChild(form);
+                form.submit();
+            }
+        });
+    }
+    {% endif %}
+</script>
+{% endblock %}

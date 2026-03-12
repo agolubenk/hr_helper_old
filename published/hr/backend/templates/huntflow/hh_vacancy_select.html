@@ -1,0 +1,95 @@
+{% extends 'common/base.html' %}
+
+{% block title %}Выбор вакансии для HH.ru - Huntflow{% endblock %}
+{% block page_title %}Выбор вакансии для работы с откликами HH.ru{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-briefcase me-2"></i>
+                    Выберите вакансию для работы с откликами из HH.ru
+                </h5>
+                <a href="{% url 'huntflow:dashboard' %}" class="btn btn-sm btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>
+                    Назад к дашборду
+                </a>
+            </div>
+            <div class="card-body">
+                {% if vacancies %}
+                <div class="row">
+                    {% for vacancy in vacancies %}
+                    <div class="col-md-6 col-lg-4 mb-3">
+                        <div class="card h-100 {% if vacancy.id in sync_configs %}border-success{% endif %}">
+                            <div class="card-body">
+                                <h6 class="card-title">
+                                    {{ vacancy.position }}
+                                    {% if vacancy.id in sync_configs %}
+                                    <span class="badge bg-success ms-2" title="Синхронизация настроена">
+                                        <i class="fas fa-check-circle"></i>
+                                    </span>
+                                    {% endif %}
+                                </h6>
+                                <p class="card-text text-muted small mb-2">
+                                    {% if vacancy.company %}
+                                    <i class="fas fa-building me-1"></i>{{ vacancy.company }}<br>
+                                    {% endif %}
+                                    <i class="fas fa-hashtag me-1"></i>ID: {{ vacancy.id }}
+                                </p>
+                                {% if vacancy.state %}
+                                <p class="mb-2">
+                                    {% if vacancy.state == 'OPEN' %}
+                                        <span class="badge bg-success">Открыта</span>
+                                    {% elif vacancy.state == 'CLOSED' %}
+                                        <span class="badge bg-danger">Закрыта</span>
+                                    {% elif vacancy.state == 'HOLD' %}
+                                        <span class="badge bg-warning">Приостановлена</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ vacancy.state }}</span>
+                                    {% endif %}
+                                </p>
+                                {% endif %}
+                                <div class="d-grid gap-2">
+                                    <a href="{% url 'huntflow:hh_responses_list' account_id vacancy.id %}" 
+                                       class="btn btn-sm btn-primary">
+                                        <i class="fas fa-list me-1"></i>
+                                        Просмотр откликов
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-info-circle fa-3x text-info mb-3"></i>
+                    <h4>Вакансии не найдены</h4>
+                    <p class="text-muted">
+                        В данной организации не найдено вакансий.
+                    </p>
+                    <a href="{% url 'huntflow:dashboard' %}" class="btn btn-primary">
+                        <i class="fas fa-arrow-left me-1"></i>
+                        Вернуться к дашборду
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if error %}
+<div class="row">
+    <div class="col-12">
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>Ошибка:</strong> {{ error }}
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+

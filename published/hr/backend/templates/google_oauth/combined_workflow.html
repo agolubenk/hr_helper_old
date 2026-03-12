@@ -1,0 +1,207 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">{{ title }}</h1>
+                <div>
+                    <a href="{% url 'google_oauth:invite_create_combined' %}" class="btn btn-outline-success me-2">
+                        <i class="fas fa-calendar-plus me-2"></i>Инвайт
+                    </a>
+                    <a href="{% url 'google_oauth:dashboard' %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Назад
+                    </a>
+                </div>
+            </div>
+
+            <!-- Отображение структуры папок -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="alert alert-info">
+                        <h5><i class="fas fa-folder-tree me-2"></i>Структура папок для Scorecard:</h5>
+                        <p><strong>Полный путь:</strong></p>
+                        <code style="font-size: 16px; font-weight: bold; color: #000;">
+                            G-Drive/{{ path_preview }} | Scorecard FE.gsheet
+                        </code>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-lg-8">
+                    <div class="card shadow">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 font-weight-bold text-primary">
+                                <i class="fas fa-magic me-2"></i>Объединенная форма
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            {% if messages %}
+                                {% for message in messages %}
+                                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                                        {{ message }}
+                                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                    </div>
+                                {% endfor %}
+                            {% endif %}
+                            
+                            <form method="post">
+                                {% csrf_token %}
+                                
+                                {% if form.non_field_errors %}
+                                    <div class="alert alert-danger">
+                                        {% for error in form.non_field_errors %}
+                                            <i class="fas fa-exclamation-triangle me-1"></i>
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                                
+                                <div class="row">
+                                    <div class="col-md-12 mb-4">
+                                        <label for="{{ form.combined_data.id_for_label }}" class="form-label">
+                                            {{ form.combined_data.label }}
+                                        </label>
+                                        {{ form.combined_data }}
+                                        {% if form.combined_data.help_text %}
+                                            <div class="form-text">{{ form.combined_data.help_text }}</div>
+                                        {% endif %}
+                                        {% if form.combined_data.errors %}
+                                            <div class="alert alert-danger small">
+                                                {% for error in form.combined_data.errors %}
+                                                    <i class="fas fa-exclamation-triangle me-1"></i>
+                                                    {{ error|striptags }}
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+
+                                <div class="d-flex justify-content-between">
+                                    <a href="{% url 'google_oauth:dashboard' %}" class="btn btn-secondary">
+                                        <i class="fas fa-times me-2"></i>Отмена
+                                    </a>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-magic me-2"></i>Обработать
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-4">
+                    <div class="card shadow">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 font-weight-bold text-primary">
+                                <i class="fas fa-info-circle me-2"></i>Информация
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <h6>Формат ссылки на кандидата:</h6>
+                            <p class="text-muted small">
+                                <strong>Sandbox (работает):</strong><br>
+                                <code>https://sandbox.huntflow.dev/my/org694#/vacancy/[id вакансии]/filter/[id статуса]/id/[id кандидата]</code>
+                            </p>
+                            <p class="text-muted small">
+                                <strong>Production:</strong><br>
+                                <code>https://huntflow.ru/my/[название_аккаунта]#/vacancy/[id вакансии]/filter/[id статуса]/id/[id кандидата]</code>
+                            </p>
+                            
+                            <hr>
+                            
+                            <h6>Форматы даты-времени:</h6>
+                            <ul class="text-muted small">
+                                <li><code>2025-09-15 14:00</code> (YYYY-MM-DD HH:MM)</li>
+                                <li><code>15.09.2025 14:00</code> (DD.MM.YYYY HH:MM)</li>
+                                <li><code>15/09/2025 14:00</code> (DD/MM/YYYY HH:MM)</li>
+                            </ul>
+                            
+                            <hr>
+                            
+                            <h6>Автоматическое определение:</h6>
+                            <ul class="text-muted small">
+                                <li><strong>HR-скрининг:</strong> Если много текста о кандидате</li>
+                                <li><strong>Инвайт:</strong> Если есть дата/время/день недели</li>
+                                <li><strong>Умная логика:</strong> Система сама определит нужное действие</li>
+                            </ul>
+                            
+                            <hr>
+                            
+                            <h6>Примеры:</h6>
+                            
+                            <div class="alert alert-info small mb-2">
+                                <strong>Для инвайта (дата + время):</strong><br>
+                                <code>
+                                    https://sandbox.huntflow.dev/my/org499#/vacancy/3/filter/workon/id/17<br>
+                                    2025-09-15 14:00
+                                </code>
+                            </div>
+                            
+                            <div class="alert alert-warning small">
+                                <strong>Для HR-скрининга (много текста):</strong><br>
+                                <code>
+                                    https://sandbox.huntflow.dev/my/org499#/vacancy/3/filter/workon/id/17<br><br>
+                                    Кандидат: Иван Петров<br>
+                                    Ожидания по зарплате: 150,000 - 200,000 руб<br>
+                                    Опыт работы: 3 года в разработке<br>
+                                    Технологии: Python, Django, PostgreSQL
+                                </code>
+                            </div>
+                            
+                            <div class="alert alert-info small">
+                                <i class="fas fa-lightbulb me-1"></i>
+                                <strong>Совет:</strong> Чем больше информации вы предоставите, тем точнее будет анализ AI.
+                            </div>
+                            
+                            <hr>
+                            
+                            <h6>Что происходит при обработке:</h6>
+                            <ul class="text-muted small">
+                                <li>Извлечение ссылки и даты из текста</li>
+                                <li>Парсинг URL и извлечение ID</li>
+                                <li>Получение информации о кандидате и вакансии</li>
+                                <li>Анализ данных с помощью Gemini AI (для HR-скрининга)</li>
+                                <li>Создание scorecard в Google Drive (для инвайта)</li>
+                                <li>Обновление полей кандидата в Huntflow</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Автоматическое изменение размера textarea
+    const textarea = document.querySelector('textarea');
+    if (textarea) {
+        textarea.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+        });
+    }
+    
+    // Показываем индикатор загрузки при отправке формы
+    const form = document.querySelector('form');
+    const submitBtn = form.querySelector('button[type="submit"]');
+    
+    form.addEventListener('submit', function() {
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Обрабатываем...';
+        submitBtn.disabled = true;
+    });
+    
+    // Устанавливаем фиксированный текст кнопки
+    submitBtn.innerHTML = '<i class="fas fa-magic me-2"></i>Обработать';
+});
+</script>
+
+{% endblock %}

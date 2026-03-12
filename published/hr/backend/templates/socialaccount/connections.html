@@ -1,0 +1,102 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Подключенные аккаунты - HR Helper{% endblock %}
+{% block page_title %}Подключенные аккаунты{% endblock %}
+
+{% block extra_css %}
+<link href="{% static 'css/socialaccount.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-link me-2"></i>
+                    Подключенные аккаунты
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if form.accounts %}
+                    <p class="text-muted">Вы можете войти в свой аккаунт, используя любой из следующих подключенных аккаунтов:</p>
+                    
+                    <form method="post" action="{% url 'socialaccount_connections' %}">
+                        {% csrf_token %}
+                        
+                        <fieldset>
+                            {% if form.non_field_errors %}
+                                <div class="alert alert-danger">
+                                    <h6>Ошибки:</h6>
+                                    <ul class="mb-0">
+                                        {% for error in form.non_field_errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                            {% endif %}
+                            
+                            <div class="row">
+                                {% for base_account in form.accounts %}
+                                    {% with base_account.get_provider_account as account %}
+                                        <div class="col-md-6 mb-3">
+                                            <div class="card">
+                                                <div class="card-body">
+                                                    <div class="form-check">
+                                                        <input id="id_account_{{ base_account.id }}" 
+                                                               type="radio" 
+                                                               name="account" 
+                                                               value="{{ base_account.id }}"
+                                                               class="form-check-input">
+                                                        <label for="id_account_{{ base_account.id }}" class="form-check-label w-100">
+                                                            <div class="d-flex align-items-center">
+                                                                {% if base_account.provider == 'google' %}
+                                                                    <i class="fab fa-google fa-2x text-danger me-3"></i>
+                                                                {% else %}
+                                                                    <i class="fas fa-user fa-2x text-muted me-3"></i>
+                                                                {% endif %}
+                                                                <div>
+                                                                    <h6 class="mb-1">{{ account.get_brand.name }}</h6>
+                                                                    <small class="text-muted">{{ account }}</small>
+                                                                </div>
+                                                            </div>
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    {% endwith %}
+                                {% endfor %}
+                            </div>
+                            
+                            <div class="d-grid gap-2">
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-sign-in-alt me-2"></i>
+                                    Войти через выбранный аккаунт
+                                </button>
+                            </div>
+                        </fieldset>
+                    </form>
+                {% else %}
+                    <div class="text-center">
+                        <i class="fas fa-user-slash fa-4x text-muted mb-4"></i>
+                        <h5>Нет подключенных аккаунтов</h5>
+                        <p class="text-muted">У вас пока нет подключенных социальных аккаунтов</p>
+                        <div class="d-grid gap-2">
+                            <a href="{% url 'account_login' %}" class="btn btn-primary">
+                                <i class="fab fa-google me-2"></i>
+                                Подключить Google аккаунт
+                            </a>
+                            <a href="{% url 'admin:login' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-cog me-2"></i>
+                                Войти через админ панель
+                            </a>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,309 @@
+{% extends 'common/base.html' %}
+
+{% block title %}KPI/OKR плана "{{ plan.title }}" - HR Helper{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <!-- Навигация -->
+            <nav aria-label="breadcrumb" class="mb-4">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'hiring_plan:plan_list' %}">Планы найма</a>
+                    </li>
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'hiring_plan:plan_detail' plan.pk %}">{{ plan.title }}</a>
+                    </li>
+                    <li class="breadcrumb-item active" aria-current="page">KPI/OKR</li>
+                </ol>
+            </nav>
+
+            <!-- Заголовок -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="h3 mb-0">
+                        <i class="fas fa-chart-bar text-primary me-2"></i>
+                        KPI/OKR Dashboard
+                    </h1>
+                    <p class="text-muted mb-0">Ключевые показатели и цели для плана "{{ plan.title }}"</p>
+                </div>
+                <div>
+                    <a href="{% url 'hiring_plan:kpi_okr_create' plan.pk %}" class="btn btn-primary me-2">
+                        <i class="fas fa-plus me-2"></i>Создать KPI/OKR
+                    </a>
+                    <a href="{% url 'hiring_plan:plan_detail' plan.pk %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Назад к плану
+                    </a>
+                </div>
+            </div>
+
+            <!-- Общая статистика KPI/OKR -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="mb-0">{{ kpi_okr_summary.total }}</h4>
+                                    <p class="mb-0">Всего метрик</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-chart-bar fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="mb-0">{{ kpi_okr_summary.achieved }}</h4>
+                                    <p class="mb-0">Достигнуто</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-check-circle fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-warning text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="mb-0">{{ kpi_okr_summary.in_progress }}</h4>
+                                    <p class="mb-0">В процессе</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-clock fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-danger text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="mb-0">{{ kpi_okr_summary.failed }}</h4>
+                                    <p class="mb-0">Не достигнуто</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-times-circle fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Процент достижения -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">Общий процент достижения</h5>
+                            <div class="display-4 text-primary">{{ kpi_okr_summary.achievement_rate }}%</div>
+                            <p class="text-muted">Достигнуто целей</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">Распределение по типам</h5>
+                            <div class="row">
+                                <div class="col-6">
+                                    <div class="text-info fw-bold">{{ kpi_okr_summary.kpi_count }}</div>
+                                    <small class="text-muted">KPI</small>
+                                </div>
+                                <div class="col-6">
+                                    <div class="text-warning fw-bold">{{ kpi_okr_summary.okr_count }}</div>
+                                    <small class="text-muted">OKR</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Сравнение с SLA -->
+            {% if kpi_okr_summary.sla_comparison %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-balance-scale me-2"></i>
+                        Сравнение с SLA
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="text-center">
+                                <div class="text-success fw-bold fs-3">{{ kpi_okr_summary.sla_comparison.better_than_sla }}</div>
+                                <small class="text-muted">Лучше SLA</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-center">
+                                <div class="text-primary fw-bold fs-3">{{ kpi_okr_summary.sla_comparison.equal_to_sla }}</div>
+                                <small class="text-muted">Равно SLA</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-center">
+                                <div class="text-danger fw-bold fs-3">{{ kpi_okr_summary.sla_comparison.worse_than_sla }}</div>
+                                <small class="text-muted">Хуже SLA</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Список KPI/OKR -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-list me-2"></i>
+                        Список KPI/OKR
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if kpi_okr_list %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Название</th>
+                                        <th>Тип</th>
+                                        <th>Целевое значение</th>
+                                        <th>Фактическое</th>
+                                        <th>Достижение</th>
+                                        <th>Статус</th>
+                                        <th>Период</th>
+                                        <th>Действия</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for kpi_okr in kpi_okr_list %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ kpi_okr.name }}</strong>
+                                            {% if kpi_okr.description %}
+                                                <br>
+                                                <small class="text-muted">{{ kpi_okr.description|truncatechars:50 }}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-{% if kpi_okr.metric_type == 'kpi' %}info{% elif kpi_okr.metric_type == 'okr' %}warning{% else %}secondary{% endif %}">
+                                                {{ kpi_okr.get_metric_type_display }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <strong>{{ kpi_okr.target_value }}</strong> {{ kpi_okr.unit }}
+                                        </td>
+                                        <td>
+                                            {% if kpi_okr.actual_value %}
+                                                <strong>{{ kpi_okr.actual_value }}</strong> {{ kpi_okr.unit }}
+                                            {% else %}
+                                                <span class="text-muted">Не указано</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if kpi_okr.achievement_rate > 0 %}
+                                                <span class="badge bg-{% if kpi_okr.achievement_rate >= 100 %}success{% elif kpi_okr.achievement_rate >= 80 %}warning{% else %}danger{% endif %}">
+                                                    {{ kpi_okr.achievement_rate }}%
+                                                </span>
+                                            {% else %}
+                                                <span class="text-muted">N/A</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if kpi_okr.status == 'achieved' %}
+                                                <span class="badge bg-success">Достигнуто</span>
+                                            {% elif kpi_okr.status == 'in_progress' %}
+                                                <span class="badge bg-warning">В процессе</span>
+                                            {% elif kpi_okr.status == 'failed' %}
+                                                <span class="badge bg-danger">Не достигнуто</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Ожидается</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <small>
+                                                {{ kpi_okr.period_start|date:"d.m.Y" }} - {{ kpi_okr.period_end|date:"d.m.Y" }}
+                                            </small>
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm">
+                                                <a href="{% url 'hiring_plan:kpi_okr_update' kpi_okr.pk %}" 
+                                                   class="btn btn-outline-primary" title="Редактировать">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">KPI/OKR не найдены</h5>
+                            <p class="text-muted">Создайте первый KPI или OKR для плана</p>
+                            <a href="{% url 'hiring_plan:kpi_okr_create' plan.pk %}" class="btn btn-primary">
+                                <i class="fas fa-plus me-2"></i>Создать KPI/OKR
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Сравнение с планом -->
+            {% if comparison %}
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-line me-2"></i>
+                        Сравнение с метриками плана
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Метрики плана:</h6>
+                            <ul class="list-unstyled">
+                                <li><strong>Процент выполнения:</strong> {{ comparison.plan_metrics.completion_rate }}%</li>
+                                <li><strong>Всего позиций:</strong> {{ comparison.plan_metrics.total_positions }}</li>
+                                <li><strong>Требуется:</strong> {{ comparison.plan_metrics.total_needed }}</li>
+                                <li><strong>Нанято:</strong> {{ comparison.plan_metrics.total_hired }}</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>KPI/OKR метрики:</h6>
+                            {% for group, metrics in comparison.kpi_okr_metrics.items %}
+                                <div class="mb-2">
+                                    <strong>{{ group|default:"Общие" }}:</strong>
+                                    {% for metric in metrics %}
+                                        <div class="ms-3">
+                                            {{ metric.name }}: {{ metric.target }} (цель) / {{ metric.actual|default:"N/A" }} (факт)
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

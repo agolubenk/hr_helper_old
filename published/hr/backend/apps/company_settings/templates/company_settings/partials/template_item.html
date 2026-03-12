@@ -1,0 +1,23 @@
+<div class="template-item {% if not template.is_active %}inactive{% endif %}" data-template-id="{{ template.id }}">
+    <div class="template-item-header">
+        <div class="template-item-title">{{ template.title }}</div>
+        {% if template.is_active %}
+            <span class="badge bg-success">Активен</span>
+        {% else %}
+            <span class="badge bg-secondary">Неактивен</span>
+        {% endif %}
+    </div>
+    <div class="template-item-message">
+        {{ template.message|truncatewords:30 }}
+    </div>
+    <div class="template-item-actions">
+        <button class="btn btn-sm btn-primary edit-template-btn" data-template-id="{{ template.id }}">
+            <i class="fas fa-edit me-1"></i>Редактировать
+        </button>
+        <button class="btn btn-sm btn-danger delete-template-btn" data-template-id="{{ template.id }}">
+            <i class="fas fa-trash me-1"></i>Удалить
+        </button>
+    </div>
+</div>
+
+

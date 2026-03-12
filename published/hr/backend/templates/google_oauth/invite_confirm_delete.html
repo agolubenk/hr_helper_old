@@ -1,0 +1,66 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Удаление инвайта{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">Удаление инвайта</h1>
+                <a href="{% url 'google_oauth:invite_list' %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Назад к списку
+                </a>
+            </div>
+
+            <div class="row justify-content-center">
+                <div class="col-lg-6">
+                    <div class="card shadow">
+                        <div class="card-header py-3 bg-danger text-white">
+                            <h6 class="m-0 font-weight-bold">Подтверждение удаления</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="text-center mb-4">
+                                <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                                <h5>Вы уверены, что хотите удалить этот инвайт?</h5>
+                            </div>
+
+                            <div class="card bg-light mb-4">
+                                <div class="card-body">
+                                    <h6>Информация об инвайте:</h6>
+                                    <p><strong>Кандидат:</strong> {{ invite.candidate_name|default:"Не указано" }}</p>
+                                    <p><strong>Вакансия:</strong> {{ invite.vacancy_title|default:"Не указано" }}</p>
+                                    <p><strong>Дата интервью:</strong> {{ invite.interview_datetime|date:"d.m.Y H:i" }}</p>
+                                    <p><strong>Статус:</strong> 
+                                        <span class="badge badge-{% if invite.status == 'pending' %}warning{% elif invite.status == 'sent' %}info{% elif invite.status == 'completed' %}success{% else %}secondary{% endif %}">
+                                            {{ invite.get_status_display }}
+                                        </span>
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="alert alert-warning">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>Внимание!</strong> Это действие нельзя отменить. 
+                                Все данные об инвайте будут удалены безвозвратно.
+                            </div>
+
+                            <form method="post" class="d-flex justify-content-between">
+                                {% csrf_token %}
+                                <a href="{% url 'google_oauth:invite_detail' invite.pk %}" class="btn btn-secondary">
+                                    <i class="fas fa-times me-2"></i>Отмена
+                                </a>
+                                <button type="submit" class="btn btn-danger">
+                                    <i class="fas fa-trash me-2"></i>Удалить инвайт
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

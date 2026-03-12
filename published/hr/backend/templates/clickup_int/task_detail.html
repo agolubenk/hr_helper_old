@@ -1,0 +1,745 @@
+{% extends 'common/base.html' %}
+{% load static %}
+{% load common_filters %}
+
+
+{% block content %}
+{% csrf_token %}
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card clickup-card mb-4">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-tasks me-2"></i>
+                        {{ task.name }}
+                    </h5>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-success" onclick="transferToHuntflow()" id="transferBtn">
+                            <i class="fas fa-upload me-1"></i>
+                            Перенести в Huntflow
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Основная информация -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h6 class="text-primary mb-3">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Основная информация
+                        </h6>
+                        
+                        <div class="mb-3">
+                            <strong>ID задачи:</strong>
+                            <span class="badge bg-secondary ms-2">#{{ task.task_id }}</span>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <strong>Статус:</strong>
+                            <span class="status-badge status-{{ task.status|lower|slugify }} ms-2">
+                                {{ task.status }}
+                            </span>
+                        </div>
+                        
+                        {% if task.priority %}
+                        <div class="mb-3">
+                            <strong>Приоритет:</strong>
+                            <span class="priority-badge priority-{{ task.priority|lower|slugify }} ms-2">
+                                {{ task.priority }}
+                            </span>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="mb-3">
+                            <strong>Дата создания:</strong>
+                            <span class="ms-2">{{ task.date_created|date:"d.m.Y H:i" }}</span>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <strong>Дата обновления:</strong>
+                            <span class="ms-2">{{ task.date_updated|date:"d.m.Y H:i" }}</span>
+                        </div>
+                        
+                        {% if task.due_date %}
+                        <div class="mb-3">
+                            <strong>Срок выполнения:</strong>
+                            <span class="ms-2 {% if task.due_date < now %}text-danger{% endif %}">
+                                {{ task.due_date|date:"d.m.Y H:i" }}
+                            </span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h6 class="text-primary mb-3">
+                            <i class="fas fa-users me-2"></i>
+                            Участники
+                        </h6>
+                        
+                        {% if task.assignees %}
+                        <div class="mb-3">
+                            <strong>Исполнители:</strong>
+                            <div class="mt-2">
+                                {% for assignee in task.assignees %}
+                                    <span class="badge bg-primary me-1 mb-1">{{ assignee }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if task.tags %}
+                        <div class="mb-3">
+                            <strong>Теги:</strong>
+                            <div class="mt-2">
+                                {% for tag in task.tags %}
+                                    <span class="badge bg-secondary me-1 mb-1">{{ tag }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                    </div>
+                </div>
+                
+                <!-- Описание -->
+                {% if task.description %}
+                <div class="mb-4">
+                    <h6 class="text-primary mb-3">
+                        <i class="fas fa-align-left me-2"></i>
+                        Описание
+                    </h6>
+                    <div class="bg-light p-3 rounded">
+                        {{ task.description|format_clickup_text }}
+                    </div>
+                </div>
+                {% endif %}
+                
+                <!-- Вложения -->
+                <div class="mb-4">
+                    <h6 class="text-primary mb-3">
+                        <i class="fas fa-paperclip me-2"></i>
+                        Вложения
+                    </h6>
+                    
+                    {% if attachments %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Вложения загружены из ClickUp API ({{ attachments|length }})
+                        </div>
+                        <div class="row">
+                            {% for attachment in attachments %}
+                            <div class="col-md-6 col-lg-4 mb-3">
+                                <div class="card">
+                                    <div class="card-body p-3">
+                                        <div class="d-flex align-items-center">
+                                            <i class="fas fa-file me-2 text-muted"></i>
+                                            <div class="flex-grow-1">
+                                                <h6 class="card-title mb-1">
+                                                    <a href="{{ attachment.url }}" target="_blank" class="text-decoration-none">
+                                                        {{ attachment.title|truncatechars:30 }}
+                                                    </a>
+                                                </h6>
+                                                {% if attachment.size %}
+                                                <small class="text-muted">
+                                                    {{ attachment.size|filesizeformat }}
+                                                </small>
+                                                {% endif %}
+                                                {% if attachment.date %}
+                                                <br><small class="text-muted">
+                                                    {{ attachment.date|date:"d.m.Y H:i" }}
+                                                </small>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% elif task.attachments %}
+                        <!-- Fallback к кэшированным данным -->
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Вложения загружены из кэша ({{ task.attachments|length }})
+                        </div>
+                        <div class="row">
+                            {% for attachment in task.attachments %}
+                            <div class="col-md-6 col-lg-4 mb-3">
+                                <div class="card">
+                                    <div class="card-body p-3">
+                                        <div class="d-flex align-items-center">
+                                            <i class="fas fa-file me-2 text-muted"></i>
+                                            <div class="flex-grow-1">
+                                                <h6 class="card-title mb-1">
+                                                    <a href="{{ attachment.url }}" target="_blank" class="text-decoration-none">
+                                                        {{ attachment.name|truncatechars:30 }}
+                                                    </a>
+                                                </h6>
+                                                {% if attachment.size %}
+                                                <small class="text-muted">
+                                                    {{ attachment.size|filesizeformat }}
+                                                </small>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="alert alert-light">
+                            <i class="fas fa-info-circle me-2"></i>
+                            У этой задачи нет вложений
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Дополнительные поля -->
+                {% if task.get_custom_fields_display %}
+                <div class="mb-4">
+                    <h6 class="text-primary mb-3">
+                        <i class="fas fa-cogs me-2"></i>
+                        Дополнительные поля
+                    </h6>
+                    <div class="row">
+                        {% for field in task.get_custom_fields_display %}
+                            {% if field.value %}
+                                <div class="col-md-6 col-lg-4 mb-3">
+                                    <div class="custom-field-item">
+                                        <div class="custom-field-name text-muted small">
+                                            {{ field.name }}
+                                        </div>
+                                        <div class="custom-field-value">
+                                            {% if field.type == 'dropdown' or field.type == 'labels' %}
+                                                {% if field.value %}
+                                                    {% for value in field.value %}
+                                                        <span class="badge bg-info me-1 mb-1">{{ value }}</span>
+                                                    {% endfor %}
+                                                {% endif %}
+                                            {% elif field.type == 'date' %}
+                                                <span class="badge bg-warning">{{ field.value|date:"d.m.Y" }}</span>
+                                            {% elif field.type == 'number' %}
+                                                <span class="badge bg-success">{{ field.value }}</span>
+                                            {% elif field.type == 'checkbox' %}
+                                                {% if field.value %}
+                                                    <span class="badge bg-success">Да</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">Нет</span>
+                                                {% endif %}
+                                            {% elif field.type == 'url' %}
+                                                <a href="{{ field.value }}" target="_blank" class="text-primary">
+                                                    {{ field.value|truncatechars:50 }}
+                                                </a>
+                                            {% elif field.type == 'email' %}
+                                                <a href="mailto:{{ field.value }}" class="text-primary">
+                                                    {{ field.value }}
+                                                </a>
+                                            {% elif field.type == 'phone' %}
+                                                <a href="tel:{{ field.value }}" class="text-primary">
+                                                    {{ field.value }}
+                                                </a>
+                                            {% else %}
+                                                <span class="text-dark">{{ field.value }}</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                
+                <!-- Комментарии -->
+                {% if comments %}
+                <div class="mb-4">
+                    <h6 class="text-primary mb-3">
+                        <i class="fas fa-comments me-2"></i>
+                        Комментарии ({{ comments|length }})
+                    </h6>
+                    <div class="comments-container">
+                        {% for comment in comments %}
+                        <div class="card mb-3">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar-circle me-2">
+                                            <i class="fas fa-user"></i>
+                                        </div>
+                                        <div>
+                                            <strong>{{ comment.user.username|default:"Неизвестный пользователь" }}</strong>
+                                            {% if comment.user.email %}
+                                            <br><small class="text-muted">{{ comment.user.email }}</small>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <small class="text-muted">
+                                        {{ comment.date|date:"d.m.Y H:i" }}
+                                    </small>
+                                </div>
+                                
+                        {% if comment.comment %}
+                        <div class="comment-content">
+                            {% if comment.comment_raw and comment.comment_raw != comment.comment %}
+                                <!-- Показываем парсированный текст с HTML форматированием -->
+                                {{ comment.comment|safe|linebreaks }}
+                                <details class="mt-2">
+                                    <summary class="text-muted small">Показать исходный формат</summary>
+                                    <pre class="mt-2 small text-muted">{{ comment.comment_raw|pprint }}</pre>
+                                </details>
+                            {% else %}
+                                {{ comment.comment|safe|linebreaks }}
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                                
+                                {% if comment.assigned_by %}
+                                <div class="mt-2">
+                                    <small class="text-muted">
+                                        <i class="fas fa-user-plus me-1"></i>
+                                        Назначено: {{ comment.assigned_by.username|default:comment.assigned_by.email }}
+                                    </small>
+                                </div>
+                                {% endif %}
+                                
+                                {% if comment.resolved %}
+                                <div class="mt-2">
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-check me-1"></i>
+                                        Решено
+                                    </span>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Боковая панель -->
+    <div class="col-lg-4">
+        <!-- Действия -->
+        <div class="card clickup-card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-cogs me-2"></i>
+                    Действия
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ task.url }}" target="_blank" class="btn clickup-btn">
+                        <i class="fas fa-external-link-alt me-1"></i>
+                        Открыть в ClickUp
+                    </a>
+                    <button class="btn clickup-btn-outline" onclick="copyTaskInfo()">
+                        <i class="fas fa-copy me-1"></i>
+                        Копировать информацию
+                    </button>
+                    <a href="{% url 'clickup_int:tasks_list' %}" class="btn clickup-btn-outline">
+                        <i class="fas fa-list me-1"></i>
+                        Все задачи
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Метаданные -->
+        <div class="card clickup-card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-info me-2"></i>
+                    Метаданные
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="small text-muted">
+                    <div class="mb-2">
+                        <strong>Создано в системе:</strong><br>
+                        {{ task.created_at|date:"d.m.Y H:i" }}
+                    </div>
+                    <div class="mb-2">
+                        <strong>Обновлено в системе:</strong><br>
+                        {{ task.updated_at|date:"d.m.Y H:i" }}
+                    </div>
+                    <div class="mb-2">
+                        <strong>Пользователь:</strong><br>
+                        {{ task.user.username }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Функция для отображения уведомлений
+function showNotification(message, type = 'info') {
+    // Создаем элемент уведомления
+    const alertClass = {
+        'success': 'alert-success',
+        'error': 'alert-danger', 
+        'warning': 'alert-warning',
+        'info': 'alert-info'
+    }[type] || 'alert-info';
+    
+    const alertId = 'notification-' + Date.now();
+    const alertHtml = `
+        <div id="${alertId}" class="alert ${alertClass} alert-dismissible fade show position-fixed" 
+             style="top: 20px; right: 20px; z-index: 9999; min-width: 300px;" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    `;
+    
+    // Добавляем уведомление в body
+    document.body.insertAdjacentHTML('beforeend', alertHtml);
+    
+    // Автоматически скрываем через 5 секунд
+    setTimeout(() => {
+        const alertElement = document.getElementById(alertId);
+        if (alertElement) {
+            alertElement.remove();
+        }
+    }, 5000);
+}
+
+// Функция копирования информации о задаче
+function copyTaskInfo() {
+    const taskInfo = `Задача: {{ task.name }}
+ID: #{{ task.task_id }}
+Статус: {{ task.status }}
+{% if task.priority %}Приоритет: {{ task.priority }}{% endif %}
+{% if task.due_date %}Срок: {{ task.due_date|date:"d.m.Y H:i" }}{% endif %}
+{% if task.assignees %}Исполнители: {{ task.assignees|join:", " }}{% endif %}
+{% if task.tags %}Теги: {{ task.tags|join:", " }}{% endif %}
+Ссылка: {{ task.url }}`;
+    
+    navigator.clipboard.writeText(taskInfo).then(() => {
+        showNotification('Информация о задаче скопирована в буфер обмена', 'success');
+    }).catch(err => {
+        showNotification('Ошибка копирования: ' + err.message, 'error');
+    });
+}
+
+// Функция для переноса в Huntflow
+function transferToHuntflow() {
+    console.log('🚀 transferToHuntflow() вызвана');
+    
+    // Проверяем, есть ли данные для переноса (PDF, LinkedIn или rabota.by)
+    const attachments = {{ attachments|length|default:0 }};
+    const customFields = {{ task.get_custom_fields_display|length|default:0 }};
+    
+    console.log('📎 Количество вложений:', attachments);
+    console.log('📋 Количество custom fields:', customFields);
+    
+    // Проверяем, есть ли хотя бы одно поле с данными
+    let hasValidField = false;
+    {% for field in task.get_custom_fields_display %}
+        {% if field.value %}
+            hasValidField = true;
+        {% endif %}
+    {% endfor %}
+    
+    console.log('✅ Есть валидные поля:', hasValidField);
+    
+    if (attachments === 0 && !hasValidField) {
+        showNotification('У этой задачи нет PDF файлов, LinkedIn или rabota.by ссылок для переноса', 'warning');
+        return;
+    }
+    
+    // Автоматически выбираем организацию, если она одна
+    const accountSelect = document.getElementById('huntflowAccount');
+    console.log('🏢 Элемент huntflowAccount:', accountSelect);
+    
+    if (!accountSelect) {
+        console.error('❌ Элемент huntflowAccount не найден!');
+        return;
+    }
+    
+    const accounts = accountSelect.querySelectorAll('option[value]');
+    console.log('📋 Найдено опций организаций:', accounts.length);
+    
+    if (accounts.length === 1) {
+        // Если организация одна, автоматически выбираем её
+        const accountValue = accounts[0].value;
+        console.log('🎯 Автоматически выбираем организацию:', accountValue);
+        accountSelect.value = accountValue;
+        
+        // Загружаем вакансии для выбранной организации с небольшой задержкой
+        setTimeout(() => {
+            console.log('⏰ Запускаем загрузку вакансий через 100ms');
+            loadHuntflowVacancies();
+        }, 100);
+    } else {
+        console.log('⚠️ Организаций больше одной или нет, пропускаем автовыбор');
+    }
+    
+    // Показываем модальное окно выбора вакансии
+    console.log('📱 Показываем модальное окно');
+    const modal = $('#huntflowModal');
+    console.log('🔍 Найденное модальное окно:', modal.length);
+    
+    if (modal.length === 0) {
+        console.error('❌ Модальное окно huntflowModal не найдено!');
+        return;
+    }
+    
+    modal.modal('show');
+    
+    // Дополнительно вызываем загрузку вакансий после показа модального окна
+    modal.on('shown.bs.modal', function () {
+        console.log('📱 Модальное окно показано, проверяем загрузку вакансий');
+        const accountId = $('#huntflowAccount').val();
+        if (accountId) {
+            console.log('🔄 Дополнительный вызов loadHuntflowVacancies()');
+            loadHuntflowVacancies();
+        }
+    });
+}
+
+// Функция для подтверждения переноса
+function confirmTransfer() {
+    const accountId = $('#huntflowAccount').val();
+    const vacancyId = $('#huntflowVacancy').val();
+    
+    if (!accountId) {
+        showNotification('Пожалуйста, выберите организацию', 'warning');
+        return;
+    }
+    
+    // Показываем индикатор загрузки
+    const transferBtn = document.getElementById('transferBtn');
+    const modalTransferBtn = document.querySelector('#huntflowModal .btn-success');
+    const originalText = transferBtn.innerHTML;
+    const modalOriginalText = modalTransferBtn ? modalTransferBtn.innerHTML : '';
+    
+    // Анимация для кнопки в карточке
+    transferBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Переносим...';
+    transferBtn.disabled = true;
+    transferBtn.classList.add('btn-secondary');
+    transferBtn.classList.remove('btn-success');
+    
+    // Анимация для кнопки в модальном окне
+    if (modalTransferBtn) {
+        modalTransferBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Переносим...';
+        modalTransferBtn.disabled = true;
+        modalTransferBtn.classList.add('btn-secondary');
+        modalTransferBtn.classList.remove('btn-success');
+    }
+    
+    // Отправляем запрос
+    const requestData = {
+        account_id: accountId,
+        vacancy_id: vacancyId
+    };
+    
+    console.log('📤 Отправляем данные:', requestData);
+    console.log('🔍 Типы данных: account_id =', typeof accountId, ', vacancy_id =', typeof vacancyId);
+    
+    fetch('{% url "clickup_int:transfer_to_huntflow" task.task_id %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Кандидат успешно перенесен в Huntflow!', 'success');
+            
+            // Восстанавливаем кнопку в карточке при успехе
+            transferBtn.innerHTML = originalText;
+            transferBtn.disabled = false;
+            transferBtn.classList.remove('btn-secondary');
+            transferBtn.classList.add('btn-success');
+            
+            // Закрываем модальное окно с небольшой задержкой, чтобы пользователь увидел уведомление
+            setTimeout(() => {
+                $('#huntflowModal').modal('hide');
+            }, 1500);
+        } else {
+            showNotification('Ошибка переноса: ' + (data.error || 'Неизвестная ошибка'), 'error');
+            
+            // Восстанавливаем кнопки при ошибке
+            transferBtn.innerHTML = originalText;
+            transferBtn.disabled = false;
+            transferBtn.classList.remove('btn-secondary');
+            transferBtn.classList.add('btn-success');
+            
+            if (modalTransferBtn && modalOriginalText) {
+                modalTransferBtn.innerHTML = modalOriginalText;
+                modalTransferBtn.disabled = false;
+                modalTransferBtn.classList.remove('btn-secondary');
+                modalTransferBtn.classList.add('btn-success');
+            }
+        }
+    })
+    .catch(error => {
+        showNotification('Ошибка переноса: ' + error.message, 'error');
+        
+        // Восстанавливаем кнопки при ошибке сети
+        transferBtn.innerHTML = originalText;
+        transferBtn.disabled = false;
+        transferBtn.classList.remove('btn-secondary');
+        transferBtn.classList.add('btn-success');
+        
+        if (modalTransferBtn && modalOriginalText) {
+            modalTransferBtn.innerHTML = modalOriginalText;
+            modalTransferBtn.disabled = false;
+            modalTransferBtn.classList.remove('btn-secondary');
+            modalTransferBtn.classList.add('btn-success');
+        }
+    });
+}
+
+// Функция для загрузки вакансий при выборе организации
+function loadHuntflowVacancies() {
+    console.log('🚀 loadHuntflowVacancies() вызвана');
+    const accountId = $('#huntflowAccount').val();
+    console.log('🔍 Загружаем вакансии для account_id:', accountId);
+    
+    if (!accountId) {
+        $('#huntflowVacancy').empty().append('<option value="">Выберите вакансию</option>');
+        return;
+    }
+    
+    $('#huntflowVacancy').empty().append('<option value="">Загружаем...</option>');
+    
+    fetch(`/huntflow/accounts/${accountId}/vacancies/ajax/`)
+    .then(response => {
+        console.log('📥 Ответ сервера:', response.status, response.statusText);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('📋 Данные вакансий:', data);
+        $('#huntflowVacancy').empty();
+        
+        if (data.success && data.data && data.data.items && data.data.items.length > 0) {
+            $('#huntflowVacancy').append('<option value="">Выберите вакансию (не обязательно)</option>');
+            data.data.items.forEach(vacancy => {
+                console.log(`  - Вакансия: ID ${vacancy.id}, Position: ${vacancy.position}`);
+                $('#huntflowVacancy').append(`<option value="${vacancy.id}">${vacancy.position}</option>`);
+            });
+            console.log(`✅ Загружено ${data.data.items.length} вакансий`);
+        } else {
+            console.log('⚠️ Вакансии не найдены или структура данных неверная');
+            $('#huntflowVacancy').append('<option value="">Нет доступных вакансий (можно перенести без привязки)</option>');
+        }
+    })
+    .catch(error => {
+        console.error('❌ Ошибка загрузки вакансий:', error);
+        $('#huntflowVacancy').empty().append('<option value="">Ошибка загрузки (можно перенести без привязки)</option>');
+    });
+}
+// Проверяем инициализацию при загрузке страницы
+$(document).ready(function() {
+    console.log('📄 Страница ClickUp задачи загружена');
+    
+    // Проверяем наличие элементов
+    const accountSelect = document.getElementById('huntflowAccount');
+    const vacancySelect = document.getElementById('huntflowVacancy');
+    const modal = $('#huntflowModal');
+    
+    console.log('🔍 Проверка элементов:');
+    console.log('  - huntflowAccount:', accountSelect ? 'найден' : 'НЕ НАЙДЕН');
+    console.log('  - huntflowVacancy:', vacancySelect ? 'найден' : 'НЕ НАЙДЕН');
+    console.log('  - huntflowModal:', modal.length > 0 ? 'найден' : 'НЕ НАЙДЕН');
+    
+    if (accountSelect) {
+        const options = accountSelect.querySelectorAll('option[value]');
+        console.log('  - Опций организаций:', options.length);
+        options.forEach((option, index) => {
+            console.log(`    ${index + 1}. ${option.value}: ${option.textContent}`);
+        });
+    }
+});
+
+// Тема инициализируется в базовом шаблоне
+</script>
+
+
+
+
+
+<!-- Модальное окно для выбора Huntflow -->
+<div class="modal fade" id="huntflowModal" tabindex="-1" aria-labelledby="huntflowModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="huntflowModalLabel">
+                    <i class="fas fa-upload me-2"></i>
+                    Перенос в Huntflow
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-3">
+                    {% if huntflow_accounts|length == 1 %}
+                        Организация автоматически выбрана. Выберите вакансию для переноса кандидата из задачи "{{ task.name }}".
+                    {% else %}
+                        Выберите организацию в Huntflow для переноса кандидата из задачи "{{ task.name }}".
+                    {% endif %}
+                    Вакансия не обязательна - кандидат будет создан без привязки к конкретной вакансии.
+                    {% if attachments %}
+                        Будет использован самый старый PDF файл из вложений.
+                    {% else %}
+                        Будет использована LinkedIn или rabota.by ссылка из дополнительных полей.
+                    {% endif %}
+                </p>
+                
+                <div class="mb-3">
+                    <label for="huntflowAccount" class="form-label">
+                        Организация
+                        {% if huntflow_accounts|length == 1 %}
+                            <small class="text-muted">(автоматически выбрана)</small>
+                        {% endif %}
+                    </label>
+                    <select class="form-select" id="huntflowAccount" onchange="loadHuntflowVacancies()" {% if huntflow_accounts|length == 1 %}disabled{% endif %}>
+                        <option value="">Выберите организацию</option>
+                        {% for account in huntflow_accounts %}
+                        <option value="{{ account.id }}" {% if huntflow_accounts|length == 1 %}selected{% endif %}>{{ account.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="huntflowVacancy" class="form-label">Вакансия <small class="text-muted">(не обязательно)</small></label>
+                    <select class="form-select" id="huntflowVacancy">
+                        {% if huntflow_accounts|length == 1 %}
+                            <option value="">Загружаем вакансии...</option>
+                        {% else %}
+                            <option value="">Сначала выберите организацию</option>
+                        {% endif %}
+                    </select>
+                    <small class="form-text text-muted">
+                        Если вакансий нет или они не подходят, кандидат будет создан без привязки к вакансии
+                    </small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-success" onclick="confirmTransfer()">
+                    <i class="fas fa-upload me-1"></i>
+                    Перенести
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

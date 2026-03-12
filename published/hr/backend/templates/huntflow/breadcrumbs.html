@@ -1,0 +1,39 @@
+{% load huntflow_filters %}
+
+{% if breadcrumbs|length > 1 %}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        {% for breadcrumb in breadcrumbs %}
+            {% if forloop.last %}
+                <!-- Последний элемент - активный -->
+                <li class="breadcrumb-item active" aria-current="page">
+                    <i class="{{ breadcrumb.icon }} me-1"></i>
+                    {{ breadcrumb.name }}
+                </li>
+            {% else %}
+                <!-- Обычные элементы - ссылки -->
+                <li class="breadcrumb-item">
+                    {% if breadcrumb.url_kwargs %}
+                        {% if breadcrumb.url_kwargs.account_id and breadcrumb.url_kwargs.vacancy_id and breadcrumb.url_kwargs.applicant_id %}
+                            <a href="{% url breadcrumb.url account_id=breadcrumb.url_kwargs.account_id vacancy_id=breadcrumb.url_kwargs.vacancy_id applicant_id=breadcrumb.url_kwargs.applicant_id %}" class="text-decoration-none">
+                        {% elif breadcrumb.url_kwargs.account_id and breadcrumb.url_kwargs.vacancy_id %}
+                            <a href="{% url breadcrumb.url account_id=breadcrumb.url_kwargs.account_id vacancy_id=breadcrumb.url_kwargs.vacancy_id %}" class="text-decoration-none">
+                        {% elif breadcrumb.url_kwargs.account_id and breadcrumb.url_kwargs.applicant_id %}
+                            <a href="{% url breadcrumb.url account_id=breadcrumb.url_kwargs.account_id applicant_id=breadcrumb.url_kwargs.applicant_id %}" class="text-decoration-none">
+                        {% elif breadcrumb.url_kwargs.account_id %}
+                            <a href="{% url breadcrumb.url account_id=breadcrumb.url_kwargs.account_id %}" class="text-decoration-none">
+                        {% else %}
+                            <a href="{% url breadcrumb.url %}" class="text-decoration-none">
+                        {% endif %}
+                    {% else %}
+                        <a href="{% url breadcrumb.url %}" class="text-decoration-none">
+                    {% endif %}
+                        <i class="{{ breadcrumb.icon }} me-1"></i>
+                        {{ breadcrumb.name }}
+                    </a>
+                </li>
+            {% endif %}
+        {% endfor %}
+    </ol>
+</nav>
+{% endif %}

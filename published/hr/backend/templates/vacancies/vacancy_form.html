@@ -1,0 +1,766 @@
+{% extends 'common/base.html' %}
+
+{% block title %}{{ title }} - HR Helper{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-{% if vacancy %}edit{% else %}plus{% endif %} me-2"></i>
+                    {{ title }}
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <!-- Блок 1: Основная информация -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="text-primary mb-3">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Основная информация
+                            </h6>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.name.id_for_label }}" class="form-label">
+                                    {{ form.name.label }}
+                                    <span class="text-danger">*</span>
+                                </label>
+                                {{ form.name }}
+                                {% if form.name.help_text %}
+                                    <div class="form-text">{{ form.name.help_text }}</div>
+                                {% endif %}
+                                {% if form.name.errors %}
+                                    <div class="text-danger">{{ form.name.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.external_id.id_for_label }}" class="form-label">
+                                    {{ form.external_id.label }}
+                                    <span class="text-danger">*</span>
+                                </label>
+                                {{ form.external_id }}
+                                {% if form.external_id.help_text %}
+                                    <div class="form-text">{{ form.external_id.help_text }}</div>
+                                {% endif %}
+                                {% if form.external_id.errors %}
+                                    <div class="text-danger">{{ form.external_id.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.recruiter.id_for_label }}" class="form-label">
+                                    {{ form.recruiter.label }}
+                                    <span class="text-danger">*</span>
+                                </label>
+                                {{ form.recruiter }}
+                                {% if form.recruiter.help_text %}
+                                    <div class="form-text">{{ form.recruiter.help_text }}</div>
+                                {% endif %}
+                                {% if form.recruiter.errors %}
+                                    <div class="text-danger">{{ form.recruiter.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3 additional-recruiters-tags-wrapper">
+                                <label for="{{ form.additional_recruiters.id_for_label }}" class="form-label">
+                                    {{ form.additional_recruiters.label }}
+                                </label>
+                                <div class="d-none">{{ form.additional_recruiters }}</div>
+                                <div class="additional-recruiters-pills mb-2 d-flex flex-wrap gap-1 align-items-center min-height-pills"></div>
+                                <select class="form-select additional-recruiters-add" id="id_additional_recruiters_add" aria-label="Добавить рекрутера">
+                                    <option value="">Добавить рекрутера...</option>
+                                </select>
+                                {% if form.additional_recruiters.help_text %}
+                                    <div class="form-text">{{ form.additional_recruiters.help_text }}</div>
+                                {% endif %}
+                                {% if form.additional_recruiters.errors %}
+                                    <div class="text-danger">{{ form.additional_recruiters.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.technologies.id_for_label }}" class="form-label">
+                                    <i class="fas fa-code text-info me-2"></i>
+                                    {{ form.technologies.label }}
+                                </label>
+                                {{ form.technologies }}
+                                {% if form.technologies.help_text %}
+                                    <div class="form-text">{{ form.technologies.help_text }}</div>
+                                {% endif %}
+                                {% if form.technologies.errors %}
+                                    <div class="text-danger">{{ form.technologies.errors }}</div>
+                                {% endif %}
+                                <div class="form-text">
+                                    <i class="fas fa-info-circle text-info me-1"></i>
+                                    Укажите технологии через запятую (например: Python, Django, PostgreSQL, Redis)
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    {{ form.is_active }}
+                                    <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                                        <i class="fas fa-toggle-on text-success me-2"></i>
+                                        {{ form.is_active.label }}
+                                    </label>
+                                </div>
+                                {% if form.is_active.help_text %}
+                                    <div class="form-text">{{ form.is_active.help_text }}</div>
+                                {% endif %}
+                                {% if form.is_active.errors %}
+                                    <div class="text-danger">{{ form.is_active.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Блок 2: Этапы для перевода кандидатов -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="text-primary mb-3">
+                                <i class="fas fa-route me-1"></i>
+                                Этапы для перевода кандидатов
+                            </h6>
+                        </div>
+                        <div class="col-12">
+                            <div class="row">
+                                <!-- HR Screening -->
+                                <div class="col-md-4">
+                                    <div class="card h-100">
+                                        <div class="card-header bg-info text-white">
+                                            <h6 class="card-title mb-0">
+                                                <i class="fas fa-user-check me-2"></i>
+                                                HR Screening
+                                            </h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="mb-3">
+                                                <label for="{{ form.hr_screening_stage.id_for_label }}" class="form-label">
+                                                    <i class="fas fa-arrow-right me-2"></i>
+                                                    Назначить этап
+                                                </label>
+                                                {{ form.hr_screening_stage }}
+                                                {% if form.hr_screening_stage.errors %}
+                                                    <div class="text-danger">{{ form.hr_screening_stage.errors }}</div>
+                                                {% endif %}
+                                            </div>
+                                            
+                                            <!-- Ссылки-якоря на разделы -->
+                                            <div class="mt-3">
+                                                <h6 class="text-primary mb-2">
+                                                    <i class="fas fa-link me-1"></i>
+                                                    Связанные разделы
+                                                </h6>
+                                                <div class="d-flex flex-column gap-2">
+                                                    <a href="#vacancy-links-form" class="btn btn-sm btn-outline-primary">
+                                                        <i class="fas fa-globe me-1"></i>Ссылки на вакансии
+                                                    </a>
+                                                    <a href="#interview-questions-form" class="btn btn-sm btn-outline-primary">
+                                                        <i class="fas fa-question-circle me-1"></i>Вопросы для интервью
+                                                    </a>
+                                                    <a href="#salary-ranges-form" class="btn btn-sm btn-outline-primary">
+                                                        <i class="fas fa-money-bill-wave me-1"></i>Зарплатные вилки
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Tech Screening -->
+                                <div class="col-md-4">
+                                    <div class="card h-100">
+                                        <div class="card-header bg-warning text-dark">
+                                            <h6 class="card-title mb-0">
+                                                <i class="fas fa-laptop-code me-2"></i>
+                                                Tech Screening
+                                            </h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="mb-3">
+                                                <label for="{{ form.screening_duration.id_for_label }}" class="form-label">
+                                                    <i class="fas fa-clock me-2"></i>
+                                                    Длительность (мин)
+                                                </label>
+                                                {{ form.screening_duration }}
+                                                {% if form.screening_duration.errors %}
+                                                    <div class="text-danger">{{ form.screening_duration.errors }}</div>
+                                                {% endif %}
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="{{ form.invite_title.id_for_label }}" class="form-label">
+                                                    <i class="fas fa-envelope me-2"></i>
+                                                    Заголовок инвайтов
+                                                </label>
+                                                {{ form.invite_title }}
+                                                {% if form.invite_title.errors %}
+                                                    <div class="text-danger">{{ form.invite_title.errors }}</div>
+                                                {% endif %}
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="{{ form.invite_text.id_for_label }}" class="form-label">
+                                                    <i class="fas fa-file-text me-2"></i>
+                                                    Сопровождающий текст
+                                                </label>
+                                                {{ form.invite_text }}
+                                                {% if form.invite_text.errors %}
+                                                    <div class="text-danger">{{ form.invite_text.errors }}</div>
+                                                {% endif %}
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="{{ form.tech_screening_stage.id_for_label }}" class="form-label">
+                                                    <i class="fas fa-arrow-right me-2"></i>
+                                                    Назначить этап
+                                                </label>
+                                                {{ form.tech_screening_stage }}
+                                                {% if form.tech_screening_stage.errors %}
+                                                    <div class="text-danger">{{ form.tech_screening_stage.errors }}</div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Tech Interview -->
+                                <div class="col-md-4">
+                                    <div class="card h-100">
+                                        <div class="card-header bg-success text-white">
+                                            <h6 class="card-title mb-0">
+                                                <i class="fas fa-users me-2"></i>
+                                                Tech Interview
+                                            </h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="mb-3">
+                                                <label for="{{ form.tech_interview_duration.id_for_label }}" class="form-label">
+                                                    <i class="fas fa-clock me-2"></i>
+                                                    Длительность (мин)
+                                                </label>
+                                                {{ form.tech_interview_duration }}
+                                                {% if form.tech_interview_duration.errors %}
+                                                    <div class="text-danger">{{ form.tech_interview_duration.errors }}</div>
+                                                {% endif %}
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="{{ form.tech_invite_title.id_for_label }}" class="form-label">
+                                                    <i class="fas fa-envelope me-2"></i>
+                                                    Заголовок инвайтов
+                                                </label>
+                                                {{ form.tech_invite_title }}
+                                                {% if form.tech_invite_title.errors %}
+                                                    <div class="text-danger">{{ form.tech_invite_title.errors }}</div>
+                                                {% endif %}
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="{{ form.tech_invite_text.id_for_label }}" class="form-label">
+                                                    <i class="fas fa-file-text me-2"></i>
+                                                    Сопровождающий текст
+                                                </label>
+                                                {{ form.tech_invite_text }}
+                                                {% if form.tech_invite_text.errors %}
+                                                    <div class="text-danger">{{ form.tech_invite_text.errors }}</div>
+                                                {% endif %}
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="{{ form.tech_interview_stage.id_for_label }}" class="form-label">
+                                                    <i class="fas fa-arrow-right me-2"></i>
+                                                    Назначить этап
+                                                </label>
+                                                {{ form.tech_interview_stage }}
+                                                {% if form.tech_interview_stage.errors %}
+                                                    <div class="text-danger">{{ form.tech_interview_stage.errors }}</div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Блок 3: Scorecard -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="text-primary mb-3">
+                                <i class="fas fa-chart-line me-1"></i>
+                                Scorecard
+                            </h6>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.scorecard_title.id_for_label }}" class="form-label">
+                                    {{ form.scorecard_title.label }}
+                                    <span class="text-danger">*</span>
+                                </label>
+                                {{ form.scorecard_title }}
+                                {% if form.scorecard_title.help_text %}
+                                    <div class="form-text">{{ form.scorecard_title.help_text }}</div>
+                                {% endif %}
+                                {% if form.scorecard_title.errors %}
+                                    <div class="text-danger">{{ form.scorecard_title.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.scorecard_link.id_for_label }}" class="form-label">
+                                    {{ form.scorecard_link.label }}
+                                </label>
+                                {{ form.scorecard_link }}
+                                {% if form.scorecard_link.help_text %}
+                                    <div class="form-text">{{ form.scorecard_link.help_text }}</div>
+                                {% endif %}
+                                {% if form.scorecard_link.errors %}
+                                    <div class="text-danger">{{ form.scorecard_link.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Блок 4: Ссылки на вакансии по странам -->
+                    <div id="vacancy-links-form" class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="text-primary mb-3">
+                                <i class="fas fa-globe me-1"></i>
+                                Ссылки на вакансии по странам
+                            </h6>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.vacancy_link_belarus.id_for_label }}" class="form-label">
+                                    <i class="fas fa-flag me-2"></i>
+                                    {{ form.vacancy_link_belarus.label }}
+                                </label>
+                                {{ form.vacancy_link_belarus }}
+                                {% if form.vacancy_link_belarus.help_text %}
+                                    <div class="form-text">{{ form.vacancy_link_belarus.help_text }}</div>
+                                {% endif %}
+                                {% if form.vacancy_link_belarus.errors %}
+                                    <div class="text-danger">{{ form.vacancy_link_belarus.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.vacancy_link_poland.id_for_label }}" class="form-label">
+                                    <i class="fas fa-flag me-2"></i>
+                                    {{ form.vacancy_link_poland.label }}
+                                </label>
+                                {{ form.vacancy_link_poland }}
+                                {% if form.vacancy_link_poland.help_text %}
+                                    <div class="form-text">{{ form.vacancy_link_poland.help_text }}</div>
+                                {% endif %}
+                                {% if form.vacancy_link_poland.errors %}
+                                    <div class="text-danger">{{ form.vacancy_link_poland.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Блок 5: Вопросы для интервью -->
+                    <div id="interview-questions-form" class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="text-primary mb-3">
+                                <i class="fas fa-question-circle me-1"></i>
+                                Вопросы для интервью
+                            </h6>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.questions_belarus.id_for_label }}" class="form-label">
+                                    <i class="fas fa-flag me-2"></i>
+                                    {{ form.questions_belarus.label }}
+                                </label>
+                                {{ form.questions_belarus }}
+                                {% if form.questions_belarus.help_text %}
+                                    <div class="form-text">{{ form.questions_belarus.help_text }}</div>
+                                {% endif %}
+                                {% if form.questions_belarus.errors %}
+                                    <div class="text-danger">{{ form.questions_belarus.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.questions_poland.id_for_label }}" class="form-label">
+                                    <i class="fas fa-flag me-2"></i>
+                                    {{ form.questions_poland.label }}
+                                </label>
+                                {{ form.questions_poland }}
+                                {% if form.questions_poland.help_text %}
+                                    <div class="form-text">{{ form.questions_poland.help_text }}</div>
+                                {% endif %}
+                                {% if form.questions_poland.errors %}
+                                    <div class="text-danger">{{ form.questions_poland.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Блок 6: Промпт для анализа после скрининга -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="text-primary mb-3">
+                                <i class="fas fa-robot me-1"></i>
+                                Промпт для анализа после скрининга
+                            </h6>
+                        </div>
+                        <div class="col-12">
+                            {% if has_active_common_prompt %}
+                                <!-- Переключатель типа промпта -->
+                                <div class="mb-3">
+                                    <div class="form-check form-switch">
+                                        {{ form.use_common_prompt }}
+                                        <label class="form-check-label ms-2" for="{{ form.use_common_prompt.id_for_label }}">
+                                            <strong>{{ form.use_common_prompt.label }}</strong>
+                                        </label>
+                                    </div>
+                                    {% if form.use_common_prompt.help_text %}
+                                        <div class="form-text">{{ form.use_common_prompt.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.use_common_prompt.errors %}
+                                        <div class="text-danger">{{ form.use_common_prompt.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                
+                                <!-- Информация об общем промпте -->
+                                <div id="common-prompt-info" class="alert alert-info mb-3" style="display: {% if form.use_common_prompt.value %}block{% else %}none{% endif %};">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>Используется общий промпт:</strong>
+                                    <div class="mt-2 p-2 bg-light rounded" style="font-family: 'Courier New', monospace; font-size: 0.9em; white-space: pre-wrap;">{{ common_prompt }}</div>
+                                </div>
+                                
+                                <!-- Поле для индивидуального промпта -->
+                                <div id="individual-prompt-field" class="mb-3" style="display: {% if form.use_common_prompt.value %}none{% else %}block{% endif %};">
+                                    <label for="{{ form.candidate_update_prompt.id_for_label }}" class="form-label">
+                                        {{ form.candidate_update_prompt.label }}
+                                    </label>
+                                    {{ form.candidate_update_prompt }}
+                                    {% if form.candidate_update_prompt.help_text %}
+                                        <div class="form-text">{{ form.candidate_update_prompt.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.candidate_update_prompt.errors %}
+                                        <div class="text-danger">{{ form.candidate_update_prompt.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            {% else %}
+                                <!-- Если общего промпта нет, показываем только индивидуальный -->
+                                <div class="mb-3">
+                                    <label for="{{ form.candidate_update_prompt.id_for_label }}" class="form-label">
+                                        {{ form.candidate_update_prompt.label }}
+                                    </label>
+                                    {{ form.candidate_update_prompt }}
+                                    {% if form.candidate_update_prompt.help_text %}
+                                        <div class="form-text">{{ form.candidate_update_prompt.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.candidate_update_prompt.errors %}
+                                        <div class="text-danger">{{ form.candidate_update_prompt.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Блок 7: Интервьюеры -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="text-primary mb-3">
+                                <i class="fas fa-users me-1"></i>
+                                Интервьюеры (только связанные с вакансией)
+                            </h6>
+                        </div>
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label for="{{ form.interviewers.id_for_label }}" class="form-label">
+                                    {{ form.interviewers.label }}
+                                </label>
+                                <div class="row">
+                                    {% for choice in form.interviewers %}
+                                        <div class="col-md-6 col-lg-4 mb-2">
+                                            <div class="form-check">
+                                                {{ choice.tag }}
+                                                <label class="form-check-label" for="{{ choice.id_for_label }}">
+                                                    {{ choice.choice_label }}
+                                                </label>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                                {% if form.interviewers.help_text %}
+                                    <div class="form-text">{{ form.interviewers.help_text }}</div>
+                                {% endif %}
+                                {% if form.interviewers.errors %}
+                                    <div class="text-danger">{{ form.interviewers.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Блок 8: Обязательные участники тех. интервью -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="text-primary mb-3">
+                                <i class="fas fa-user-tie me-1"></i>
+                                Обязательные участники тех. интервью (все сохраненные интервьюеры)
+                            </h6>
+                        </div>
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label for="{{ form.mandatory_tech_interviewers.id_for_label }}" class="form-label">
+                                    {{ form.mandatory_tech_interviewers.label }}
+                                </label>
+                                <div class="row">
+                                    {% for choice in form.mandatory_tech_interviewers %}
+                                        <div class="col-md-6 col-lg-4 mb-2">
+                                            <div class="form-check">
+                                                {{ choice.tag }}
+                                                <label class="form-check-label" for="{{ choice.id_for_label }}">
+                                                    {{ choice.choice_label }}
+                                                </label>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                                {% if form.mandatory_tech_interviewers.help_text %}
+                                    <div class="form-text">{{ form.mandatory_tech_interviewers.help_text }}</div>
+                                {% endif %}
+                                {% if form.mandatory_tech_interviewers.errors %}
+                                    <div class="text-danger">{{ form.mandatory_tech_interviewers.errors }}</div>
+                                {% endif %}
+                                <div class="form-text">
+                                    <i class="fas fa-info-circle text-info me-1"></i>
+                                    Выберите интервьюеров, которые обязательно должны участвовать в техническом интервью
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Блок 9: Зарплатные вилки -->
+                    <div id="salary-ranges-form" class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="text-primary mb-3">
+                                <i class="fas fa-money-bill-wave me-1"></i>
+                                Зарплатные вилки
+                            </h6>
+                        </div>
+                        <div class="col-12">
+                            {% if salary_ranges %}
+                                <div class="table-responsive">
+                                    <table class="table table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>Грейд</th>
+                                                <th>Минимальная зарплата (USD)</th>
+                                                <th>Максимальная зарплата (USD)</th>
+                                                <th>Статус</th>
+                                                <th>Действия</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for salary_range in salary_ranges %}
+                                                <tr>
+                                                    <td>{{ salary_range.grade.name }}</td>
+                                                    <td>${{ salary_range.salary_min_usd }}</td>
+                                                    <td>${{ salary_range.salary_max_usd }}</td>
+                                                    <td>
+                                                        {% if salary_range.is_active %}
+                                                            <span class="badge bg-success">Активна</span>
+                                                        {% else %}
+                                                            <span class="badge bg-secondary">Неактивна</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        <a href="{% url 'vacancies:salary_range_edit' salary_range.pk %}" class="btn btn-sm btn-outline-primary">
+                                                            <i class="fas fa-edit"></i>
+                                                        </a>
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    Зарплатные вилки не настроены. Перейдите в раздел "Зарплатные вилки" для их настройки.
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Общие ошибки формы -->
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {% for error in form.non_field_errors %}
+                        <div>{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <!-- Кнопки -->
+                    <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+                        <div>
+                            <a href="{% url 'vacancies:vacancy_list' %}" class="btn btn-outline-secondary btn-lg">
+                                <i class="fas fa-arrow-left me-2"></i>Назад к списку
+                            </a>
+                        </div>
+                        <div>
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-save me-2"></i>
+                                {% if vacancy %}Сохранить изменения{% else %}Создать вакансию{% endif %}
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<style>
+.additional-recruiters-pills { min-height: 2.5rem; }
+.additional-recruiters-pills .recruiter-pill { font-size: 0.875rem; }
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Управление переключателем типа промпта
+    {% if has_active_common_prompt %}
+    const useCommonPromptCheckbox = document.getElementById('{{ form.use_common_prompt.id_for_label }}');
+    const commonPromptInfo = document.getElementById('common-prompt-info');
+    const individualPromptField = document.getElementById('individual-prompt-field');
+    const individualPromptTextarea = document.getElementById('{{ form.candidate_update_prompt.id_for_label }}');
+    
+    if (useCommonPromptCheckbox) {
+        function togglePromptFields() {
+            if (useCommonPromptCheckbox.checked) {
+                // Используется общий промпт
+                if (commonPromptInfo) commonPromptInfo.style.display = 'block';
+                if (individualPromptField) individualPromptField.style.display = 'none';
+                if (individualPromptTextarea) {
+                    individualPromptTextarea.required = false;
+                    individualPromptTextarea.disabled = true;
+                }
+            } else {
+                // Используется индивидуальный промпт
+                if (commonPromptInfo) commonPromptInfo.style.display = 'none';
+                if (individualPromptField) individualPromptField.style.display = 'block';
+                if (individualPromptTextarea) {
+                    individualPromptTextarea.required = true;
+                    individualPromptTextarea.disabled = false;
+                }
+            }
+        }
+        
+        // Инициализация при загрузке
+        togglePromptFields();
+        
+        // Обработчик изменения переключателя
+        useCommonPromptCheckbox.addEventListener('change', togglePromptFields);
+    }
+    {% endif %}
+    
+    // Улучшаем UX для поля технологий
+    const technologiesInput = document.getElementById('{{ form.technologies.id_for_label }}');
+    if (technologiesInput) {
+        technologiesInput.addEventListener('input', function() {
+            if (this.value.length > 0) {
+                this.classList.add('is-valid');
+            } else {
+                this.classList.remove('is-valid');
+            }
+        });
+    }
+    
+    // Добавляем подсказки для этапов
+    const stageSelects = document.querySelectorAll('select[id*="stage"]');
+    stageSelects.forEach(select => {
+        select.addEventListener('change', function() {
+            if (this.value) {
+                this.classList.add('is-valid');
+            } else {
+                this.classList.remove('is-valid');
+            }
+        });
+    });
+    
+    // Валидация длительности
+    const durationInputs = document.querySelectorAll('input[type="number"]');
+    durationInputs.forEach(input => {
+        input.addEventListener('input', function() {
+            const value = parseInt(this.value);
+            if (value > 0 && value <= 480) {
+                this.classList.remove('is-invalid');
+                this.classList.add('is-valid');
+            } else if (value > 480) {
+                this.classList.remove('is-valid');
+                this.classList.add('is-invalid');
+                this.setCustomValidity('Длительность не может превышать 480 минут (8 часов)');
+            } else {
+                this.classList.remove('is-valid', 'is-invalid');
+                this.setCustomValidity('');
+            }
+        });
+    });
+
+    // Дополнительные рекрутеры: теги + выпадающий список
+    const multiSelect = document.querySelector('.additional-recruiters-tags-wrapper select[name="additional_recruiters"]');
+    const pillsContainer = document.querySelector('.additional-recruiters-pills');
+    const addSelect = document.getElementById('id_additional_recruiters_add');
+    if (multiSelect && pillsContainer && addSelect) {
+        function getSelectedValues() {
+            return Array.from(multiSelect.options).filter(o => o.selected).map(o => o.value);
+        }
+        function getOptionLabel(opt) { return opt.textContent.trim(); }
+        function renderPills() {
+            pillsContainer.innerHTML = '';
+            Array.from(multiSelect.options).filter(o => o.selected).forEach(opt => {
+                const pill = document.createElement('span');
+                pill.className = 'badge bg-secondary recruiter-pill d-inline-flex align-items-center gap-1 px-2 py-1';
+                pill.innerHTML = getOptionLabel(opt) + ' <button type="button" class="btn-close btn-close-white btn-close-sm" style="font-size:0.6rem;" aria-label="Удалить"></button>';
+                pill.querySelector('button').addEventListener('click', function() {
+                    opt.selected = false;
+                    renderPills();
+                    refreshAddSelect();
+                });
+                pillsContainer.appendChild(pill);
+            });
+        }
+        function refreshAddSelect() {
+            const selected = getSelectedValues();
+            addSelect.innerHTML = '<option value="">Добавить рекрутера...</option>';
+            Array.from(multiSelect.options).forEach(opt => {
+                if (opt.value && !selected.includes(opt.value)) {
+                    const o = document.createElement('option');
+                    o.value = opt.value;
+                    o.textContent = getOptionLabel(opt);
+                    addSelect.appendChild(o);
+                }
+            });
+        }
+        addSelect.addEventListener('change', function() {
+            const v = this.value;
+            if (!v) return;
+            const opt = Array.from(multiSelect.options).find(o => o.value === v);
+            if (opt) { opt.selected = true; renderPills(); refreshAddSelect(); }
+            this.value = '';
+        });
+        renderPills();
+        refreshAddSelect();
+    }
+});
+</script>
+{% endblock %}

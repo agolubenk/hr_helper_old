@@ -1,0 +1,380 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Редактирование бенчмарка{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/finance.css' %}">
+<style>
+.edit-form-container {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-24);
+    margin-bottom: var(--space-16);
+}
+
+.form-section {
+    background: var(--color-background);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    padding: var(--space-20);
+    margin-bottom: var(--space-16);
+}
+
+.section-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: var(--space-16);
+    color: var(--color-text);
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+}
+
+.benchmark-preview {
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
+    color: white;
+    border-radius: var(--radius-lg);
+    padding: var(--space-20);
+    margin-bottom: var(--space-20);
+    text-align: center;
+}
+
+.benchmark-preview .preview-amount {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: var(--space-8);
+}
+
+.benchmark-preview .preview-details {
+    opacity: 0.9;
+    font-size: 1.125rem;
+}
+
+[data-theme="dark"] .edit-form-container {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .form-section {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <!-- Хлебные крошки -->
+            <nav aria-label="breadcrumb" class="mb-4">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'finance:dashboard' %}">Финансы</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'finance:benchmarks_dashboard' %}">Бенчмарки</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'finance:benchmarks_list' %}">Список</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'finance:benchmark_detail' benchmark.pk %}">{{ benchmark.vacancy.name }}</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Редактирование</li>
+                </ol>
+            </nav>
+
+            <!-- Заголовок -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="h3 mb-1">
+                        <i class="fas fa-edit me-2"></i>
+                        Редактирование бенчмарка
+                    </h1>
+                    <p class="text-muted mb-0">{{ benchmark.vacancy.name }} - {{ benchmark.grade.name }}</p>
+                </div>
+                <div class="btn-group">
+                    <a href="{% url 'finance:benchmark_detail' benchmark.pk %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-eye me-2"></i>Просмотр
+                    </a>
+                    <a href="{% url 'finance:benchmarks_list' %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Назад к списку
+                    </a>
+                </div>
+            </div>
+
+            <!-- Превью бенчмарка -->
+            <div class="benchmark-preview">
+                <div class="preview-amount" id="previewAmount">{{ benchmark.get_salary_display }}</div>
+                <div class="preview-details">
+                    <span id="previewType">{{ benchmark.get_type_display }}</span> • 
+                    <span id="previewVacancy">{{ benchmark.vacancy.name }}</span> • 
+                    <span id="previewGrade">{{ benchmark.grade.name }}</span>
+                </div>
+                <div class="preview-details mt-2">
+                    <i class="fas fa-map-marker-alt me-1"></i><span id="previewLocation">{{ benchmark.location }}</span>
+                </div>
+            </div>
+
+            <!-- Форма редактирования -->
+            <div class="edit-form-container">
+                <form method="post" id="editBenchmarkForm">
+                    {% csrf_token %}
+                    
+                    <!-- Основная информация -->
+                    <div class="form-section">
+                        <h5 class="section-title">
+                            <i class="fas fa-info-circle"></i>
+                            Основная информация
+                        </h5>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="type" class="form-label">Тип бенчмарка *</label>
+                                <select class="form-select" id="type" name="type" required>
+                                    {% for value, label in benchmark_types %}
+                                        <option value="{{ value }}" {% if benchmark.type == value %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="salary_from" class="form-label">Зарплата от (USD) *</label>
+                                <input type="number" class="form-control" id="salary_from" name="salary_from" 
+                                       step="0.01" min="0" required value="{{ benchmark.salary_from }}"
+                                       placeholder="3000.00">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="salary_to" class="form-label">Зарплата до (USD)</label>
+                                <input type="number" class="form-control" id="salary_to" name="salary_to" 
+                                       step="0.01" min="0" value="{% if benchmark.salary_to %}{{ benchmark.salary_to }}{% endif %}"
+                                       placeholder="5000.00">
+                                <div class="form-text">Оставьте пустым для кандидатов или если указана только одна сумма</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Связанные объекты -->
+                    <div class="form-section">
+                        <h5 class="section-title">
+                            <i class="fas fa-link"></i>
+                            Связанные объекты
+                        </h5>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="vacancy_id" class="form-label">Вакансия *</label>
+                                <select class="form-select" id="vacancy_id" name="vacancy_id" required>
+                                    <option value="">Выберите вакансию</option>
+                                    {% for vacancy in vacancies %}
+                                        <option value="{{ vacancy.id }}" {% if benchmark.vacancy.id == vacancy.id %}selected{% endif %}>{{ vacancy.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="grade_id" class="form-label">Грейд *</label>
+                                <select class="form-select" id="grade_id" name="grade_id" required>
+                                    <option value="">Выберите грейд</option>
+                                    {% for grade in grades %}
+                                        <option value="{{ grade.id }}" {% if benchmark.grade.id == grade.id %}selected{% endif %}>{{ grade.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Дополнительная информация -->
+                    <div class="form-section">
+                        <h5 class="section-title">
+                            <i class="fas fa-map-marker-alt"></i>
+                            Дополнительная информация
+                        </h5>
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label for="location" class="form-label">Локация *</label>
+                                <input type="text" class="form-control" id="location" name="location" 
+                                       required value="{{ benchmark.location }}"
+                                       placeholder="Минск, Беларусь">
+                            </div>
+                            <div class="col-12">
+                                <label for="notes" class="form-label">Примечания</label>
+                                <textarea class="form-control" id="notes" name="notes" rows="4" 
+                                          placeholder="Дополнительная информация о бенчмарке...">{{ benchmark.notes }}</textarea>
+                            </div>
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="is_active" name="is_active" 
+                                           {% if benchmark.is_active %}checked{% endif %}>
+                                    <label class="form-check-label" for="is_active">
+                                        Активен
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Дополнительные поля вакансии -->
+                    <div class="form-section">
+                        <h5 class="section-title">
+                            <i class="fas fa-info-circle"></i>
+                            Дополнительные поля вакансии
+                        </h5>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="work_format" class="form-label">Формат работы</label>
+                                <select class="form-select" id="work_format" name="work_format">
+                                    <option value="">Выберите формат работы</option>
+                                    <option value="офис" {% if benchmark.work_format == 'офис' %}selected{% endif %}>Офис</option>
+                                    <option value="гибрид" {% if benchmark.work_format == 'гибрид' %}selected{% endif %}>Гибрид</option>
+                                    <option value="удаленка" {% if benchmark.work_format == 'удаленка' %}selected{% endif %}>Удаленка</option>
+                                    <option value="all world" {% if benchmark.work_format == 'all world' %}selected{% endif %}>All World</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="domain" class="form-label">Домен</label>
+                                <input type="text" class="form-control" id="domain" name="domain" 
+                                       value="{{ benchmark.domain|default:'' }}"
+                                       placeholder="IT, финансы, медицина...">
+                            </div>
+                            <div class="col-12">
+                                <label for="technologies" class="form-label">Технологии</label>
+                                <textarea class="form-control" id="technologies" name="technologies" rows="3" 
+                                          placeholder="Python, Django, React, PostgreSQL...">{{ benchmark.technologies|default:'' }}</textarea>
+                            </div>
+                            <div class="col-12">
+                                <label for="compensation" class="form-label">Компенсации</label>
+                                <textarea class="form-control" id="compensation" name="compensation" rows="3" 
+                                          placeholder="Бонусы, премии, комиссии...">{{ benchmark.compensation|default:'' }}</textarea>
+                            </div>
+                            <div class="col-12">
+                                <label for="benefits" class="form-label">Бенефиты</label>
+                                <textarea class="form-control" id="benefits" name="benefits" rows="3" 
+                                          placeholder="Медицинская страховка, отпуск, обучение...">{{ benchmark.benefits|default:'' }}</textarea>
+                            </div>
+                            <div class="col-12">
+                                <label for="development" class="form-label">Развитие/обучение</label>
+                                <textarea class="form-control" id="development" name="development" rows="3" 
+                                          placeholder="Курсы, конференции, менторство...">{{ benchmark.development|default:'' }}</textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Кнопки действий -->
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="text-muted">
+                            <small>
+                                <i class="fas fa-calendar me-1"></i>
+                                Создан: {{ benchmark.date_added|date:"d.m.Y H:i" }} • 
+                                <i class="fas fa-clock me-1"></i>
+                                Обновлен: {{ benchmark.updated_at|date:"d.m.Y H:i" }}
+                            </small>
+                        </div>
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-outline-secondary" onclick="history.back()">
+                                <i class="fas fa-times me-2"></i>Отмена
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Сохранить изменения
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Обновление превью в реальном времени
+function updatePreview() {
+    const type = document.getElementById('type');
+    const salaryFrom = document.getElementById('salary_from');
+    const salaryTo = document.getElementById('salary_to');
+    const vacancy = document.getElementById('vacancy_id');
+    const grade = document.getElementById('grade_id');
+    const location = document.getElementById('location');
+    
+    // Обновляем зарплату
+    const fromValue = salaryFrom.value ? parseFloat(salaryFrom.value) : 0;
+    const toValue = salaryTo.value ? parseFloat(salaryTo.value) : null;
+    
+    let salaryDisplay;
+    if (toValue && toValue > fromValue) {
+        salaryDisplay = `$${fromValue.toFixed(0)}–$${toValue.toFixed(0)}`;
+    } else {
+        salaryDisplay = `$${fromValue.toFixed(0)}`;
+    }
+    document.getElementById('previewAmount').textContent = salaryDisplay;
+    
+    // Обновляем тип
+    const typeText = type.options[type.selectedIndex].text;
+    document.getElementById('previewType').textContent = typeText;
+    
+    // Обновляем вакансию
+    const vacancyText = vacancy.options[vacancy.selectedIndex].text;
+    document.getElementById('previewVacancy').textContent = vacancyText;
+    
+    // Обновляем грейд
+    const gradeText = grade.options[grade.selectedIndex].text;
+    document.getElementById('previewGrade').textContent = gradeText;
+    
+    // Обновляем локацию
+    document.getElementById('previewLocation').textContent = location.value || 'Не указана';
+}
+
+// Добавляем обработчики событий
+document.addEventListener('DOMContentLoaded', function() {
+    const inputs = ['type', 'salary_from', 'salary_to', 'vacancy_id', 'grade_id', 'location'];
+    inputs.forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.addEventListener('input', updatePreview);
+            element.addEventListener('change', updatePreview);
+        }
+    });
+    
+    // Инициализируем превью
+    updatePreview();
+});
+
+// Валидация формы
+document.getElementById('editBenchmarkForm').addEventListener('submit', function(e) {
+    const salaryFrom = document.getElementById('salary_from').value;
+    const salaryTo = document.getElementById('salary_to').value;
+    const vacancy = document.getElementById('vacancy_id').value;
+    const grade = document.getElementById('grade_id').value;
+    const location = document.getElementById('location').value;
+    
+    if (!salaryFrom || parseFloat(salaryFrom) <= 0) {
+        e.preventDefault();
+        alert('Зарплата "от" должна быть положительной');
+        return;
+    }
+    
+    if (salaryTo && parseFloat(salaryTo) <= 0) {
+        e.preventDefault();
+        alert('Зарплата "до" должна быть положительной');
+        return;
+    }
+    
+    if (salaryTo && parseFloat(salaryTo) <= parseFloat(salaryFrom)) {
+        e.preventDefault();
+        alert('Зарплата "до" должна быть больше зарплаты "от"');
+        return;
+    }
+    
+    if (!vacancy) {
+        e.preventDefault();
+        alert('Выберите вакансию');
+        return;
+    }
+    
+    if (!grade) {
+        e.preventDefault();
+        alert('Выберите грейд');
+        return;
+    }
+    
+    if (!location.trim()) {
+        e.preventDefault();
+        alert('Укажите локацию');
+        return;
+    }
+});
+</script>
+{% endblock %}
+

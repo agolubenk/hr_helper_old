@@ -1,0 +1,1920 @@
+{% extends 'common/base.html' %}
+
+{% block title %}События календаря - Google OAuth - HR Helper{% endblock %}
+{% block page_title %}<i class="fas fa-calendar me-2"></i>События календаря{% endblock %}
+
+
+{% block content %}
+{% load static %}
+<link href="{% static 'css/google-oauth.css' %}" rel="stylesheet">
+
+{% csrf_token %}
+<div class="row">
+    <div class="col-12">
+        <!-- Поиск и фильтры -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-search me-2"></i>
+                    Поиск и фильтры
+                </h5>
+            </div>
+            <div class="card-body p-4">
+                <form method="get" class="row g-4 align-items-end">
+                    <div class="col-md-4">
+                        <label for="{{ search_form.search.id_for_label }}" class="form-label mb-2">
+                            <i class="fas fa-search me-1"></i>{{ search_form.search.label }}
+                        </label>
+                        {{ search_form.search }}
+                    </div>
+                    <div class="col-md-4">
+                        <label for="{{ search_form.date_from.id_for_label }}" class="form-label mb-2">
+                            <i class="fas fa-calendar me-1"></i>Период
+                        </label>
+                        <div class="input-group">
+                            {{ search_form.date_from }}
+                            <span class="input-group-text">—</span>
+                            {{ search_form.date_to }}
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="d-flex gap-2 flex-wrap justify-content-md-end">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-1"></i>
+                                Поиск
+                            </button>
+                            <a href="{% url 'google_oauth:calendar_events' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>
+                                Сбросить
+                            </a>
+                            <button type="button" class="btn btn-success" onclick="syncCalendar()" title="Синхронизировать">
+                                <i class="fas fa-sync"></i>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Информация о фильтрации -->
+        <div class="alert alert-info mb-3">
+            <i class="fas fa-info-circle me-2"></i>
+            <strong>Показываются ближайшие события:</strong> с сегодня и на 100 дней вперед
+        </div>
+        
+        <!-- Табы для отображения -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <ul class="nav nav-tabs card-header-tabs" id="calendarTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="list-tab" data-bs-toggle="tab" data-bs-target="#list" type="button" role="tab" aria-controls="list" aria-selected="true">
+                            <i class="fas fa-list me-2"></i>
+                            Список событий
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="calendar-tab" data-bs-toggle="tab" data-bs-target="#calendar" type="button" role="tab" aria-controls="calendar" aria-selected="false">
+                            <i class="fas fa-calendar me-2"></i>
+                            Календарь
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="slots-tab" data-bs-toggle="tab" data-bs-target="#slots" type="button" role="tab" aria-controls="slots" aria-selected="false">
+                            <i class="fas fa-clock me-2"></i>
+                            Слоты
+                        </button>
+                    </li>
+                </ul>
+                <!-- Кнопка настроек для слотов -->
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="slotsSettingsBtn" data-bs-toggle="modal" data-bs-target="#slotsSettingsModal" title="Настройки слотов" style="display: none;">
+                    <i class="fas fa-cog"></i>
+                </button>
+            </div>
+            <div class="card-body m-3">
+                <div class="tab-content" id="calendarTabsContent">
+                    <!-- Таб: Список событий -->
+                    <div class="tab-pane fade show active" id="list" role="tabpanel" aria-labelledby="list-tab">
+                {% if page_obj %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th style="width: 25%;">Название встречи</th>
+                                    <th style="width: 20%;">Дата и время</th>
+                                    <th style="width: 15%;">Google Meet</th>
+                                    <th style="width: 35%;">Описание</th>
+                                    <th style="width: 5%;">Ссылка</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for event in page_obj %}
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <div class="me-2">
+                                                    {% if event.status == 'confirmed' %}
+                                                        <i class="fas fa-check-circle text-success" title="Подтверждено"></i>
+                                                    {% elif event.status == 'tentative' %}
+                                                        <i class="fas fa-question-circle text-warning" title="Предварительно"></i>
+                                                    {% elif event.status == 'cancelled' %}
+                                                        <i class="fas fa-times-circle text-danger" title="Отменено"></i>
+                                                    {% else %}
+                                                        <i class="fas fa-circle text-secondary" title="{{ event.status }}"></i>
+                                                    {% endif %}
+                                                </div>
+                                                <strong>{{ event.title }}</strong>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="small">
+                                                {% if event.is_all_day %}
+                                                    {{ event.start_datetime|date:"d.m.Y" }} <span class="badge bg-info">Весь день</span>
+                                                {% else %}
+                                                    {{ event.start_datetime|date:"d.m.Y" }} {{ event.start_datetime|date:"H:i" }} - {{ event.end_datetime|date:"H:i" }}
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            {% if event.meet_link %}
+                                                <a href="{{ event.meet_link }}" target="_blank" class="btn btn-sm btn-outline-success">
+                                                    <i class="fab fa-google-meet me-1"></i>
+                                                    Google Meet
+                                                    {% if event.attendees %}
+                                                        <span class="badge bg-light text-dark ms-1">{{ event.attendees|length }}</span>
+                                                    {% endif %}
+                                                </a>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if event.description %}
+                                                <div class="small text-muted" style="max-width: 300px;">
+                                                    {{ event.description|safe }}
+                                                </div>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if event.html_link %}
+                                                <a href="{{ event.html_link }}" target="_blank" class="btn btn-sm btn-outline-primary" title="Открыть в Google Calendar">
+                                                    <i class="fab fa-google"></i>
+                                                </a>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Пагинация -->
+                    {% if page_obj.has_other_pages %}
+                        <nav aria-label="Навигация по страницам">
+                            <ul class="pagination justify-content-center">
+                                {% if page_obj.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if calendar_id_filter %}&calendar_id={{ calendar_id_filter }}{% endif %}">
+                                            <i class="fas fa-angle-double-left"></i>
+                                        </a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if calendar_id_filter %}&calendar_id={{ calendar_id_filter }}{% endif %}">
+                                            <i class="fas fa-angle-left"></i>
+                                        </a>
+                                    </li>
+                                {% endif %}
+                                
+                                {% for num in page_obj.paginator.page_range %}
+                                    {% if page_obj.number == num %}
+                                        <li class="page-item active">
+                                            <span class="page-link">{{ num }}</span>
+                                        </li>
+                                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if calendar_id_filter %}&calendar_id={{ calendar_id_filter }}{% endif %}">{{ num }}</a>
+                                        </li>
+                                    {% endif %}
+                                {% endfor %}
+                                
+                                {% if page_obj.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if calendar_id_filter %}&calendar_id={{ calendar_id_filter }}{% endif %}">
+                                            <i class="fas fa-angle-right"></i>
+                                        </a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if calendar_id_filter %}&calendar_id={{ calendar_id_filter }}{% endif %}">
+                                            <i class="fas fa-angle-double-right"></i>
+                                        </a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                    {% endif %}
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-calendar-alt fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">События не найдены</h5>
+                        <p class="text-muted">
+                            {% if search_query or date_from or date_to or status_filter or calendar_id_filter %}
+                                Попробуйте изменить параметры поиска или <a href="{% url 'google_oauth:calendar_events' %}">сбросить фильтры</a>.
+                            {% else %}
+                                События календаря не синхронизированы. <a href="#" onclick="syncCalendar()">Запустите синхронизацию</a>.
+                            {% endif %}
+                        </p>
+                    </div>
+                {% endif %}
+                    </div>
+                    
+                    <!-- Таб: Календарь -->
+                    <div class="tab-pane fade" id="calendar" role="tabpanel" aria-labelledby="calendar-tab">
+                        <div id="calendar-widget">
+                            <!-- Календарь будет загружен через JavaScript -->
+                        </div>
+                    </div>
+                    
+                    <!-- Таб: Слоты -->
+                    <div class="tab-pane fade" id="slots" role="tabpanel" aria-labelledby="slots-tab">
+                        <div class="slots-container">
+                            <!-- Заголовок с кнопкой экспорта -->
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h4 class="mb-0">
+                                    <i class="fas fa-clock me-2 text-success"></i>
+                                    Свободные слоты
+                                </h4>
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-outline-success btn-sm" title="Копировать все слоты" onclick="copyAllSlots()">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Текущая неделя -->
+                            <div class="week-section current-week mb-5">
+                                <div class="d-flex justify-content-between align-items-center week-header mb-4">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-calendar-week me-2 text-success"></i>
+                                        Текущая неделя
+                                    </h5>
+                                    <button type="button" class="btn btn-outline-success btn-sm" title="Копировать неделю" onclick="copyWeekSlots('current')">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                </div>
+                                
+                                <div class="row g-3">
+                                    <!-- Слоты текущей недели будут загружены через JavaScript -->
+                                </div>
+                            </div>
+                            
+                            <!-- Следующая неделя -->
+                            <div class="week-section next-week">
+                                <div class="d-flex justify-content-between align-items-center week-header mb-4">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-calendar-week me-2 text-primary"></i>
+                                        Следующая неделя
+                                    </h5>
+                                    <button type="button" class="btn btn-primary btn-sm" title="Копировать неделю" onclick="copyWeekSlots('next')">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                </div>
+                                
+                                <div class="row g-3">
+                                    <!-- Слоты следующей недели будут загружены через JavaScript -->
+                                                </div>
+                                                    </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+    </div>
+</div>
+
+<script>
+// Данные событий из Django контекста
+const calendarEvents = [
+    {% for event in page_obj %}
+    {
+        id: "{{ event.id|escapejs }}",
+        title: "{{ event.title|escapejs }}",
+        start: "{{ event.start_datetime|date:'Y-m-d H:i:s' }}",
+        end: "{{ event.end_datetime|date:'Y-m-d H:i:s' }}",
+        location: "{{ event.location|default:''|escapejs }}",
+        description: "{{ event.description|default:''|escapejs }}",
+        html_link: "{{ event.html_link|default:''|escapejs }}",
+        status: "{{ event.status|default:'confirmed'|escapejs }}",
+        is_all_day: {{ event.is_all_day|yesno:"true,false" }},
+        color: "{% if 'Обед' in event.title %}grey{% elif 'JS Tech Screening' in event.title and forloop.counter0 == 3 %}orange{% else %}blue{% endif %}"
+    }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+];
+
+// Данные фильтров из Django контекста
+const filterData = {
+    dateFrom: "{{ search_form.date_from.value|default:'' }}",
+    dateTo: "{{ search_form.date_to.value|default:'' }}",
+    search: "{{ search_form.search.value|default:'' }}"
+};
+
+// Рабочие часы для слотов: приоритет компания > пользователь (calendar_work_hours из view)
+window.userWorkHours = {
+    startHour: {{ calendar_work_hours.work_start_hour|default:10 }},
+    endHour: {{ calendar_work_hours.work_end_hour|default:18 }}
+};
+
+function syncCalendar() {
+    if (confirm('Запустить синхронизацию календаря? Это может занять некоторое время.')) {
+        const button = event.target;
+        const originalText = button.innerHTML;
+        
+        // Показываем индикатор загрузки
+        button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Синхронизация...';
+        button.disabled = true;
+        
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (!csrfToken) {
+            alert('Ошибка: CSRF токен не найден');
+            button.innerHTML = originalText;
+            button.disabled = false;
+            return;
+        }
+        
+        // Отправляем AJAX запрос
+        fetch('{% url "google_oauth:sync_calendar" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken.value,
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Синхронизация завершена успешно!');
+                // Сохраняем активную вкладку перед перезагрузкой
+                const activeTab = document.querySelector('#calendarTabs .nav-link.active');
+                if (activeTab) {
+                    localStorage.setItem('activeCalendarTab', activeTab.id);
+                }
+                location.reload();
+            } else {
+                alert('Ошибка синхронизации: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Произошла ошибка при синхронизации');
+        })
+        .finally(() => {
+            // Восстанавливаем кнопку
+            button.innerHTML = originalText;
+            button.disabled = false;
+        });
+    }
+}
+
+// Инициализация календаря (версия 4.0 - с API endpoint)
+document.addEventListener('DOMContentLoaded', function() {
+    const calendarTab = document.getElementById('calendar-tab');
+    const calendarWidget = document.getElementById('calendar-widget');
+    const slotsTab = document.getElementById('slots-tab');
+    
+    // Восстанавливаем активную вкладку из localStorage
+    restoreActiveTab();
+    
+    // Проверяем, нужно ли инициализировать календарь для активной по умолчанию вкладки
+    setTimeout(() => {
+        const activeTab = document.querySelector('#calendarTabs .nav-link.active');
+        if (activeTab && activeTab.id === 'calendar-tab') {
+            if (!calendarWidget.querySelector('.calendar-initialized')) {
+                console.log('🎯 Инициализируем календарь для активной по умолчанию вкладки');
+                initializeCalendar();
+            }
+        }
+    }, 200);
+    
+    // Добавляем обработчики для сохранения состояния вкладок
+    document.querySelectorAll('#calendarTabs .nav-link').forEach(tab => {
+        tab.addEventListener('shown.bs.tab', function() {
+            // Сохраняем активную вкладку в localStorage
+            localStorage.setItem('activeCalendarTab', this.id);
+            console.log('💾 Сохранена активная вкладка:', this.id);
+        });
+    });
+    
+    calendarTab.addEventListener('shown.bs.tab', function() {
+        if (!calendarWidget.querySelector('.calendar-initialized')) {
+            initializeCalendar();
+        }
+    });
+    
+    // Инициализация слотов
+    slotsTab.addEventListener('shown.bs.tab', function() {
+        if (!document.querySelector('.slots-initialized')) {
+            initializeSlots();
+        }
+    });
+    
+    function restoreActiveTab() {
+        // Получаем сохраненную активную вкладку из localStorage
+        const savedTabId = localStorage.getItem('activeCalendarTab');
+        
+        if (savedTabId) {
+            const savedTab = document.getElementById(savedTabId);
+            if (savedTab) {
+                // Проверяем, что вкладка не активна уже
+                if (!savedTab.classList.contains('active')) {
+                    // Активируем сохраненную вкладку
+                    const tab = new bootstrap.Tab(savedTab);
+                    tab.show();
+                    
+                    console.log('✅ Восстановлена активная вкладка:', savedTabId);
+                    
+                    // Если восстанавливается вкладка календаря, инициализируем календарь
+                    if (savedTabId === 'calendar-tab') {
+                        setTimeout(() => {
+                            if (!calendarWidget.querySelector('.calendar-initialized')) {
+                                console.log('🎯 Инициализируем календарь после восстановления вкладки');
+                                initializeCalendar();
+                            }
+                        }, 100); // Небольшая задержка для завершения анимации таба
+                    }
+                    
+                    // Если восстанавливается вкладка слотов, инициализируем слоты
+                    if (savedTabId === 'slots-tab') {
+                        setTimeout(() => {
+                            if (!document.querySelector('.slots-initialized')) {
+                                console.log('🎯 Инициализируем слоты после восстановления вкладки');
+                                initializeSlots();
+                            }
+                        }, 100);
+                    }
+                } else {
+                    console.log('ℹ️ Вкладка уже активна:', savedTabId);
+                }
+            } else {
+                console.log('⚠️ Вкладка не найдена:', savedTabId);
+                // Очищаем неверное значение
+                localStorage.removeItem('activeCalendarTab');
+            }
+        } else {
+            console.log('ℹ️ Нет сохраненной активной вкладки');
+        }
+    }
+    
+    function initializeSlots() {
+        console.log('🎯 Инициализация слотов...');
+        console.log('📊 Доступные данные календаря:', typeof calendarEvents, calendarEvents ? calendarEvents.length : 'не определено');
+        
+        // Проверяем наличие контейнеров
+        const currentWeekSection = document.querySelector('.week-section.current-week');
+        const nextWeekSection = document.querySelector('.week-section.next-week');
+        console.log('📅 Секция текущей недели:', currentWeekSection);
+        console.log('📅 Секция следующей недели:', nextWeekSection);
+        
+        // Генерируем слоты для всех дат в диапазоне фильтров
+        const allSlots = generateSlotsForDateRange();
+        
+        console.log('📅 Сгенерированные слоты для диапазона:', allSlots);
+        
+        // Обновляем DOM с данными слотов
+        updateSlotsDisplay(allSlots);
+        
+        // Добавляем обработчики событий для кнопок
+        addSlotsEventHandlers();
+        
+        // Помечаем как инициализированное
+        const slotsContainer = document.querySelector('.slots-container');
+        if (slotsContainer) {
+            slotsContainer.classList.add('slots-initialized');
+        } else {
+            console.error('❌ Контейнер слотов не найден!');
+        }
+        
+        console.log('✅ Слоты инициализированы');
+    }
+    
+    function calculateAvailableSlots(dayEvents, date) {
+        // Определяем рабочие часы из настроек пользователя или используем значения по умолчанию
+        const workStartHour = window.userWorkHours ? window.userWorkHours.startHour : 11;
+        const workEndHour = window.userWorkHours ? window.userWorkHours.endHour : 18;
+        
+        // Создаем массив слотов по часам
+        const slots = [];
+        for (let hour = workStartHour; hour < workEndHour; hour++) {
+            slots.push({
+                hour: hour,
+                start: new Date(date.getFullYear(), date.getMonth(), date.getDate(), hour, 0, 0),
+                end: new Date(date.getFullYear(), date.getMonth(), date.getDate(), hour + 1, 0, 0),
+                isOccupied: false
+            });
+        }
+        
+        // Проверяем каждое событие дня и отмечаем занятые слоты
+        dayEvents.forEach(event => {
+            // Пропускаем события на весь день
+            if (event.is_all_day) {
+                return;
+            }
+            
+            const eventStart = new Date(event.start);
+            const eventEnd = new Date(event.end);
+            
+            // Проверяем, пересекается ли событие с рабочими часами
+            if (eventStart.getHours() < workEndHour && eventEnd.getHours() >= workStartHour) {
+                // Отмечаем занятые слоты
+                slots.forEach(slot => {
+                    // Если событие занимает хотя бы полчаса в слоте, считаем слот занятым
+                    const slotStart = slot.start.getTime();
+                    const slotEnd = slot.end.getTime();
+                    const eventStartTime = eventStart.getTime();
+                    const eventEndTime = eventEnd.getTime();
+                    
+                    // Проверяем пересечение (событие занимает минимум 30 минут в слоте)
+                    const overlapStart = Math.max(slotStart, eventStartTime);
+                    const overlapEnd = Math.min(slotEnd, eventEndTime);
+                    const overlapDuration = overlapEnd - overlapStart;
+                    
+                    if (overlapDuration >= 30 * 60 * 1000) { // 30 минут в миллисекундах
+                        slot.isOccupied = true;
+                    }
+                });
+            }
+        });
+        
+        // Формируем строку доступных слотов
+        const availableRanges = [];
+        let currentRangeStart = null;
+        
+        slots.forEach((slot, index) => {
+            if (!slot.isOccupied) {
+                if (currentRangeStart === null) {
+                    currentRangeStart = slot.hour;
+                }
+            } else {
+                if (currentRangeStart !== null) {
+                    // Завершаем текущий диапазон
+                    if (currentRangeStart === slot.hour - 1) {
+                        availableRanges.push(currentRangeStart.toString());
+                    } else {
+                        // Добавляем +1 к последнему часу диапазона, так как слот означает время до следующего часа
+                        availableRanges.push(`${currentRangeStart}-${slot.hour}`);
+                    }
+                    currentRangeStart = null;
+                }
+            }
+        });
+        
+        // Завершаем последний диапазон, если он есть
+        if (currentRangeStart !== null) {
+            const lastSlot = slots[slots.length - 1];
+            if (currentRangeStart === lastSlot.hour) {
+                availableRanges.push(currentRangeStart.toString());
+            } else {
+                // Добавляем +1 к последнему часу, так как слот 17 означает время 17:00-18:00
+                availableRanges.push(`${currentRangeStart}-${lastSlot.hour + 1}`);
+            }
+        }
+        
+        return availableRanges.length > 0 ? availableRanges.join(', ') : 'Нет свободных слотов';
+    }
+    
+    function generateSlotsForDateRange() {
+        console.log('📅 Генерация слотов для диапазона дат...');
+        
+        // Парсим фильтры по датам
+        let filterDateFrom = null;
+        let filterDateTo = null;
+        
+        if (filterData.dateFrom) {
+            filterDateFrom = new Date(filterData.dateFrom);
+            filterDateFrom.setHours(0, 0, 0, 0);
+        }
+        
+        if (filterData.dateTo) {
+            filterDateTo = new Date(filterData.dateTo);
+            filterDateTo.setHours(23, 59, 59, 999);
+        }
+        
+        // Если фильтры не заданы, используем текущую и следующую неделю
+        if (!filterDateFrom && !filterDateTo) {
+            const currentWeekSlots = generateWeekSlots(0);
+            const nextWeekSlots = generateWeekSlots(1);
+            return {
+                currentWeek: currentWeekSlots,
+                nextWeek: nextWeekSlots
+            };
+        }
+        
+        // Определяем диапазон дат
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const startDate = filterDateFrom || today;
+        const endDate = filterDateTo || new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000); // +14 дней по умолчанию
+        
+        console.log(`📅 Диапазон дат: ${startDate.toDateString()} - ${endDate.toDateString()}`);
+        
+        const allSlots = [];
+        const weekdays = ['ВС', 'ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ'];
+        
+        // Генерируем слоты для всех дат в диапазоне
+        const currentDate = new Date(startDate);
+        while (currentDate <= endDate) {
+            // Пропускаем выходные (суббота и воскресенье)
+            if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6) {
+                // Пропускаем прошедшие дни
+                if (currentDate >= today) {
+                    const dateStr = currentDate.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+                    const weekday = weekdays[currentDate.getDay()];
+                    
+                    // Подсчитываем реальные встречи из данных календаря (исключая "Обед")
+                    let meetingsCount = 0;
+                    let availableSlots = '';
+                    
+                    if (typeof calendarEvents !== 'undefined' && Array.isArray(calendarEvents)) {
+                        const dayEvents = calendarEvents.filter(event => {
+                            const eventDate = new Date(event.start);
+                            return eventDate.toDateString() === currentDate.toDateString();
+                        });
+                        
+                        // Исключаем встречи с названием "Обед" для подсчета встреч
+                        const meetingsWithoutLunch = dayEvents.filter(event => {
+                            const title = event.title.toLowerCase();
+                            const isLunch = title.includes('обед') || title.includes('lunch');
+                            return !isLunch;
+                        });
+                        
+                        meetingsCount = meetingsWithoutLunch.length;
+                        
+                        // Вычисляем доступные слоты времени (11-18, исключая обед)
+                        availableSlots = calculateAvailableSlots(dayEvents, currentDate);
+                        
+                        console.log(`📅 Дата ${dateStr}: ${meetingsWithoutLunch.length} встреч (исключая обед из ${dayEvents.length} общих), слоты: ${availableSlots}`);
+                    } else {
+                        availableSlots = '11-18';
+                    }
+                    
+                    allSlots.push({
+                        date: new Date(currentDate),
+                        dateStr: dateStr,
+                        weekday: weekday,
+                        meetingsCount: meetingsCount,
+                        availableSlots: availableSlots
+                    });
+                }
+            }
+            
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+        
+        console.log(`📅 Итого слотов для диапазона: ${allSlots.length}`);
+        return allSlots;
+    }
+    
+    function generateWeekSlots(weekOffset) {
+        const today = new Date();
+        const startOfWeek = new Date(today);
+        
+        // Находим начало недели (понедельник)
+        const dayOfWeek = today.getDay();
+        const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+        startOfWeek.setDate(today.getDate() + daysToMonday + (weekOffset * 7));
+        
+        console.log(`📅 Генерация слотов для недели ${weekOffset}, начало недели:`, startOfWeek.toDateString());
+        
+        const slots = [];
+        const weekdays = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ', 'ВС'];
+        
+        // Парсим фильтры по датам
+        let filterDateFrom = null;
+        let filterDateTo = null;
+        
+        if (filterData.dateFrom) {
+            filterDateFrom = new Date(filterData.dateFrom);
+            filterDateFrom.setHours(0, 0, 0, 0);
+        }
+        
+        if (filterData.dateTo) {
+            filterDateTo = new Date(filterData.dateTo);
+            filterDateTo.setHours(23, 59, 59, 999);
+        }
+        
+        // Генерируем слоты для рабочих дней (понедельник-пятница)
+        for (let i = 0; i < 5; i++) {
+            const date = new Date(startOfWeek);
+            date.setDate(startOfWeek.getDate() + i);
+            
+            // Для текущей недели (weekOffset === 0) пропускаем прошедшие дни и сегодня
+            if (weekOffset === 0) {
+                const todayDate = new Date();
+                todayDate.setHours(0, 0, 0, 0); // Сбрасываем время для корректного сравнения
+                date.setHours(0, 0, 0, 0);
+                
+                if (date <= todayDate) {
+                    console.log(`⏭️ Пропускаем прошедший/текущий день: ${date.toDateString()}`);
+                    continue;
+                }
+            }
+            
+            // Применяем фильтры по датам
+            if (filterDateFrom && date < filterDateFrom) {
+                console.log(`⏭️ Пропускаем день до фильтра date_from: ${date.toDateString()}`);
+                continue;
+            }
+            
+            if (filterDateTo && date > filterDateTo) {
+                console.log(`⏭️ Пропускаем день после фильтра date_to: ${date.toDateString()}`);
+                continue;
+            }
+            
+            const dateStr = date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+            
+            // Подсчитываем реальные встречи из данных календаря (исключая "Обед")
+            let meetingsCount = 0;
+            let availableSlots = '';
+            
+            if (typeof calendarEvents !== 'undefined' && Array.isArray(calendarEvents)) {
+                console.log(`🔍 Поиск событий для даты ${dateStr} (${date.toDateString()})`);
+                
+                const dayEvents = calendarEvents.filter(event => {
+                    const eventDate = new Date(event.start);
+                    const isMatch = eventDate.toDateString() === date.toDateString();
+                    if (isMatch) {
+                        console.log(`  ✅ Найдено событие: "${event.title}" на ${eventDate.toDateString()}`);
+                    }
+                    return isMatch;
+                });
+                
+                // Исключаем встречи с названием "Обед" для подсчета встреч
+                const meetingsWithoutLunch = dayEvents.filter(event => {
+                    const title = event.title.toLowerCase();
+                    const isLunch = title.includes('обед') || title.includes('lunch');
+                    if (isLunch) {
+                        console.log(`  🍽️ Исключаем обед: "${event.title}"`);
+                    }
+                    return !isLunch;
+                });
+                
+                meetingsCount = meetingsWithoutLunch.length;
+                
+                // Вычисляем доступные слоты времени (11-18, исключая обед)
+                availableSlots = calculateAvailableSlots(dayEvents, date);
+                
+                console.log(`📅 Дата ${dateStr}: ${meetingsWithoutLunch.length} встреч (исключая обед из ${dayEvents.length} общих), слоты: ${availableSlots}`);
+            } else {
+                console.log(`⚠️ calendarEvents не доступен для даты ${dateStr}`);
+                // Если нет данных о событиях, показываем все слоты как доступные
+                const defaultStart = window.userWorkHours ? window.userWorkHours.startHour : 11;
+                const defaultEnd = window.userWorkHours ? window.userWorkHours.endHour : 18;
+                availableSlots = `${defaultStart}-${defaultEnd}`;
+            }
+            
+            slots.push({
+                date: date,
+                dateStr: dateStr,
+                weekday: weekdays[i],
+                meetingsCount: meetingsCount,
+                availableSlots: availableSlots
+            });
+        }
+        
+        console.log(`📅 Итого слотов для недели ${weekOffset}: ${slots.length}`);
+        return slots;
+    }
+    
+    function updateSlotsDisplay(slotsData) {
+        console.log('🔄 Обновление отображения слотов...');
+        
+        // Если slotsData - это объект с currentWeek и nextWeek (старый формат)
+        if (slotsData.currentWeek && slotsData.nextWeek) {
+            updateSlotsDisplayOld(slotsData.currentWeek, slotsData.nextWeek);
+            return;
+        }
+        
+        // Новый формат - массив всех слотов
+        const allSlots = slotsData;
+        
+        // Скрываем секции недель, если есть фильтры
+        const currentWeekSection = document.querySelector('.week-section.current-week');
+        const nextWeekSection = document.querySelector('.week-section.next-week');
+        
+        if (filterData.dateFrom || filterData.dateTo) {
+            // Есть фильтры - скрываем секции недель и показываем отфильтрованные слоты
+            if (currentWeekSection) {
+                currentWeekSection.style.display = 'none';
+            }
+            if (nextWeekSection) {
+                nextWeekSection.style.display = 'none';
+            }
+            
+            // Создаем новую секцию для отфильтрованных слотов
+            createFilteredSlotsSection(allSlots);
+        } else {
+            // Нет фильтров - используем старый формат
+            if (currentWeekSection) {
+                currentWeekSection.style.display = 'block';
+            }
+            if (nextWeekSection) {
+                nextWeekSection.style.display = 'block';
+            }
+            
+            // Разделяем слоты на текущую и следующую неделю
+            const today = new Date();
+            const currentWeekSlots = allSlots.filter(slot => {
+                const slotDate = new Date(slot.date);
+                const weekStart = new Date(today);
+                const dayOfWeek = today.getDay();
+                const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+                weekStart.setDate(today.getDate() + daysToMonday);
+                weekStart.setHours(0, 0, 0, 0);
+                
+                const weekEnd = new Date(weekStart);
+                weekEnd.setDate(weekStart.getDate() + 6);
+                weekEnd.setHours(23, 59, 59, 999);
+                
+                return slotDate >= weekStart && slotDate <= weekEnd;
+            });
+            
+            const nextWeekSlots = allSlots.filter(slot => {
+                const slotDate = new Date(slot.date);
+                const nextWeekStart = new Date(today);
+                const dayOfWeek = today.getDay();
+                const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+                nextWeekStart.setDate(today.getDate() + daysToMonday + 7);
+                nextWeekStart.setHours(0, 0, 0, 0);
+                
+                const nextWeekEnd = new Date(nextWeekStart);
+                nextWeekEnd.setDate(nextWeekStart.getDate() + 6);
+                nextWeekEnd.setHours(23, 59, 59, 999);
+                
+                return slotDate >= nextWeekStart && slotDate <= nextWeekEnd;
+            });
+            
+            updateSlotsDisplayOld(currentWeekSlots, nextWeekSlots);
+        }
+    }
+    
+    function updateSlotsDisplayOld(currentWeek, nextWeek) {
+        console.log('🔄 Обновление отображения слотов (старый формат)...');
+        
+        // Обновляем текущую неделю
+        const currentWeekContainer = document.querySelector('.week-section.current-week .row');
+        console.log('📅 Контейнер текущей недели:', currentWeekContainer);
+        
+        if (currentWeekContainer) {
+            currentWeekContainer.innerHTML = '';
+            console.log('📅 Добавляем слоты текущей недели:', currentWeek.length);
+            currentWeek.forEach(slot => {
+                const slotHtml = createSlotCard(slot);
+                currentWeekContainer.insertAdjacentHTML('beforeend', slotHtml);
+            });
+            // Применяем адаптивную ширину для текущей недели
+            applyAdaptiveWidth(currentWeekContainer, currentWeek.length);
+        } else {
+            console.error('❌ Контейнер текущей недели не найден!');
+        }
+        
+        // Обновляем следующую неделю
+        const nextWeekContainer = document.querySelector('.week-section.next-week .row');
+        console.log('📅 Контейнер следующей недели:', nextWeekContainer);
+        
+        if (nextWeekContainer) {
+            nextWeekContainer.innerHTML = '';
+            console.log('📅 Добавляем слоты следующей недели:', nextWeek.length);
+            nextWeek.forEach(slot => {
+                const slotHtml = createSlotCard(slot);
+                nextWeekContainer.insertAdjacentHTML('beforeend', slotHtml);
+            });
+            // Применяем адаптивную ширину для следующей недели
+            applyAdaptiveWidth(nextWeekContainer, nextWeek.length);
+        } else {
+            console.error('❌ Контейнер следующей недели не найден!');
+        }
+    }
+    
+    function createFilteredSlotsSection(allSlots) {
+        console.log('🔄 Создание секции для отфильтрованных слотов...');
+        
+        // Удаляем существующую секцию фильтров, если есть
+        const existingFilteredSection = document.querySelector('.week-section.filtered-slots');
+        if (existingFilteredSection) {
+            existingFilteredSection.remove();
+        }
+        
+        // Создаем новую секцию
+        const slotsContainer = document.querySelector('.slots-container');
+        if (!slotsContainer) {
+            console.error('❌ Контейнер слотов не найден!');
+            return;
+        }
+        
+        const filteredSection = document.createElement('div');
+        filteredSection.className = 'week-section filtered-slots';
+        filteredSection.style.background = 'linear-gradient(135deg, #f8f9fa 0%, #e3f2fd 100%)';
+        filteredSection.style.borderColor = '#007bff';
+        filteredSection.style.borderWidth = '2px';
+        
+        const dateRangeText = filterData.dateFrom && filterData.dateTo 
+            ? `${filterData.dateFrom} - ${filterData.dateTo}`
+            : filterData.dateFrom 
+                ? `с ${filterData.dateFrom}`
+                : `до ${filterData.dateTo}`;
+        
+        filteredSection.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center week-header mb-4">
+                <h5 class="mb-0">
+                    <i class="fas fa-calendar-week me-2 text-primary"></i>
+                    Отфильтрованные слоты (${dateRangeText})
+                </h5>
+                <button type="button" class="btn btn-primary btn-sm" title="Копировать слоты" onclick="copyFilteredSlots()">
+                    <i class="fas fa-copy"></i>
+                </button>
+            </div>
+            <div class="row g-3">
+                <!-- Слоты будут добавлены через JavaScript -->
+            </div>
+        `;
+        
+        // Добавляем секцию в контейнер
+        slotsContainer.appendChild(filteredSection);
+        
+        // Добавляем слоты
+        const slotsRow = filteredSection.querySelector('.row');
+        allSlots.forEach(slot => {
+            const slotHtml = createSlotCard(slot);
+            slotsRow.insertAdjacentHTML('beforeend', slotHtml);
+        });
+        
+        // Применяем адаптивную ширину
+        applyAdaptiveWidth(slotsRow, allSlots.length);
+        
+        console.log(`✅ Создана секция с ${allSlots.length} слотами`);
+    }
+    
+    function applyAdaptiveWidth(container, cardCount) {
+        const cards = container.querySelectorAll('.col-md-4');
+        
+        if (cardCount <= 2) {
+            // Если карточек 2 и менее - ограничиваем ширину до 380px
+            container.style.justifyContent = 'center';
+            cards.forEach(card => {
+                card.style.maxWidth = '380px';
+                card.style.flex = '0 0 auto';
+            });
+        } else {
+            // Если карточек больше 2 - на всю ширину
+            container.style.justifyContent = 'flex-start';
+            cards.forEach(card => {
+                card.style.maxWidth = 'none';
+                card.style.flex = '1';
+            });
+        }
+    }
+    
+    function createSlotCard(slot) {
+        return `
+            <div class="col-md-4">
+                <div class="card slot-card">
+                    <div class="card-body text-center">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-bold">${slot.dateStr}</span>
+                            <span class="badge bg-secondary">${slot.weekday}</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div class="text-primary small">
+                                ${slot.availableSlots}
+                            </div>
+                            <div>
+                                <i class="fas fa-calendar-check text-success"></i>
+                                <span class="ms-1 fw-bold text-success">${slot.meetingsCount}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    function addSlotsEventHandlers() {
+        // Обработчики для карточек слотов
+        document.querySelectorAll('.slot-card').forEach(card => {
+            card.addEventListener('click', function() {
+                console.log('📅 Клик по слоту');
+                // Здесь будет логика обработки клика по слоту
+            });
+        });
+    }
+    
+    // Функции копирования слотов (глобальные)
+    window.copyAllSlots = function() {
+        console.log('📋 Копирование всех слотов...');
+        console.log('🔍 filterData:', filterData);
+        
+        const allSlots = [];
+        
+        // Проверяем, есть ли фильтры
+        if (filterData.dateFrom || filterData.dateTo) {
+            // Если есть фильтры, копируем только отфильтрованные слоты
+            const filteredSection = document.querySelector('.week-section.filtered-slots');
+            if (filteredSection) {
+                filteredSection.querySelectorAll('.slot-card').forEach(card => {
+                    const slotData = extractSlotData(card);
+                    if (slotData) {
+                        allSlots.push(slotData);
+                    }
+                });
+                
+                const dateRangeText = filterData.dateFrom && filterData.dateTo 
+                    ? `${filterData.dateFrom} - ${filterData.dateTo}`
+                    : filterData.dateFrom 
+                        ? `с ${filterData.dateFrom}`
+                        : `до ${filterData.dateTo}`;
+                
+                const text = formatSlotsForCopy(allSlots, `Отфильтрованные слоты (${dateRangeText})`);
+                copyToClipboard(text);
+                return;
+            }
+        }
+        
+        // Если нет фильтров, копируем слоты из всех видимых секций
+        document.querySelectorAll('.week-section:not([style*="display: none"]) .slot-card').forEach(card => {
+            const slotData = extractSlotData(card);
+            if (slotData) {
+                allSlots.push(slotData);
+            }
+        });
+        
+        if (allSlots.length === 0) {
+            showCopyMessage('Нет слотов для копирования', 'warning');
+            return;
+        }
+        
+        const text = formatSlotsForCopy(allSlots, 'Все слоты');
+        copyToClipboard(text);
+    }
+    
+    window.copyWeekSlots = function(weekType) {
+        console.log(`📋 Копирование слотов ${weekType} недели...`);
+        
+        // Находим секцию недели по типу
+        let weekSection;
+        if (weekType === 'current') {
+            weekSection = document.querySelector('.week-section.current-week');
+        } else if (weekType === 'next') {
+            weekSection = document.querySelector('.week-section.next-week');
+        }
+        
+        if (!weekSection) {
+            showCopyMessage('Секция недели не найдена', 'error');
+            return;
+        }
+        
+        const slots = [];
+        weekSection.querySelectorAll('.slot-card').forEach(card => {
+            const slotData = extractSlotData(card);
+            if (slotData) {
+                slots.push(slotData);
+            }
+        });
+        
+        if (slots.length === 0) {
+            showCopyMessage('Нет слотов для копирования в этой неделе', 'warning');
+            return;
+        }
+        
+        const weekName = weekType === 'current' ? 'Текущая неделя' : 'Следующая неделя';
+        const text = formatSlotsForCopy(slots, weekName);
+        copyToClipboard(text);
+    }
+    
+    window.copyFilteredSlots = function() {
+        console.log('📋 Копирование отфильтрованных слотов...');
+        
+        const filteredSection = document.querySelector('.week-section.filtered-slots');
+        if (!filteredSection) {
+            showCopyMessage('Секция отфильтрованных слотов не найдена. Возможно, фильтры не применены.', 'error');
+            return;
+        }
+        
+        const slots = [];
+        filteredSection.querySelectorAll('.slot-card').forEach(card => {
+            const slotData = extractSlotData(card);
+            if (slotData) {
+                slots.push(slotData);
+            }
+        });
+        
+        if (slots.length === 0) {
+            showCopyMessage('Нет слотов для копирования в отфильтрованном диапазоне', 'warning');
+            return;
+        }
+        
+        const dateRangeText = filterData.dateFrom && filterData.dateTo 
+            ? `${filterData.dateFrom} - ${filterData.dateTo}`
+            : filterData.dateFrom 
+                ? `с ${filterData.dateFrom}`
+                : `до ${filterData.dateTo}`;
+        
+        const text = formatSlotsForCopy(slots, `Отфильтрованные слоты (${dateRangeText})`);
+        copyToClipboard(text);
+    }
+    
+    function extractSlotData(card) {
+        try {
+            const dateElement = card.querySelector('.fw-bold');
+            const weekdayElement = card.querySelector('.badge');
+            const slotsElement = card.querySelector('.text-primary');
+            const meetingsElement = card.querySelector('.text-success');
+            
+            console.log('🔍 Извлечение данных слота:', {
+                dateElement: dateElement?.textContent,
+                weekdayElement: weekdayElement?.textContent,
+                slotsElement: slotsElement?.textContent,
+                meetingsElement: meetingsElement?.textContent
+            });
+            
+            if (!dateElement || !weekdayElement || !slotsElement || !meetingsElement) {
+                console.warn('⚠️ Не все элементы найдены в карточке слота');
+                return null;
+            }
+            
+            const slotData = {
+                date: dateElement.textContent.trim(),
+                weekday: weekdayElement.textContent.trim(),
+                slots: slotsElement.textContent.trim(),
+                meetings: meetingsElement.textContent.trim()
+            };
+            
+            console.log('✅ Извлеченные данные слота:', slotData);
+            return slotData;
+        } catch (error) {
+            console.error('Ошибка извлечения данных слота:', error);
+            return null;
+        }
+    }
+    
+    function formatSlotsForCopy(slots, title) {
+        let text = '';
+        
+        if (title === 'Текущая неделя') {
+            // Формат для текущей недели: ПН 12-15, 17
+            if (slotsSettings.currentWeekPrefix) {
+                text += `${slotsSettings.currentWeekPrefix}\n`;
+            }
+            slots.forEach(slot => {
+                text += `${slot.weekday} ${slot.slots}\n`;
+            });
+        } else if (title === 'Следующая неделя') {
+            // Формат для следующей недели: ПН (15.09) 11-14, 15
+            if (slotsSettings.nextWeekPrefix) {
+                text += `${slotsSettings.nextWeekPrefix}\n`;
+            }
+            slots.forEach(slot => {
+                text += `${slot.weekday} (${slot.date}) ${slot.slots}\n`;
+            });
+        } else if (title === 'Все слоты') {
+            // Формат для всех слотов с разделением на недели
+            const today = new Date();
+            const currentWeekSlots = [];
+            const nextWeekSlots = [];
+            
+            // Разделяем слоты на текущую и следующую неделю
+            slots.forEach(slot => {
+                // Правильно парсим дату в формате DD.MM (добавляем текущий год)
+                const dateParts = slot.date.split('.');
+                const day = parseInt(dateParts[0]);
+                const month = parseInt(dateParts[1]) - 1; // Месяцы в JavaScript начинаются с 0
+                const currentYear = today.getFullYear();
+                const slotDate = new Date(currentYear, month, day);
+                
+                const weekStart = new Date(today);
+                const dayOfWeek = today.getDay();
+                const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+                weekStart.setDate(today.getDate() + daysToMonday);
+                weekStart.setHours(0, 0, 0, 0);
+                
+                const weekEnd = new Date(weekStart);
+                weekEnd.setDate(weekStart.getDate() + 6);
+                weekEnd.setHours(23, 59, 59, 999);
+                
+                console.log('🔍 DEBUG: Проверяем слот:', slot.weekday, slot.date, 'Дата слота:', slotDate, 'Неделя:', weekStart, '-', weekEnd);
+                
+                if (slotDate >= weekStart && slotDate <= weekEnd) {
+                    currentWeekSlots.push(slot);
+                    console.log('🔍 DEBUG: Добавлен в текущую неделю:', slot.weekday, slot.date);
+                } else {
+                    nextWeekSlots.push(slot);
+                    console.log('🔍 DEBUG: Добавлен в следующую неделю:', slot.weekday, slot.date);
+                }
+            });
+            
+            // Добавляем общий префикс
+            if (slotsSettings.allSlotsPrefix) {
+                text += `${slotsSettings.allSlotsPrefix}\n`;
+            }
+            
+            // Добавляем слоты текущей недели
+            if (currentWeekSlots.length > 0) {
+                currentWeekSlots.forEach(slot => {
+                    text += `${slot.weekday} (${slot.date}) ${slot.slots}\n`;
+                });
+            }
+            
+            // Добавляем разделитель и слоты следующей недели
+            if (nextWeekSlots.length > 0) {
+                // Добавляем пустую строку как разделитель между неделями
+                if (currentWeekSlots.length > 0) {
+                    text += `\n`;
+                }
+                // Добавляем префикс следующей недели
+                if (slotsSettings.nextWeekPrefix) {
+                    text += `${slotsSettings.nextWeekPrefix}\n`;
+                }
+                nextWeekSlots.forEach(slot => {
+                    text += `${slot.weekday} (${slot.date}) ${slot.slots}\n`;
+                });
+            }
+        } else {
+            // Формат для отфильтрованных слотов
+            text += `${title}\n`;
+            slots.forEach(slot => {
+                text += `${slot.weekday} (${slot.date}) ${slot.slots}\n`;
+            });
+        }
+        
+        return text.trim();
+    }
+    
+    function copyToClipboard(text) {
+        if (navigator.clipboard && window.isSecureContext) {
+            // Используем современный API
+            navigator.clipboard.writeText(text).then(() => {
+                showCopyMessage('Слоты скопированы в буфер обмена!', 'success');
+            }).catch(err => {
+                console.error('Ошибка копирования:', err);
+                fallbackCopyToClipboard(text);
+            });
+        } else {
+            // Fallback для старых браузеров
+            fallbackCopyToClipboard(text);
+        }
+    }
+    
+    function fallbackCopyToClipboard(text) {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+            document.execCommand('copy');
+            showCopyMessage('Слоты скопированы в буфер обмена!', 'success');
+        } catch (err) {
+            console.error('Ошибка fallback копирования:', err);
+            showCopyMessage('Ошибка копирования. Попробуйте выделить текст вручную.', 'error');
+        }
+        
+        document.body.removeChild(textArea);
+    }
+    
+    function showCopyMessage(message, type) {
+        // Создаем уведомление
+        const alertClass = type === 'success' ? 'alert-success' : 
+                          type === 'warning' ? 'alert-warning' : 'alert-danger';
+        
+        const alertHtml = `
+            <div class="alert ${alertClass} alert-dismissible fade show position-fixed" 
+                 style="top: 20px; right: 20px; z-index: 9999; min-width: 300px;" role="alert">
+                <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'warning' ? 'exclamation-triangle' : 'times-circle'} me-2"></i>
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        `;
+        
+        // Удаляем существующие уведомления
+        document.querySelectorAll('.alert.position-fixed').forEach(alert => alert.remove());
+        
+        // Добавляем новое уведомление
+        document.body.insertAdjacentHTML('beforeend', alertHtml);
+        
+        // Автоматически скрываем через 3 секунды
+        setTimeout(() => {
+            const alert = document.querySelector('.alert.position-fixed');
+            if (alert) {
+                const bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            }
+        }, 3000);
+    }
+    
+    // Функции для работы с настройками слотов
+    let slotsSettings = {{ slots_settings.to_dict|safe }};
+    
+    console.log('🔍 DEBUG: Настройки с сервера (JSON):', slotsSettings);
+    
+    // Загружаем настройки с сервера при инициализации
+    window.loadSlotsSettings = function() {
+        console.log('🔍 DEBUG: Загружаем настройки в поля формы...');
+        console.log('🔍 DEBUG: slotsSettings:', slotsSettings);
+        
+        // Заполняем поля в модальном окне из серверных данных
+        const currentWeekField = document.getElementById('currentWeekPrefix');
+        const nextWeekField = document.getElementById('nextWeekPrefix');
+        const allSlotsField = document.getElementById('allSlotsPrefix');
+        const separatorField = document.getElementById('separatorText');
+        
+        if (currentWeekField) {
+            currentWeekField.value = slotsSettings.currentWeekPrefix;
+            console.log('🔍 DEBUG: currentWeekPrefix установлен:', currentWeekField.value);
+        }
+        
+        if (nextWeekField) {
+            nextWeekField.value = slotsSettings.nextWeekPrefix;
+            console.log('🔍 DEBUG: nextWeekPrefix установлен:', nextWeekField.value);
+        }
+        
+        if (allSlotsField) {
+            allSlotsField.value = slotsSettings.allSlotsPrefix;
+            console.log('🔍 DEBUG: allSlotsPrefix установлен:', allSlotsField.value);
+        }
+        
+        if (separatorField) {
+            separatorField.value = slotsSettings.separatorText;
+            console.log('🔍 DEBUG: separatorText установлен:', separatorField.value);
+        }
+        
+        updateSettingsPreview();
+    }
+    
+    // Сохраняем настройки на сервер
+    window.saveSlotsSettings = function() {
+        const newSettings = {
+            currentWeekPrefix: document.getElementById('currentWeekPrefix').value,
+            nextWeekPrefix: document.getElementById('nextWeekPrefix').value,
+            allSlotsPrefix: document.getElementById('allSlotsPrefix').value,
+            separatorText: document.getElementById('separatorText').value
+        };
+        
+        // Отправляем данные на сервер
+        fetch('{% url "google_oauth:api_slots_settings" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify(newSettings)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Обновляем локальные настройки
+                slotsSettings = { ...slotsSettings, ...newSettings };
+                
+                showCopyMessage('Настройки слотов сохранены!', 'success');
+                
+                // Закрываем модальное окно
+                const modal = bootstrap.Modal.getInstance(document.getElementById('slotsSettingsModal'));
+                if (modal) {
+                    modal.hide();
+                }
+            } else {
+                showCopyMessage('Ошибка сохранения: ' + data.error, 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Ошибка сохранения настроек:', error);
+            showCopyMessage('Ошибка сохранения настроек', 'danger');
+        });
+    };
+    
+    // Обновляем превью настроек
+    function updateSettingsPreview() {
+        const preview = document.getElementById('settingsPreview');
+        if (preview) {
+            const currentWeekPrefix = document.getElementById('currentWeekPrefix').value || 'Текущая неделя:';
+            const nextWeekPrefix = document.getElementById('nextWeekPrefix').value || 'Следующая неделя:';
+            const allSlotsPrefix = document.getElementById('allSlotsPrefix').value || 'Доступные слоты:';
+            const separatorText = document.getElementById('separatorText').value || '---';
+            
+            const previewText = `${allSlotsPrefix}
+${currentWeekPrefix}
+ПН 12-15, 17
+ВТ 14-17
+${separatorText}
+${nextWeekPrefix}
+ПН (15.09) 11-14, 15
+ВТ (16.09) 11-18`;
+            
+            preview.textContent = previewText;
+        }
+    }
+    
+    // Заполняем поля формы сразу после объявления переменных
+    setTimeout(function() {
+        console.log('🔍 DEBUG: Заполняем поля формы через setTimeout...');
+        window.loadSlotsSettings();
+    }, 100);
+    
+    // Добавляем обработчики для обновления превью при изменении полей
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('🔍 DEBUG: DOM загружен, инициализируем настройки слотов...');
+        
+        // Заполняем поля при загрузке DOM
+        setTimeout(function() {
+            console.log('🔍 DEBUG: Заполняем поля после загрузки DOM...');
+            window.loadSlotsSettings();
+        }, 200);
+        
+        // Добавляем обработчик для открытия модального окна
+        const modal = document.getElementById('slotsSettingsModal');
+        if (modal) {
+            modal.addEventListener('show.bs.modal', function() {
+                console.log('🔍 DEBUG: Модальное окно открывается, загружаем настройки...');
+                setTimeout(function() {
+                    window.loadSlotsSettings();
+                }, 50);
+            });
+        }
+        
+        // Добавляем обработчики для полей настроек
+        ['currentWeekPrefix', 'nextWeekPrefix', 'allSlotsPrefix', 'separatorText'].forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            if (field) {
+                field.addEventListener('input', updateSettingsPreview);
+                console.log('🔍 DEBUG: Обработчик добавлен для поля:', fieldId);
+            } else {
+                console.log('🔍 DEBUG: Поле не найдено:', fieldId);
+            }
+        });
+    });
+    
+    function initializeCalendar() {
+        console.log('🎯 Инициализация календаря...');
+        
+        // Используем события из глобальной переменной
+        const events = calendarEvents;
+        console.log('📅 События для календаря:', events.length);
+        
+        // Создаем месячный календарь
+        const calendar = createMonthlyCalendar(events);
+        calendarWidget.innerHTML = calendar;
+        calendarWidget.classList.add('calendar-initialized');
+        
+        console.log('✅ Календарь инициализирован');
+    }
+    
+    function createMonthlyCalendar(events) {
+        console.log('📅 Создание месячного календаря с событиями:', events.length);
+        
+        const now = new Date();
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+        
+        console.log('📅 Текущий месяц:', currentMonth + 1, 'Год:', currentYear);
+        
+        // Получаем первый день месяца и количество дней
+        const firstDay = new Date(currentYear, currentMonth, 1);
+        const lastDay = new Date(currentYear, currentMonth + 1, 0);
+        const daysInMonth = lastDay.getDate();
+        
+        // Находим первый понедельник для отображения
+        const startDate = new Date(firstDay);
+        const dayOfWeek = firstDay.getDay();
+        const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+        startDate.setDate(firstDay.getDate() + mondayOffset);
+        
+        const monthNames = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 
+                           'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+        
+        let html = `
+            <div class="calendar-container">
+                <!-- Заголовок и навигация -->
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div class="d-flex align-items-center">
+                        <button class="btn btn-outline-secondary me-2" onclick="changeMonth(-1)">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <h2 class="mb-0 me-3">${monthNames[currentMonth]} ${currentYear}</h2>
+                        <button class="btn btn-outline-secondary" onclick="changeMonth(1)">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                    <div>
+                        <button type="button" class="btn btn-success" onclick="syncCalendar()" title="Синхронизировать">
+                            <i class="fas fa-sync"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Календарь -->
+                <div class="card">
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-bordered mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="text-center">Пн</th>
+                                        <th class="text-center">Вт</th>
+                                        <th class="text-center">Ср</th>
+                                        <th class="text-center">Чт</th>
+                                        <th class="text-center">Пт</th>
+                                        <th class="text-center">Сб</th>
+                                        <th class="text-center">Вс</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+        `;
+        
+        // Создаем календарную сетку
+        let currentDate = new Date(startDate);
+        let weekCount = 0;
+        
+        while (weekCount < 6) { // Максимум 6 недель
+            html += '<tr>';
+            
+            for (let day = 0; day < 7; day++) {
+                const isCurrentMonth = currentDate.getMonth() === currentMonth;
+                const isToday = currentDate.toDateString() === now.toDateString();
+                const dayNumber = currentDate.getDate();
+                
+                // Находим события для этого дня
+                const dayEvents = events.filter(event => {
+                    const eventDate = new Date(event.start);
+                    return eventDate.toDateString() === currentDate.toDateString();
+                });
+                
+                html += `
+                    <td class="calendar-day" style="height: 120px; vertical-align: top; position: relative;">
+                        <div class="d-flex justify-content-between align-items-start p-2">
+                            <span class="fw-bold ${isToday ? 'text-primary' : ''}" style="font-size: 16px;">
+                                ${dayNumber}
+                            </span>
+                            ${dayEvents.length > 0 ? `<span class="badge bg-primary rounded-pill">${dayEvents.length}</span>` : ''}
+                        </div>
+                        
+                        <!-- События дня -->
+                        <div class="events-container p-1" style="max-height: 80px; overflow-y: auto;">
+                `;
+                
+                dayEvents.forEach(event => {
+                    const startTime = new Date(event.start);
+                    // Время не отображается в календаре, только в модальном окне
+                    // Время не отображается в календаре, только в модальном окне
+                    const titleStr = event.title.length > 20 ? event.title.substring(0, 17) + '...' : event.title;
+                    
+                    // Очищаем описание от HTML-тегов для атрибута
+                    const cleanDescription = event.description ? event.description.replace(/<[^>]*>/g, '') : '';
+                    
+                    let statusClass = 'success';
+                    let statusColor = '#28a745';
+                    if (event.color === 'orange') {
+                        statusClass = 'warning';
+                        statusColor = '#ffc107';
+                    } else if (event.color === 'grey') {
+                        statusClass = 'secondary';
+                        statusColor = '#6c757d';
+                    }
+                    
+                    html += `
+                        <div class="event-item mb-1 p-1 rounded"
+                             style="background-color: ${statusColor}20; 
+                                    border-left: 3px solid ${statusColor}; 
+                                    font-size: 0.75rem; cursor: pointer;"
+                             data-bs-toggle="modal" 
+                             data-bs-target="#eventModal"
+                             data-event-id="${event.id}">
+                            <div class="fw-bold text-truncate" title="${event.title}">
+                                ${titleStr}
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += `
+                        </div>
+                    </td>
+                `;
+                
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+            
+            html += '</tr>';
+            weekCount++;
+            
+            // Проверяем, не вышли ли мы за пределы месяца
+            if (currentDate.getMonth() !== currentMonth && currentDate.getDate() > 7) {
+                break;
+            }
+        }
+        
+        html += `
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        return html;
+    }
+    
+    // Функции для навигации по месяцам
+    window.changeMonth = function(direction) {
+        console.log('Смена месяца:', direction);
+        // Здесь можно добавить логику смены месяца
+    };
+});
+
+// Обработка модального окна для событий (версия 4.0 - с API endpoint)
+document.addEventListener('DOMContentLoaded', function() {
+    const eventModal = document.getElementById('eventModal');
+    const eventDetails = document.getElementById('eventDetails');
+    
+    if (eventModal) {
+        eventModal.addEventListener('show.bs.modal', function (event) {
+            const button = event.relatedTarget;
+            const eventId = button.getAttribute('data-event-id');
+            
+            // Показываем индикатор загрузки
+            if (eventDetails) {
+                eventDetails.innerHTML = `
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Загрузка...</span>
+                        </div>
+                        <p class="mt-2 text-muted">Загрузка деталей события...</p>
+                    </div>
+                `;
+            }
+            
+            // Получаем детали события через API
+            fetch(`/google-oauth/api/event/${eventId}/`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const eventData = data.event;
+                        
+                        // Устанавливаем название события в заголовок модального окна
+                        const modalTitle = document.getElementById('eventModalLabel');
+                        if (modalTitle) {
+                            modalTitle.textContent = eventData.title;
+                        }
+                        
+                        // Форматируем время
+                        const startTime = eventData.start_time ? new Date(eventData.start_time) : null;
+                        const endTime = eventData.end_time ? new Date(eventData.end_time) : null;
+                        const start = startTime ? startTime.toLocaleString('ru-RU') : 'Не указано';
+                        const end = endTime ? endTime.toLocaleString('ru-RU') : 'Не указано';
+                        
+                        // Определяем цвет статуса
+                        let statusClass = 'success';
+                        let statusText = 'Подтверждено';
+                        if (eventData.status === 'tentative') {
+                            statusClass = 'warning';
+                            statusText = 'Предварительно';
+                        } else if (eventData.status === 'cancelled') {
+                            statusClass = 'danger';
+                            statusText = 'Отменено';
+                        }
+                        
+                        const modalHtml = `
+                            <div class="row">
+                                <div class="col-12">
+                                    <div class="mb-3">
+                                        <strong><i class="fas fa-clock me-2"></i>Время:</strong>
+                                        <span class="ms-2">${start} - ${end}</span>
+                                        ${eventData.is_all_day ? '<br><span class="badge bg-info">Весь день</span>' : ''}
+                                    </div>
+                                    <div class="mb-3">
+                                        <strong><i class="fas fa-info-circle me-2"></i>Статус:</strong>
+                                        <span class="badge bg-${statusClass} ms-2">${statusText}</span>
+                                    </div>
+                                    ${eventData.location ? `
+                                    <div class="mb-3">
+                                        <strong><i class="fas fa-map-marker-alt me-2"></i>Место:</strong>
+                                        <span class="ms-2">${eventData.location}</span>
+                                    </div>
+                                    ` : ''}
+                                    ${eventData.description ? `
+                                    <div class="mb-3">
+                                        <strong><i class="fas fa-align-left me-2"></i>Описание:</strong>
+                                        <div class="ms-2 mt-1 p-2 bg-light rounded" style="white-space: pre-wrap;">${eventData.description}</div>
+                                    </div>
+                                    ` : ''}
+                                    ${eventData.attendees && eventData.attendees.length > 0 ? `
+                                    <div class="mb-3">
+                                        <strong><i class="fas fa-users me-2"></i>Участники:</strong>
+                                        <div class="ms-2 mt-1">
+                                            ${eventData.attendees.map(attendee => `
+                                                <div class="d-flex align-items-center mb-1">
+                                                    <span class="badge bg-${attendee.response_status === 'accepted' ? 'success' : attendee.response_status === 'declined' ? 'danger' : 'warning'} me-2">
+                                                        ${attendee.response_status === 'accepted' ? '✓' : attendee.response_status === 'declined' ? '✗' : '?'}
+                                                    </span>
+                                                    <span>${attendee.name || attendee.email}</span>
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+                                    ` : ''}
+                                    ${eventData.meet_link ? `
+                                    <div class="mb-3">
+                                        <strong><i class="fab fa-google-meet me-2"></i>Google Meet:</strong>
+                                        <a href="${eventData.meet_link}" target="_blank" class="btn btn-sm btn-outline-success ms-2">
+                                            <i class="fab fa-google-meet me-1"></i>
+                                            Присоединиться к встрече
+                                        </a>
+                                    </div>
+                                    ` : ''}
+                                    ${eventData.html_link ? `
+                                    <div class="mb-3">
+                                        <strong><i class="fas fa-external-link-alt me-2"></i>Ссылка:</strong>
+                                        <a href="${eventData.html_link}" target="_blank" class="btn btn-sm btn-outline-primary ms-2">
+                                            <i class="fas fa-external-link-alt me-1"></i>
+                                            Открыть в Google Calendar
+                                        </a>
+                                    </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        `;
+                        
+                        if (eventDetails) {
+                            eventDetails.innerHTML = modalHtml;
+                        }
+                    } else {
+                        // Показываем ошибку
+                        if (eventDetails) {
+                            eventDetails.innerHTML = `
+                                <div class="alert alert-danger">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    Ошибка загрузки события: ${data.message}
+                                </div>
+                            `;
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching event details:', error);
+                    if (eventDetails) {
+                        eventDetails.innerHTML = `
+                            <div class="alert alert-danger">
+                                <i class="fas fa-external-link-alt me-2"></i>
+                                Ошибка загрузки события: ${error.message}
+                            </div>
+                        `;
+                    }
+                });
+        });
+    }
+});
+
+// Принудительно заполняем поля формы настройками
+setTimeout(function() {
+    console.log('🔍 DEBUG: Принудительное заполнение полей формы...');
+    try {
+        if (typeof window.loadSlotsSettings === 'function') {
+            window.loadSlotsSettings();
+        } else {
+            console.error('Функция loadSlotsSettings не найдена');
+        }
+    } catch (e) {
+        console.error('Ошибка при заполнении полей:', e);
+    }
+}, 2000);
+
+// Управление видимостью кнопки настроек слотов
+document.addEventListener('DOMContentLoaded', function() {
+    const slotsSettingsBtn = document.getElementById('slotsSettingsBtn');
+    const slotsTab = document.getElementById('slots-tab');
+    const listTab = document.getElementById('list-tab');
+    const calendarTab = document.getElementById('calendar-tab');
+    
+    // Функция для показа/скрытия кнопки настроек
+    function toggleSettingsButton() {
+        if (slotsTab && slotsTab.classList.contains('active')) {
+            slotsSettingsBtn.style.display = 'inline-block';
+        } else {
+            slotsSettingsBtn.style.display = 'none';
+        }
+    }
+    
+    // Добавляем обработчики для всех вкладок
+    if (slotsTab) {
+        slotsTab.addEventListener('click', toggleSettingsButton);
+    }
+    if (listTab) {
+        listTab.addEventListener('click', toggleSettingsButton);
+    }
+    if (calendarTab) {
+        calendarTab.addEventListener('click', toggleSettingsButton);
+    }
+    
+    // Проверяем начальное состояние
+    toggleSettingsButton();
+});
+</script>
+
+<!-- Модальное окно для детального просмотра события -->
+<div class="modal fade" id="eventModal" tabindex="-1" aria-labelledby="eventModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="eventModalLabel">Детали события</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="eventDetails">
+                    <!-- Детали события будут загружены через JavaScript -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно настроек слотов -->
+<div class="modal fade" id="slotsSettingsModal" tabindex="-1" aria-labelledby="slotsSettingsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="slotsSettingsModalLabel">
+                    <i class="fas fa-cog me-2"></i>
+                    Настройки слотов
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-12">
+                        <p class="text-muted mb-4">
+                            Настройте дополнительный текст, который будет добавляться к слотам при копировании.
+                        </p>
+                        
+                        <div class="mb-4">
+                            <label for="currentWeekPrefix" class="form-label">
+                                <i class="fas fa-calendar-week text-success me-2"></i>
+                                Текст перед слотами текущей недели
+                            </label>
+                            <input type="text" class="form-control" id="currentWeekPrefix" placeholder="Например: Текущая неделя:" value="">
+                            <div class="form-text">Этот текст будет добавлен перед слотами текущей недели</div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="nextWeekPrefix" class="form-label">
+                                <i class="fas fa-calendar-week text-primary me-2"></i>
+                                Текст перед слотами следующей недели
+                            </label>
+                            <input type="text" class="form-control" id="nextWeekPrefix" placeholder="Например: Следующая неделя:" value="">
+                            <div class="form-text">Этот текст будет добавлен перед слотами следующей недели</div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="allSlotsPrefix" class="form-label">
+                                <i class="fas fa-copy me-2"></i>
+                                Текст перед всеми слотами
+                            </label>
+                            <input type="text" class="form-control" id="allSlotsPrefix" placeholder="Например: Доступные слоты:" value="">
+                            <div class="form-text">Этот текст будет добавлен в начало при копировании всех слотов</div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="separatorText" class="form-label">
+                                <i class="fas fa-minus me-2"></i>
+                                Разделитель между неделями
+                            </label>
+                            <input type="text" class="form-control" id="separatorText" placeholder="Например: ---" value="---">
+                            <div class="form-text">Текст, который будет разделять текущую и следующую неделю</div>
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Пример результата:</strong>
+                            <pre id="settingsPreview" class="mt-2 mb-0"></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" onclick="saveSlotsSettings()">
+                    <i class="fas fa-save me-2"></i>
+                    Сохранить настройки
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

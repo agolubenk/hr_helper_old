@@ -1,0 +1,420 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}{% if page %}Редактировать{% else %}Создать{% endif %} страницу вики{% endblock %}
+
+{% block page_title %}{% if page %}Редактировать страницу{% else %}Создать страницу{% endif %}{% endblock %}
+
+{% block extra_css %}
+{{ form.media.css }}
+<style>
+/* Форма и редактор Summernote на всю ширину */
+#wiki-form .form-control { max-width: 100%; }
+.note-editor.note-frame { max-width: 100% !important; }
+.note-editing-area { max-width: 100% !important; }
+.note-editor .note-editable { max-width: 100% !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'wiki:list' %}">Вики</a></li>
+                    {% if page %}
+                        <li class="breadcrumb-item"><a href="{% url 'wiki:page_detail' slug=page.slug %}">{{ page.title }}</a></li>
+                        <li class="breadcrumb-item active">Редактировать</li>
+                    {% else %}
+                        <li class="breadcrumb-item active">Создать</li>
+                    {% endif %}
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        {% if page %}
+                            <i class="fas fa-edit me-2"></i>Редактировать страницу
+                        {% else %}
+                            <i class="fas fa-plus me-2"></i>Создать новую страницу
+                        {% endif %}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="wiki-form">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="id_title" class="form-label">
+                                Название <span class="text-danger">*</span>
+                            </label>
+                            {{ form.title }}
+                            {% if form.title.errors %}<div class="invalid-feedback d-block">{{ form.title.errors|join:", " }}</div>{% endif %}
+                            <small class="form-text text-muted">Минимум 3 символа</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="id_slug" class="form-label">
+                                URL-адрес <span class="text-danger">*</span>
+                            </label>
+                            {{ form.slug }}
+                            {% if form.slug.errors %}<div class="invalid-feedback d-block">{{ form.slug.errors|join:", " }}</div>{% endif %}
+                            <small class="form-text text-muted">
+                                Только латинские буквы, цифры и дефисы. Используется для создания URL страницы.
+                            </small>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="id_category" class="form-label">Категория</label>
+                                {{ form.category }}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="id_related_app" class="form-label">Связанное приложение</label>
+                                {{ form.related_app }}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <label class="form-label mb-0">Теги (метки)</label>
+                                <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#createTagModal">
+                                    <i class="fas fa-plus me-1"></i>
+                                    Создать тег
+                                </button>
+                            </div>
+                            <div id="tags-container" class="row">
+                                {% for tag in all_tags %}
+                                    <div class="col-md-3 col-lg-2 mb-2" data-tag-id="{{ tag.id }}">
+                                        <div class="form-check">
+                                            <input class="form-check-input" 
+                                                   type="checkbox" 
+                                                   name="tags" 
+                                                   value="{{ tag.id }}" 
+                                                   id="tag_{{ tag.id }}"
+                                                   {% if tag in tags %}checked{% endif %}>
+                                            <label class="form-check-label" for="tag_{{ tag.id }}" style="cursor: pointer;">
+                                                <span class="badge" style="background-color: {{ tag.color }}; color: white;">#{{ tag.name }}</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                {% empty %}
+                                    <div class="col-12">
+                                        <div class="alert alert-info mb-0">
+                                            <i class="fas fa-info-circle me-2"></i>
+                                            Нет доступных тегов. Создайте первый тег, нажав кнопку "Создать тег".
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                            <small class="form-text text-muted">Выберите теги для этой страницы или создайте новый</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="id_description" class="form-label">Краткое описание</label>
+                            {{ form.description }}
+                            <small class="form-text text-muted">Максимум 500 символов</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="id_content" class="form-label">
+                                Содержание <span class="text-danger">*</span>
+                            </label>
+                            {{ form.content }}
+                            {% if form.content.errors %}<div class="invalid-feedback d-block">{{ form.content.errors|join:", " }}</div>{% endif %}
+                            <small class="form-text text-muted">Минимум 10 символов. Используйте панель инструментов для форматирования текста.</small>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="id_order" class="form-label">Порядок сортировки</label>
+                                {{ form.order }}
+                                <small class="form-text text-muted">Меньше значение = выше в списке</small>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check mt-4">
+                                    {{ form.is_published }}
+                                    <label class="form-check-label" for="id_is_published">
+                                        Опубликовано
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        {% if page %}
+                            <div class="mb-3">
+                                <label for="id_change_note" class="form-label">Примечание к изменению</label>
+                                {{ form.change_note }}
+                                <small class="form-text text-muted">Будет сохранено в истории изменений</small>
+                            </div>
+                        {% endif %}
+
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-2"></i>
+                                    {% if page %}Сохранить изменения{% else %}Создать страницу{% endif %}
+                                </button>
+                                {% if page %}
+                                    <a href="{% url 'wiki:page_detail' slug=page.slug %}" class="btn btn-secondary ms-2">
+                                        <i class="fas fa-times me-2"></i>
+                                        Отмена
+                                    </a>
+                                {% else %}
+                                    <a href="{% url 'wiki:list' %}" class="btn btn-secondary ms-2">
+                                        <i class="fas fa-times me-2"></i>
+                                        Отмена
+                                    </a>
+                                {% endif %}
+                            </div>
+                            {% if page %}
+                                <a href="{% url 'wiki:page_delete' slug=page.slug %}" 
+                                   class="btn btn-danger"
+                                   onclick="return confirm('Вы уверены, что хотите удалить эту страницу? Это действие нельзя отменить.');">
+                                    <i class="fas fa-trash me-2"></i>
+                                    Удалить
+                                </a>
+                            {% endif %}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 mt-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">Справка</h6>
+                </div>
+                <div class="card-body">
+                    <h6>Редактор Summernote</h6>
+                    <p class="small">Используйте панель инструментов для форматирования: заголовки, жирный/курсив, списки, таблицы, ссылки и изображения. Режим «Код» позволяет править HTML при необходимости.</p>
+                    
+                    <h6 class="mt-3">Рекомендации</h6>
+                    <ul class="small">
+                        <li>Используйте понятные и описательные названия</li>
+                        <li>Указывайте категорию для удобной навигации</li>
+                        <li>Добавляйте краткое описание для превью</li>
+                        <li>Структурируйте содержимое с помощью заголовков</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Автогенерация slug из title
+    const titleInput = document.getElementById('id_title');
+    const slugInput = document.getElementById('id_slug');
+    
+    if (titleInput && slugInput && !slugInput.value) {
+        titleInput.addEventListener('input', function() {
+            if (!slugInput.value || slugInput.dataset.autoGenerated) {
+                let slug = this.value.toLowerCase()
+                    .replace(/[^\w\s-]/g, '') // Удаляем спецсимволы
+                    .replace(/\s+/g, '-')     // Заменяем пробелы на дефисы
+                    .replace(/-+/g, '-')      // Убираем множественные дефисы
+                    .trim();
+                slugInput.value = slug;
+                slugInput.dataset.autoGenerated = 'true';
+            }
+        });
+    }
+    
+    // Убираем флаг автогенерации при ручном редактировании slug
+    if (slugInput) {
+        slugInput.addEventListener('input', function() {
+            delete this.dataset.autoGenerated;
+        });
+    }
+    
+    // Синхронизация color picker и text input для создания тега
+    const colorPicker = document.getElementById('tag_color');
+    const colorHex = document.getElementById('tag_color_hex');
+    
+    if (colorPicker && colorHex) {
+        colorPicker.addEventListener('input', function() {
+            colorHex.value = this.value;
+        });
+        
+        colorHex.addEventListener('input', function() {
+            if (/^#[0-9A-Fa-f]{6}$/.test(this.value)) {
+                colorPicker.value = this.value;
+            }
+        });
+    }
+    
+    // Обработка создания тега
+    const saveTagBtn = document.getElementById('save-tag-btn');
+    if (saveTagBtn) {
+        saveTagBtn.addEventListener('click', function() {
+            const tagName = document.getElementById('tag_name').value.trim().toLowerCase();
+            const tagColor = document.getElementById('tag_color').value;
+            
+            if (!tagName || tagName.length < 2) {
+                alert('Название тега должно содержать минимум 2 символа');
+                return;
+            }
+            
+            // Валидация названия (только буквы, цифры, дефисы, подчеркивания)
+            if (!/^[a-zа-яё0-9_-]+$/.test(tagName)) {
+                alert('Название тега может содержать только буквы, цифры, дефисы и подчеркивания');
+                return;
+            }
+            
+            const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            
+            fetch('{% url "wiki:tag_create_api" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrftoken
+                },
+                body: JSON.stringify({
+                    name: tagName,
+                    color: tagColor
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Добавляем новый тег в список
+                    addTagToContainer(data.tag);
+                    
+                    // Закрываем модальное окно
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('createTagModal'));
+                    modal.hide();
+                    
+                    // Очищаем форму
+                    document.getElementById('tag_name').value = '';
+                    document.getElementById('tag_color').value = '#6c757d';
+                    document.getElementById('tag_color_hex').value = '#6c757d';
+                    
+                    // Показываем сообщение об успехе
+                    showTagAlert('success', data.message);
+                } else {
+                    showTagAlert('danger', data.error || 'Ошибка при создании тега');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showTagAlert('danger', 'Ошибка при создании тега');
+            });
+        });
+    }
+    
+    function addTagToContainer(tag) {
+        const container = document.getElementById('tags-container');
+        
+        // Проверяем, нет ли уже такого тега
+        if (container.querySelector(`[data-tag-id="${tag.id}"]`)) {
+            return;
+        }
+        
+        // Удаляем сообщение "нет тегов", если оно есть
+        const emptyAlert = container.querySelector('.alert-info');
+        if (emptyAlert) {
+            emptyAlert.remove();
+        }
+        
+        // Создаем HTML для нового тега
+        const tagHtml = `
+            <div class="col-md-3 col-lg-2 mb-2" data-tag-id="${tag.id}">
+                <div class="form-check">
+                    <input class="form-check-input" 
+                           type="checkbox" 
+                           name="tags" 
+                           value="${tag.id}" 
+                           id="tag_${tag.id}">
+                    <label class="form-check-label" for="tag_${tag.id}" style="cursor: pointer;">
+                        <span class="badge" style="background-color: ${tag.color}; color: white;">#${tag.name}</span>
+                    </label>
+                </div>
+            </div>
+        `;
+        
+        container.insertAdjacentHTML('beforeend', tagHtml);
+    }
+    
+    function showTagAlert(type, message) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3`;
+        alertDiv.style.zIndex = '9999';
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.body.appendChild(alertDiv);
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 5000);
+    }
+});
+</script>
+
+<!-- Модальное окно для создания тега -->
+<div class="modal fade" id="createTagModal" tabindex="-1" aria-labelledby="createTagModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createTagModalLabel">
+                    <i class="fas fa-plus me-2"></i>
+                    Создать новый тег
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="create-tag-form">
+                    <div class="mb-3">
+                        <label for="tag_name" class="form-label">Название тега *</label>
+                        <input type="text" 
+                               class="form-control" 
+                               id="tag_name" 
+                               name="name" 
+                               required 
+                               minlength="2"
+                               maxlength="50"
+                               placeholder="например: настройка, вакансии">
+                        <small class="form-text text-muted">Минимум 2 символа, только строчные буквы и цифры</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="tag_color" class="form-label">Цвет тега</label>
+                        <div class="d-flex align-items-center gap-3">
+                            <input type="color" 
+                                   class="form-control form-control-color" 
+                                   id="tag_color" 
+                                   name="color" 
+                                   value="#6c757d"
+                                   title="Выберите цвет">
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="tag_color_hex" 
+                                   value="#6c757d"
+                                   pattern="^#[0-9A-Fa-f]{6}$"
+                                   placeholder="#6c757d">
+                        </div>
+                        <small class="form-text text-muted">Выберите цвет для тега</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" id="save-tag-btn">
+                    <i class="fas fa-save me-2"></i>
+                    Создать тег
+                </button>
+            </div>
+    </div>
+</div>
+</div>
+{{ form.media.js }}
+{% endblock %}
+

@@ -1,0 +1,153 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Активные вакансии HH.ru - HR Helper{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="mb-0">
+                    <i class="fas fa-briefcase me-2"></i>
+                    Активные вакансии HH.ru
+                </h2>
+                <div>
+                    <a href="{% url 'hhru:vacancies_archived' %}" class="btn btn-outline-secondary me-2">
+                        <i class="fas fa-archive me-1"></i>Архивные
+                    </a>
+                    <a href="{% url 'hhru:dashboard' %}" class="btn btn-outline-primary">
+                        <i class="fas fa-arrow-left me-1"></i>Дашборд
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <p class="text-muted mb-3">
+        Свяжите вакансии HH.ru с локальными вакансиями по полю <strong>Huntflow ID</strong> (у локальных вакансий может быть один и тот же huntflow_id у нескольких записей).
+    </p>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    {% if vacancy_list %}
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Вакансия на HH.ru</th>
+                                    <th>Huntflow ID (связь с локальными)</th>
+                                    <th>Локальные вакансии</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in vacancy_list %}
+                                <tr data-hh-id="{{ item.hh_id }}">
+                                    <td>
+                                        <a href="{% url 'hhru:vacancy_responses' item.hh_id %}">
+                                            {{ item.hh.name|default:item.hh_id }}
+                                        </a>
+                                        <br>
+                                        <small class="text-muted">ID: {{ item.hh_id }}</small>
+                                    </td>
+                                    <td>
+                                        <div class="input-group input-group-sm">
+                                            <input type="text"
+                                                   class="form-control huntflow-id-input"
+                                                   data-hh-id="{{ item.hh_id }}"
+                                                   value="{{ item.huntflow_id }}"
+                                                   placeholder="Huntflow ID">
+                                            <button type="button"
+                                                    class="btn btn-outline-primary save-link-btn"
+                                                    data-hh-id="{{ item.hh_id }}">
+                                                Сохранить
+                                            </button>
+                                        </div>
+                                        <span class="save-status small ms-1" data-hh-id="{{ item.hh_id }}"></span>
+                                    </td>
+                                    <td>
+                                        {% if item.local_vacancies %}
+                                        <ul class="list-unstyled mb-0 small">
+                                            {% for v in item.local_vacancies %}
+                                            <li>
+                                                <a href="{% url 'vacancies:vacancy_detail' v.pk %}" target="_blank">{{ v.name }}</a>
+                                                <span class="text-muted">({{ v.external_id }})</span>
+                                            </li>
+                                            {% endfor %}
+                                        </ul>
+                                        {% else %}
+                                        <span class="text-muted">—</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% if pagination.pages > 1 %}
+                    <nav class="mt-3">
+                        <ul class="pagination pagination-sm mb-0">
+                            {% if pagination.prev_page is not None %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ pagination.prev_page }}">Назад</a>
+                            </li>
+                            {% endif %}
+                            <li class="page-item disabled">
+                                <span class="page-link">Стр. {{ pagination.page|add:1 }} из {{ pagination.pages }} (всего {{ pagination.found }})</span>
+                            </li>
+                            {% if pagination.next_page is not None %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ pagination.next_page }}">Вперёд</a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                    {% else %}
+                    <p class="text-muted mb-0">Нет активных вакансий на HH.ru.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    var saveUrl = '{% url "hhru:vacancy_link_save_ajax" %}';
+    var csrfToken = '{{ csrf_token }}';
+    document.querySelectorAll('.save-link-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var hhId = this.getAttribute('data-hh-id');
+            var input = document.querySelector('.huntflow-id-input[data-hh-id="' + hhId + '"]');
+            var statusEl = document.querySelector('.save-status[data-hh-id="' + hhId + '"]');
+            if (!input || !statusEl) return;
+            var huntflowId = (input.value || '').trim();
+            var formData = new FormData();
+            formData.append('hh_vacancy_id', hhId);
+            formData.append('huntflow_id', huntflowId);
+            formData.append('csrfmiddlewaretoken', csrfToken);
+            statusEl.textContent = '…';
+            fetch(saveUrl, { method: 'POST', body: formData, credentials: 'same-origin' })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.success) {
+                        statusEl.textContent = '✓ Сохранено';
+                        statusEl.className = 'save-status small ms-1 text-success';
+                        setTimeout(function() { location.reload(); }, 600);
+                    } else {
+                        statusEl.textContent = 'Ошибка: ' + (data.error || '');
+                        statusEl.className = 'save-status small ms-1 text-danger';
+                    }
+                })
+                .catch(function() {
+                    statusEl.textContent = 'Ошибка запроса';
+                    statusEl.className = 'save-status small ms-1 text-danger';
+                });
+        });
+    });
+})();
+</script>
+{% endblock %}

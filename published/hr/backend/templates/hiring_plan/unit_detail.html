@@ -1,0 +1,285 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}{{ unit }} - HR Helper{% endblock %}
+{% block page_title %}{{ unit }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-user me-2"></i>
+                        {{ unit }}
+                    </h5>
+                    <div class="btn-group" role="group">
+                        <a href="{% url 'hiring_plan:unit_update' unit.pk %}" class="btn btn-primary">
+                            <i class="fas fa-edit me-2"></i>Редактировать
+                        </a>
+                        <a href="{% url 'hiring_plan:hiring_units_list' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>К списку заявок
+                        </a>
+                        <a href="{% url 'hiring_plan:plan_detail' plan.pk %}" class="btn btn-outline-info">
+                            <i class="fas fa-clipboard-list me-2"></i>К плану
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+
+                <!-- Основная информация -->
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="card-title mb-0">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    Основная информация
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <table class="table table-borderless">
+                                    <tr>
+                                        <td><strong>Вакансия:</strong></td>
+                                        <td>{{ unit.position.vacancy.name }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Грейд:</strong></td>
+                                        <td><span class="badge bg-info">{{ unit.grade.name }}</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Номер слота:</strong></td>
+                                        <td><span class="badge bg-secondary">{{ unit.slot_number }}</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Статус:</strong></td>
+                                        <td>
+                                            {% if unit.status == 'open' %}
+                                                <span class="badge bg-info">Открыт</span>
+                                            {% elif unit.status == 'in_progress' %}
+                                                <span class="badge bg-warning">В процессе</span>
+                                            {% elif unit.status == 'hired' %}
+                                                <span class="badge bg-success">Нанят</span>
+                                            {% elif unit.status == 'failed' %}
+                                                <span class="badge bg-danger">Не удалось</span>
+                                            {% elif unit.status == 'cancelled' %}
+                                                <span class="badge bg-secondary">Отменен</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Тип позиции:</strong></td>
+                                        <td>
+                                            {% if unit.position.position_type %}
+                                                {{ unit.position.position_type.name }}
+                                            {% else %}
+                                                <span class="text-muted">Не указан</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Проект:</strong></td>
+                                        <td>
+                                            {% if unit.position.project %}
+                                                {{ unit.position.project }}
+                                            {% else %}
+                                                <span class="text-muted">Не указан</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Приоритет:</strong></td>
+                                        <td>
+                                            {% if unit.position.priority == 1 %}
+                                                <span class="badge bg-danger">Критический</span>
+                                            {% elif unit.position.priority == 2 %}
+                                                <span class="badge bg-warning">Высокий</span>
+                                            {% elif unit.position.priority == 3 %}
+                                                <span class="badge bg-info">Средний</span>
+                                            {% elif unit.position.priority == 4 %}
+                                                <span class="badge bg-secondary">Низкий</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="card-title mb-0">
+                                    <i class="fas fa-clock me-2"></i>
+                                    Временные рамки
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <table class="table table-borderless">
+                                    <tr>
+                                        <td><strong>Начало SLA:</strong></td>
+                                        <td>{{ unit.sla_start_date|date:"d.m.Y" }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Дедлайн SLA:</strong></td>
+                                        <td>
+                                            {{ unit.sla_deadline|date:"d.m.Y" }}
+                                            {% if unit.is_overdue %}
+                                                <br><small class="text-danger">Просрочено</small>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Дата закрытия:</strong></td>
+                                        <td>
+                                            {% if unit.filled_date %}
+                                                {{ unit.filled_date|date:"d.m.Y" }}
+                                            {% else %}
+                                                <span class="text-muted">Не закрыто</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Time to Fill:</strong></td>
+                                        <td>
+                                            {% if unit.time_to_fill %}
+                                                {{ unit.time_to_fill }} дней
+                                            {% else %}
+                                                <span class="text-muted">В процессе</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Статус SLA:</strong></td>
+                                        <td>
+                                            {% if unit.sla_status == 'on_time' %}
+                                                <span class="badge bg-success">В срок</span>
+                                            {% elif unit.sla_status == 'warning' %}
+                                                <span class="badge bg-warning">Предупреждение</span>
+                                            {% elif unit.sla_status == 'critical' %}
+                                                <span class="badge bg-danger">Критично</span>
+                                            {% elif unit.sla_status == 'overdue' %}
+                                                <span class="badge bg-danger">Просрочено</span>
+                                            {% elif unit.sla_status == 'in_progress' %}
+                                                <span class="badge bg-info">В процессе</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Нет SLA</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Соответствие SLA:</strong></td>
+                                        <td>
+                                            {% if unit.sla_compliance %}
+                                                {{ unit.sla_compliance }}%
+                                            {% else %}
+                                                <span class="text-muted">Не рассчитано</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Информация о кандидате -->
+                {% if unit.candidate_id or unit.candidate_name %}
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="card-title mb-0">
+                                    <i class="fas fa-user-check me-2"></i>
+                                    Информация о кандидате
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <table class="table table-borderless">
+                                            <tr>
+                                                <td><strong>ID кандидата:</strong></td>
+                                                <td>
+                                                    {% if unit.candidate_id %}
+                                                        {{ unit.candidate_id }}
+                                                    {% else %}
+                                                        <span class="text-muted">Не указан</span>
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Имя кандидата:</strong></td>
+                                                <td>
+                                                    {% if unit.candidate_name %}
+                                                        {{ unit.candidate_name }}
+                                                    {% else %}
+                                                        <span class="text-muted">Не указано</span>
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Заметки -->
+                {% if unit.notes %}
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="card-title mb-0">
+                                    <i class="fas fa-sticky-note me-2"></i>
+                                    Заметки
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <p class="mb-0">{{ unit.notes|linebreaks }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Метаданные -->
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="card-title mb-0">
+                                    <i class="fas fa-info me-2"></i>
+                                    Метаданные
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <table class="table table-borderless">
+                                            <tr>
+                                                <td><strong>Создано:</strong></td>
+                                                <td>{{ unit.created_at|date:"d.m.Y H:i" }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Обновлено:</strong></td>
+                                                <td>{{ unit.updated_at|date:"d.m.Y H:i" }}</td>
+                                            </tr>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,210 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}План найма — ClickUp{% endblock %}
+{% block page_title %}План найма (данные из папки ClickUp){% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="mb-3">
+            <a href="{% url 'clickup_int:dashboard' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-arrow-left me-1"></i>Назад к выбору режима
+            </a>
+        </div>
+
+        <div class="card clickup-card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-folder-open me-2"></i>Выбор папки ClickUp</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-3">Выберите папку из списков команды или укажите ID папки из раздела <strong>Shared with me</strong> в ClickUp.</p>
+                <form method="post" id="hiringPlanFolderForm">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" id="formAction" value="save_folder">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Команда</label>
+                            <select class="form-select" id="team_id" name="team_id">
+                                <option value="">— Выберите команду —</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Пространство</label>
+                            <select class="form-select" id="space_id" name="space_id">
+                                <option value="">— Сначала выберите команду —</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Папка</label>
+                            <select class="form-select" id="folder_id" name="folder_id">
+                                <option value="">— Сначала выберите пространство —</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3 p-3 bg-light rounded">
+                        <label class="form-label mb-1"><i class="fas fa-share-alt me-1"></i>Или папка из <strong>Shared with me</strong></label>
+                        <input type="text" class="form-control" id="folder_id_manual" name="folder_id_manual" value="{{ folder_id }}" placeholder="901513956796" maxlength="32">
+                        <div class="form-text">Скопируйте ID папки из ссылки ClickUp: в адресе вида <code>.../v/l/f/<strong>901513956796</strong></code> или <code>.../f/<strong>901513956796</strong></code> — это число и есть ID папки. Вставьте его в поле выше.</div>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2 align-items-center">
+                        <button type="submit" class="btn btn-primary" data-action="save_folder">
+                            <i class="fas fa-save me-1"></i>Сохранить папку
+                        </button>
+                        <button type="submit" class="btn btn-success" data-action="pull">
+                            <i class="fas fa-download me-1"></i>Загрузить данные из папки
+                        </button>
+                        <a href="{% url 'clickup_int:hiring_plan_requests_list' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-list me-1"></i>Просмотр сохранённых заявок
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {% if folder_data %}
+        <div class="card clickup-card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-list me-2"></i>Данные из папки</h5>
+            </div>
+            <div class="card-body">
+                {% for list in folder_data.lists %}
+                <div class="mb-4">
+                    <h6 class="text-primary">
+                        <i class="fas fa-list-ul me-1"></i>{{ list.name }}
+                        <span class="badge bg-secondary ms-2">{{ list.task_count }} задач</span>
+                    </h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Название</th>
+                                    <th>Статус</th>
+                                    <th>Обновлено</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for task in list.tasks %}
+                                <tr>
+                                    <td>{{ task.name|default:"—"|truncatechars:80 }}</td>
+                                    <td>
+                                        {% if task.status %}
+                                            {% if task.status.status %}
+                                                <span class="badge bg-light text-dark">{{ task.status.status }}</span>
+                                            {% else %}
+                                                <span class="badge bg-light text-dark">{{ task.status }}</span>
+                                            {% endif %}
+                                        {% else %}
+                                            —
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if task.date_updated %}
+                                            {{ task.date_updated }}
+                                        {% elif task.updated %}
+                                            {{ task.updated }}
+                                        {% else %}
+                                            —
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="3" class="text-muted">Нет задач</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-muted mb-0">В папке нет списков или данные не загружены.</p>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    const form = document.getElementById('hiringPlanFolderForm');
+    const teamSelect = document.getElementById('team_id');
+    const spaceSelect = document.getElementById('space_id');
+    const folderSelect = document.getElementById('folder_id');
+    const formAction = document.getElementById('formAction');
+    const csrfToken = form.querySelector('[name=csrfmiddlewaretoken]').value;
+    const getPathOptionsUrl = '{% url "clickup_int:get_path_options" %}';
+    const getSpacesUrl = '{% url "clickup_int:get_spaces" %}';
+    const getFoldersUrl = '{% url "clickup_int:get_folders" %}';
+
+    const initialTeamId = '{{ team_id|escapejs }}';
+    const initialSpaceId = '{{ space_id|escapejs }}';
+    const initialFolderId = '{{ folder_id|escapejs }}';
+
+    form.querySelectorAll('[data-action]').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            formAction.value = this.getAttribute('data-action');
+        });
+    });
+
+    function fetchJson(url, params) {
+        const qs = new URLSearchParams(params).toString();
+        return fetch(url + (qs ? '?' + qs : ''), { headers: { 'X-CSRFToken': csrfToken } }).then(r => r.json());
+    }
+
+    function loadTeams() {
+        fetchJson(getPathOptionsUrl).then(function(data) {
+            if (!data.teams) return;
+            teamSelect.innerHTML = '<option value="">— Выберите команду —</option>';
+            data.teams.forEach(function(t) {
+                const opt = document.createElement('option');
+                opt.value = t.id || t.team_id || '';
+                opt.textContent = t.name || opt.value;
+                if (opt.value === initialTeamId) opt.selected = true;
+                teamSelect.appendChild(opt);
+            });
+            if (initialTeamId) loadSpaces(initialTeamId);
+        });
+    }
+
+    function loadSpaces(teamId) {
+        if (!teamId) { spaceSelect.innerHTML = '<option value="">— Сначала выберите команду —</option>'; return; }
+        spaceSelect.innerHTML = '<option value="">Загрузка...</option>';
+        fetchJson(getSpacesUrl, { team_id: teamId }).then(function(data) {
+            spaceSelect.innerHTML = '<option value="">— Выберите пространство —</option>';
+            if (!data.spaces) return;
+            data.spaces.forEach(function(s) {
+                const opt = document.createElement('option');
+                opt.value = s.id || s.space_id || '';
+                opt.textContent = s.name || opt.value;
+                if (opt.value === initialSpaceId) opt.selected = true;
+                spaceSelect.appendChild(opt);
+            });
+            if (initialSpaceId) loadFolders(initialSpaceId);
+        });
+    }
+
+    function loadFolders(spaceId) {
+        if (!spaceId) { folderSelect.innerHTML = '<option value="">— Сначала выберите пространство —</option>'; return; }
+        folderSelect.innerHTML = '<option value="">Загрузка...</option>';
+        fetchJson(getFoldersUrl, { space_id: spaceId }).then(function(data) {
+            folderSelect.innerHTML = '<option value="">— Выберите папку —</option>';
+            if (!data.folders) return;
+            data.folders.forEach(function(f) {
+                const opt = document.createElement('option');
+                opt.value = f.id || f.folder_id || '';
+                opt.textContent = f.name || opt.value;
+                if (opt.value === initialFolderId) opt.selected = true;
+                folderSelect.appendChild(opt);
+            });
+        });
+    }
+
+    teamSelect.addEventListener('change', function() { loadSpaces(this.value); folderSelect.innerHTML = '<option value="">— Сначала выберите пространство —</option>'; });
+    spaceSelect.addEventListener('change', function() { loadFolders(this.value); });
+
+    loadTeams();
+})();
+</script>
+{% endblock %}

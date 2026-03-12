@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Настройки HRHelper</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      margin: 0;
+      padding: 24px;
+      background: #f5f5f5;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    .page-wrap {
+      display: flex;
+      gap: 32px;
+      max-width: 1100px;
+      margin: 0 auto;
+      align-items: center;
+      min-height: calc(100vh - 48px);
+      overflow-x: hidden;
+      min-width: 0;
+    }
+    @media (max-width: 768px) {
+      .page-wrap { flex-direction: column; align-items: stretch; min-height: 0; }
+    }
+    .panel {
+      flex: 1;
+      min-width: 0;
+    }
+    .panel-settings {
+      max-width: 420px;
+    }
+    .panel-changelog {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.08);
+      max-height: calc(100vh - 48px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .changelog-header {
+      flex-shrink: 0;
+      padding: 20px 24px 12px;
+      border-bottom: 1px solid #e0e0e0;
+      background: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .changelog-header h2 { margin: 0; border: none; padding: 0; }
+    .changelog-version-current { font-size: 13px; color: #666; flex-shrink: 0; }
+    .changelog-scroll {
+      overflow-y: auto;
+      padding: 12px 24px 20px;
+    }
+    @media (max-width: 768px) {
+      .panel-changelog { max-height: none; }
+    }
+    h1 {
+      color: #333;
+      margin: 0 0 20px 0;
+      font-size: 22px;
+    }
+    h2 {
+      color: #333;
+      margin: 0 0 16px 0;
+      font-size: 18px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #333;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    input:focus {
+      outline: none;
+      border-color: #0a66c2;
+      box-shadow: 0 0 0 3px rgba(10, 102, 194, 0.1);
+    }
+    .hint {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #666;
+    }
+    .hint.err {
+      color: #c41e47;
+      font-weight: 600;
+    }
+    .hint.ok {
+      color: #0a66c2;
+      font-weight: 600;
+    }
+    .hint a {
+      word-break: break-all;
+      color: #0a66c2;
+    }
+    button {
+      background: #0a66c2;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    button#save { width: 100%; display: block; }
+    button:hover {
+      background: #084d99;
+    }
+    #status {
+      display: block;
+      margin-top: 10px;
+    }
+    .options-connection-status {
+      margin-top: 12px;
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    .options-connection-status.connected {
+      background: rgba(21, 128, 61, 0.12);
+      border: 1px solid rgba(21, 128, 61, 0.35);
+      color: #0f5132;
+    }
+    .options-connection-status.error {
+      background: rgba(244, 67, 54, 0.08);
+      border: 1px solid rgba(244, 67, 54, 0.25);
+      color: #842029;
+    }
+    body.options-theme-dark .options-connection-status.connected {
+      background: rgba(63, 185, 80, 0.15);
+      border-color: rgba(63, 185, 80, 0.4);
+      color: #81c784;
+    }
+    body.options-theme-dark .options-connection-status.error {
+      background: rgba(244, 67, 54, 0.15);
+      border-color: rgba(244, 67, 54, 0.35);
+      color: #e57373;
+    }
+    .changelog-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .changelog-item {
+      margin-bottom: 20px;
+    }
+    .changelog-item:last-child {
+      margin-bottom: 0;
+    }
+    .changelog-version {
+      font-weight: 700;
+      color: #0a66c2;
+      font-size: 15px;
+      margin-bottom: 6px;
+    }
+    .changelog-version .changelog-date { font-size: 12px; color: #888; font-weight: 400; margin-left: 2px; }
+    .changelog-ul {
+      margin: 0;
+      padding-left: 18px;
+      font-size: 13px;
+      line-height: 1.5;
+      color: #444;
+    }
+    .changelog-ul li {
+      margin-bottom: 4px;
+    }
+
+    .options-divider {
+      margin: 28px 0 24px;
+      border: none;
+      border-top: 1px solid #e0e0e0;
+    }
+    .options-extra { margin-bottom: 32px; }
+    .options-extra-title {
+      font-size: 16px;
+      margin: 0 0 12px 0;
+      padding-bottom: 6px;
+      border-bottom: 1px solid #e8e8e8;
+      color: #333;
+    }
+    .options-theme-cards {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    .options-theme-card {
+      flex: 1;
+      min-width: 90px;
+      max-width: 140px;
+      padding: 12px;
+      border-radius: 12px;
+      border: 2px solid rgba(0,0,0,.12);
+      background: #fff;
+      cursor: pointer;
+      transition: border-color .15s, box-shadow .15s;
+      display: block;
+    }
+    .options-theme-card:hover { border-color: rgba(0,0,0,.25); }
+    .options-theme-card:has(input:checked) {
+      border-color: rgba(0,0,0,.4);
+      box-shadow: 0 0 0 1px rgba(0,0,0,.25);
+    }
+    .options-theme-card input { position: absolute; opacity: 0; pointer-events: none; }
+    .options-theme-preview {
+      width: 100%;
+      aspect-ratio: 16/10;
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      margin-bottom: 8px;
+    }
+    .options-theme-preview-full { padding: 4px; }
+    .options-theme-preview-full .options-theme-window { flex: 1; }
+    .options-theme-preview-half {
+      flex: 1;
+      padding: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .options-theme-preview-half.options-theme-light { background: linear-gradient(180deg, #e8e8e8 0%, #f5f5f5 30%, #fff 100%); border-right: 1px solid rgba(0,0,0,.1); }
+    .options-theme-preview-half.options-theme-dark { background: linear-gradient(180deg, #1a1a1e 0%, #252529 30%, #2d2d31 100%); }
+    .options-theme-window {
+      width: 100%;
+      min-width: 0;
+      border-radius: 4px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,.12);
+    }
+    .options-theme-window[data-theme="light"] { background: #fff; border: 1px solid rgba(0,0,0,.08); }
+    .options-theme-window[data-theme="dark"] { background: #2d2d31; border: 1px solid rgba(255,255,255,.08); }
+    .options-theme-titlebar { padding: 4px 6px; min-height: 18px; display: flex; align-items: center; gap: 4px; }
+    .options-theme-window[data-theme="light"] .options-theme-titlebar { background: #e8e8e8; }
+    .options-theme-window[data-theme="dark"] .options-theme-titlebar { background: #1a1a1e; }
+    .options-theme-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+    .options-theme-window[data-theme="light"] .options-theme-dot:nth-child(1) { background: #ff5f57; }
+    .options-theme-window[data-theme="light"] .options-theme-dot:nth-child(2) { background: #febc2e; }
+    .options-theme-window[data-theme="light"] .options-theme-dot:nth-child(3) { background: #28c840; }
+    .options-theme-window[data-theme="dark"] .options-theme-dot:nth-child(1) { background: #ff5f57; }
+    .options-theme-window[data-theme="dark"] .options-theme-dot:nth-child(2) { background: #febc2e; }
+    .options-theme-window[data-theme="dark"] .options-theme-dot:nth-child(3) { background: #28c840; }
+    .options-theme-content { height: 12px; }
+    .options-theme-window[data-theme="light"] .options-theme-content { background: #f5f5f5; }
+    .options-theme-window[data-theme="dark"] .options-theme-content { background: #252529; }
+    .options-theme-label { font-size: 13px; color: #444; display: block; font-weight: 500; }
+    .options-theme-card:has(input:checked) .options-theme-label { color: #333; font-weight: 600; }
+    .options-extra-desc {
+      margin: 0 0 10px 0;
+      font-size: 13px;
+      color: #666;
+    }
+    .options-pages-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 0;
+    }
+    .options-page-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 2px solid;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: border-color .2s, background .2s, color .2s;
+      user-select: none;
+      min-width: 0;
+    }
+    .options-page-btn .options-page-icon {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+      object-fit: contain;
+    }
+    .options-page-btn.options-page-on {
+      border-color: #2e7d32;
+      background: rgba(46, 125, 50, 0.08);
+      color: #1b5e20;
+    }
+    .options-page-btn.options-page-on:hover { border-color: #1b5e20; background: rgba(46, 125, 50, 0.12); }
+    .options-page-btn.options-page-off {
+      border-color: #c62828;
+      background: rgba(244, 67, 54, 0.06);
+      color: #888;
+    }
+    .options-page-btn.options-page-off .options-page-icon {
+      filter: grayscale(1) brightness(0.75);
+      opacity: 1;
+    }
+    .options-page-btn.options-page-off:hover { border-color: #b71c1c; background: rgba(244, 67, 54, 0.1); color: #666; }
+    .options-page-btn.options-page-off:hover .options-page-icon { filter: grayscale(1) brightness(0.65); }
+    body.options-theme-dark .options-page-btn.options-page-on {
+      border-color: #4caf50;
+      background: rgba(76, 175, 80, 0.15);
+      color: #81c784;
+    }
+    body.options-theme-dark .options-page-btn.options-page-on:hover { border-color: #66bb6a; background: rgba(76, 175, 80, 0.2); }
+    body.options-theme-dark .options-page-btn.options-page-off {
+      border-color: #e57373;
+      background: rgba(244, 67, 54, 0.1);
+      color: #888;
+    }
+    body.options-theme-dark .options-page-btn.options-page-off .options-page-icon {
+      filter: grayscale(1) brightness(0.75);
+    }
+    body.options-theme-dark .options-page-btn.options-page-off:hover { color: #aaa; }
+    @media (prefers-color-scheme: dark) {
+      body.options-theme-system .options-page-btn.options-page-on {
+        border-color: #4caf50;
+        background: rgba(76, 175, 80, 0.15);
+        color: #81c784;
+      }
+      body.options-theme-system .options-page-btn.options-page-off {
+        border-color: #e57373;
+        background: rgba(244, 67, 54, 0.1);
+        color: #888;
+      }
+      body.options-theme-system .options-page-btn.options-page-off .options-page-icon {
+        filter: grayscale(1) brightness(0.75);
+      }
+    }
+
+    .wiki-pill {
+      position: fixed;
+      right: 0;
+      bottom: 24px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 12px 24px 12px 16px;
+      background: #fff;
+      color: #333;
+      text-decoration: none;
+      font-size: 15px;
+      font-weight: 600;
+      border-radius: 999px 0 0 999px;
+      border: 1px solid rgba(0,0,0,.12);
+      box-shadow: -2px 2px 12px rgba(0,0,0,.1), 0 1px 3px rgba(0,0,0,.08);
+      transition: opacity .2s, box-shadow .2s, transform .2s;
+      z-index: 1000;
+    }
+    .wiki-pill:hover {
+      opacity: .92;
+      box-shadow: -3px 3px 16px rgba(0,0,0,.15), 0 2px 6px rgba(0,0,0,.1);
+      transform: translateX(-4px);
+      color: #333;
+    }
+    .wiki-pill:focus {
+      outline: none;
+      box-shadow: -2px 2px 12px rgba(0,0,0,.1), 0 0 0 3px rgba(0,0,0,.15);
+    }
+    .wiki-pill-icon { width: 22px; height: 22px; flex-shrink: 0; display: block; }
+    .wiki-pill-sep { color: rgba(0,0,0,.3); margin: 0 2px; font-weight: 400; }
+
+    body.options-theme-light {
+      background: #f5f5f5;
+    }
+    body.options-theme-dark {
+      background: #1a1a1a;
+    }
+    body.options-theme-dark .panel-settings h1,
+    body.options-theme-dark .options-extra-title,
+    body.options-theme-dark label { color: #e0e0e0; }
+    body.options-theme-dark .options-divider { border-top-color: #404040; }
+    body.options-theme-dark .options-extra-desc { color: #b0b0b0; }
+    body.options-theme-dark .hint { color: #888; }
+    body.options-theme-dark .hint a { color: #6eb3f7; }
+    body.options-theme-dark .form-group input {
+      background: #2d2d31;
+      border-color: rgba(255,255,255,.15);
+      color: #e8e8e8;
+    }
+    body.options-theme-dark .form-group input::placeholder { color: #888; }
+    body.options-theme-dark .form-group input:focus { border-color: rgba(255,255,255,.35); box-shadow: 0 0 0 3px rgba(255,255,255,.08); }
+    body.options-theme-dark button {
+      background: #1976d2;
+      color: #fff;
+      border: 1px solid rgba(255,255,255,.15);
+    }
+    body.options-theme-dark button:hover { background: #1565c0; }
+    body.options-theme-dark .panel-changelog,
+    body.options-theme-dark .changelog-header { background: #252529; border-color: #404040; }
+    body.options-theme-dark .changelog-header { border-bottom-color: #404040; }
+    body.options-theme-dark .changelog-header h2 { color: #fff; }
+    body.options-theme-dark .changelog-version-current { color: #b0b0b0; }
+    body.options-theme-dark .changelog-version { color: #64b5f6; }
+    body.options-theme-dark .changelog-ul { color: #c0c0c0; }
+    body.options-theme-dark .options-theme-card {
+      background: #2d2d31;
+      border-color: rgba(255,255,255,.15);
+    }
+    body.options-theme-dark .options-theme-card:hover { border-color: rgba(255,255,255,.3); }
+    body.options-theme-dark .options-theme-card:has(input:checked) {
+      border-color: rgba(255,255,255,.45);
+      box-shadow: 0 0 0 1px rgba(255,255,255,.25);
+    }
+    body.options-theme-dark .options-theme-label { color: #b0b0b0; }
+    body.options-theme-dark .options-theme-card:has(input:checked) .options-theme-label { color: #e0e0e0; }
+    body.options-theme-dark .wiki-pill {
+      background: #3c4043;
+      border-color: rgba(255,255,255,.2);
+      color: #e8eaed;
+      box-shadow: -2px 2px 12px rgba(0,0,0,.3), 0 1px 3px rgba(0,0,0,.2);
+    }
+    body.options-theme-dark .wiki-pill:hover { color: #e8eaed; box-shadow: -3px 3px 16px rgba(0,0,0,.4), 0 2px 6px rgba(0,0,0,.25); }
+    body.options-theme-dark .wiki-pill-sep { color: rgba(255,255,255,.45); }
+    @media (prefers-color-scheme: dark) {
+      body.options-theme-system { background: #1a1a1a; }
+      body.options-theme-system .panel-settings h1,
+      body.options-theme-system .options-extra-title,
+      body.options-theme-system label { color: #e0e0e0; }
+      body.options-theme-system .options-divider { border-top-color: #404040; }
+      body.options-theme-system .options-extra-desc { color: #b0b0b0; }
+      body.options-theme-system .hint { color: #888; }
+      body.options-theme-system .hint a { color: #6eb3f7; }
+      body.options-theme-system .form-group input {
+        background: #2d2d31;
+        border-color: rgba(255,255,255,.15);
+        color: #e8e8e8;
+      }
+      body.options-theme-system .form-group input::placeholder { color: #888; }
+      body.options-theme-system .form-group input:focus { border-color: rgba(255,255,255,.35); box-shadow: 0 0 0 3px rgba(255,255,255,.08); }
+      body.options-theme-system button {
+        background: #1976d2;
+        color: #fff;
+        border: 1px solid rgba(255,255,255,.15);
+      }
+      body.options-theme-system button:hover { background: #1565c0; }
+      body.options-theme-system .panel-changelog,
+      body.options-theme-system .changelog-header { background: #252529; border-color: #404040; }
+      body.options-theme-system .changelog-header { border-bottom-color: #404040; }
+      body.options-theme-system .changelog-header h2 { color: #fff; }
+      body.options-theme-system .changelog-version-current { color: #b0b0b0; }
+      body.options-theme-system .changelog-version { color: #64b5f6; }
+      body.options-theme-system .changelog-ul { color: #c0c0c0; }
+      body.options-theme-system .options-theme-card {
+        background: #2d2d31;
+        border-color: rgba(255,255,255,.15);
+      }
+      body.options-theme-system .options-theme-card:hover { border-color: rgba(255,255,255,.3); }
+      body.options-theme-system .options-theme-card:has(input:checked) {
+        border-color: rgba(255,255,255,.45);
+        box-shadow: 0 0 0 1px rgba(255,255,255,.25);
+      }
+      body.options-theme-system .options-theme-label { color: #b0b0b0; }
+      body.options-theme-system .options-theme-card:has(input:checked) .options-theme-label { color: #e0e0e0; }
+      body.options-theme-system .wiki-pill {
+        background: #3c4043;
+        border-color: rgba(255,255,255,.2);
+        color: #e8eaed;
+        box-shadow: -2px 2px 12px rgba(0,0,0,.3), 0 1px 3px rgba(0,0,0,.2);
+      }
+      body.options-theme-system .wiki-pill:hover { color: #e8eaed; }
+      body.options-theme-system .wiki-pill-sep { color: rgba(255,255,255,.45); }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-wrap">
+    <div class="panel panel-settings">
+      <h1>Настройки</h1>
+
+      <div class="form-group">
+        <label for="baseUrl">Base URL HRHelper</label>
+        <input type="url" id="baseUrl" placeholder="https://hr.sftntx.com" />
+      </div>
+
+      <div class="form-group">
+        <label for="apiToken">API Token (DRF)</label>
+        <input type="password" id="apiToken" placeholder="Вставьте ваш API токен" />
+        <div class="hint">
+          Получить токен: откройте в браузере (будучи залогиненным в HR Helper) страницу
+          <a id="options-integrations-link" href="https://hr.sftntx.com/accounts/integrations/" target="_blank" rel="noopener">Интеграции</a>
+          — скопируйте API токен и вставьте в это поле.
+        </div>
+      </div>
+
+      <button id="save">Сохранить</button>
+      <div id="status"></div>
+      <div id="options-connection-status" class="options-connection-status" aria-live="polite" style="display: none;"></div>
+
+      <div class="hint" style="margin-top: 20px; color: #666;">
+        Для работы расширения нужно быть залогиненным в HRHelper в этом же профиле Chrome (cookies).
+      </div>
+
+      <hr class="options-divider" />
+
+      <section class="options-extra">
+        <h2 class="options-extra-title">Тема оформления</h2>
+        <div class="options-theme-cards" role="radiogroup" aria-label="Тема оформления">
+          <label class="options-theme-card" data-value="system">
+            <input type="radio" name="optionsTheme" value="system" checked />
+            <div class="options-theme-preview">
+              <div class="options-theme-preview-half options-theme-light">
+                <div class="options-theme-window" data-theme="light">
+                  <div class="options-theme-titlebar"><span class="options-theme-dot"></span><span class="options-theme-dot"></span><span class="options-theme-dot"></span></div>
+                  <div class="options-theme-content"></div>
+                </div>
+              </div>
+              <div class="options-theme-preview-half options-theme-dark">
+                <div class="options-theme-window" data-theme="dark">
+                  <div class="options-theme-titlebar"><span class="options-theme-dot"></span><span class="options-theme-dot"></span><span class="options-theme-dot"></span></div>
+                  <div class="options-theme-content"></div>
+                </div>
+              </div>
+            </div>
+            <span class="options-theme-label">Автоматически</span>
+          </label>
+          <label class="options-theme-card" data-value="light">
+            <input type="radio" name="optionsTheme" value="light" />
+            <div class="options-theme-preview options-theme-preview-full">
+              <div class="options-theme-window" data-theme="light">
+                <div class="options-theme-titlebar"><span class="options-theme-dot"></span><span class="options-theme-dot"></span><span class="options-theme-dot"></span></div>
+                <div class="options-theme-content"></div>
+              </div>
+            </div>
+            <span class="options-theme-label">Светлое</span>
+          </label>
+          <label class="options-theme-card" data-value="dark">
+            <input type="radio" name="optionsTheme" value="dark" />
+            <div class="options-theme-preview options-theme-preview-full">
+              <div class="options-theme-window" data-theme="dark">
+                <div class="options-theme-titlebar"><span class="options-theme-dot"></span><span class="options-theme-dot"></span><span class="options-theme-dot"></span></div>
+                <div class="options-theme-content"></div>
+              </div>
+            </div>
+            <span class="options-theme-label">Тёмное</span>
+          </label>
+        </div>
+
+        <h2 class="options-extra-title">Активные страницы</h2>
+        <p class="options-extra-desc">Включить расширение на платформах:</p>
+        <div class="options-pages-row" id="options-pages-row">
+          <button type="button" class="options-page-btn options-page-on" data-page="linkedin" aria-pressed="true">
+            <img class="options-page-icon" src="https://www.google.com/s2/favicons?domain=linkedin.com&sz=32" alt="" />
+            LinkedIn
+          </button>
+          <button type="button" class="options-page-btn options-page-on" data-page="hh_ecosystem" aria-pressed="true">
+            <img class="options-page-icon" src="https://www.google.com/s2/favicons?domain=hh.ru&sz=32" alt="" />
+            HH экосистема
+          </button>
+          <button type="button" class="options-page-btn options-page-on" data-page="huntflow" aria-pressed="true">
+            <img class="options-page-icon" src="https://www.google.com/s2/favicons?domain=huntflow.ru&sz=32" alt="" />
+            Huntflow
+          </button>
+          <button type="button" class="options-page-btn options-page-on" data-page="meet" aria-pressed="true">
+            <img class="options-page-icon" src="https://www.google.com/s2/favicons?domain=meet.google.com&sz=32" alt="" />
+            Google Meet
+          </button>
+          <button type="button" class="options-page-btn options-page-on" data-page="calendar" aria-pressed="true">
+            <img class="options-page-icon" src="https://www.google.com/s2/favicons?domain=calendar.google.com&sz=32" alt="" />
+            Google Calendar
+          </button>
+        </div>
+      </section>
+    </div>
+
+    <div class="panel panel-changelog">
+      <div class="changelog-header">
+        <h2>История версий</h2>
+        <div id="changelog-version-current" class="changelog-version-current">Версия <span id="extension-version">—</span></div>
+      </div>
+      <div class="changelog-scroll">
+      <ul class="changelog-list">
+        <li class="changelog-item">
+          <div class="changelog-version">1.4.8 <span class="changelog-date">(10.03.2026)</span></div>
+          <ul class="changelog-ul">
+            <li>Тема для календаря и LinkedIn: при выборе «Автоматически» сначала учитывается тема сайта (страница календаря или LinkedIn); если определить нельзя — используется тема браузера (системная)</li>
+            <li>Календарь: исправлено определение темы кнопок контактов — сначала проверяется общий фон страницы (body/html), затем контейнер кнопки; при светлой странице днём кнопки отображаются в светлой теме</li>
+            <li>Документация расширения в папке docs/: обзор (README), архитектура (ARCHITECTURE), руководство пользователя (USER_GUIDE), индекс документации (INDEX)</li>
+            <li>Рефакторинг и улучшение кода: общие константы и утилиты вынесены в shared-модули (constants, token, url, api client), единая точка API через background, устранение дублирования (DRY), модульная структура</li>
+          </ul>
+        </li>
+        <li class="changelog-item">
+          <div class="changelog-version">1.4.7 <span class="changelog-date">(11.03.2026)</span></div>
+          <ul class="changelog-ul">
+            <li>Настройки «Активные страницы»: кнопки-переключатели (LinkedIn, HH экосистема, Huntflow, Google Meet, Google Calendar) с иконками; зелёная рамка — включено, красная — выключено; отключённые отображаются серым</li>
+            <li>Расширение работает только на включённых платформах: на выключенных — тёмная иконка, в попапе блок «другая страница», контент-скрипты не показывают виджеты</li>
+            <li>Страница настроек: тема оформления — карточки (Автоматически, Светлое, Тёмное) без акцентных цветов; кнопка «Сохранить» на всю ширину, в тёмной теме — синеватая; «История версий» и номера версий в тёмной теме — белый и синий текст; кнопка Wiki в стиле календарных контактов (иконка | Wiki), увеличена; устранён горизонтальный скролл</li>
+          </ul>
+        </li>
+        <li class="changelog-item">
+          <div class="changelog-version">1.4.6 <span class="changelog-date">(09.03.2026)</span></div>
+          <ul class="changelog-ul">
+            <li>Плавающее окно (LinkedIn, rabota.by): чёрная рамка для меток «черный список» и «no come back»</li>
+            <li>Плавающее окно на rabota.by/hh.ru: кнопка переключения сервиса (открыть резюме на hh.ru или rabota.by в той же вкладке), в углу кнопки — иконка целевого сайта</li>
+            <li>Страница настроек: заголовок «История версий» закреплён сверху, текущая версия на одной строке справа, дата релиза в скобках после каждой версии</li>
+            <li>Попап: блок быстрого копирования показывается только при выбранной вакансии; отображается при активной вакансии (статус не «отказ») даже если API не вернул детали</li>
+            <li>Плавающее окно LinkedIn: кнопка копирования видна в тёмной теме (акцентный фон), уменьшены отступы у кнопок в строке с ФИО</li>
+          </ul>
+        </li>
+        <li class="changelog-item">
+          <div class="changelog-version">1.4.5 <span class="changelog-date">(09.03.2025)</span></div>
+          <ul class="changelog-ul">
+            <li>Страница настроек: область с настройками центрирована по вертикали, история версий с вертикальной прокруткой при необходимости</li>
+            <li>Страница сообщений LinkedIn: блок с кнопками (Huntflow, копирование, редактирование и т.д.) адаптирован под тёмную тему</li>
+            <li>Плавающее окно LinkedIn: при наличии и активной, и архивной вакансии отображаются секции «Активные вакансии», «Отказы» и «Архивные вакансии»; архивные вакансии можно выбрать для просмотра статуса и комментариев</li>
+            <li>Карточки выбора архивной вакансии в плавающем окне адаптированы под тёмную тему</li>
+            <li>Попап: кнопки глаза (Meet, LinkedIn, резюме, Huntflow) и кнопка «+» поменяны местами — сначала глаза, затем «+»; кнопки глаза без бордера</li>
+          </ul>
+        </li>
+        <li class="changelog-item">
+          <div class="changelog-version">1.4.4 <span class="changelog-date">(28.02.2025)</span></div>
+          <ul class="changelog-ul">
+            <li>Исправление: ошибка «Extension context invalidated» при сохранении thread mapping (LinkedIn) больше не логируется в консоль</li>
+            <li>Рамка плавающего окна синяя при причине отказа «Закрыли вакансию другим» (единственное исключение среди отказов; LinkedIn и rabota.by)</li>
+            <li>В плавающем окне LinkedIn отображается название текущей вакансии в блоке «Изменение статуса / Причина» (в т.ч. для архивной)</li>
+            <li>Для архивной вакансии: заголовок блока комментариев «Комментарии к [название вакансии] (архив)», блок по умолчанию свёрнут</li>
+          </ul>
+        </li>
+        <li class="changelog-item">
+          <div class="changelog-version">1.4.3 <span class="changelog-date">(25.02.2025)</span></div>
+          <ul class="changelog-ul">
+            <li>Улучшение UI: в плавающих окнах (LinkedIn, rabota.by) отключён горизонтальный скролл — содержимое переносится по словам</li>
+          </ul>
+        </li>
+        <li class="changelog-item">
+          <div class="changelog-version">1.4.2 <span class="changelog-date">(20.02.2025)</span></div>
+          <ul class="changelog-ul">
+            <li>Кнопка с глазом в попапе: включение/выключение плавающего окна на страницах LinkedIn</li>
+          </ul>
+        </li>
+        <li class="changelog-item">
+          <div class="changelog-version">1.4.1 <span class="changelog-date">(15.02.2025)</span></div>
+          <ul class="changelog-ul">
+            <li>Включение/выключение плавающего окна на страницах Huntflow (кнопка с глазом в попапе)</li>
+          </ul>
+        </li>
+        <li class="changelog-item">
+          <div class="changelog-version">1.4.0 <span class="changelog-date">(10.02.2025)</span></div>
+          <ul class="changelog-ul">
+            <li>Иконка «чёрный список» (dark-label) при метке черный список в плавающих окнах</li>
+            <li>Сохранение состояния плавающего окна на Huntflow (свёрнуто/развёрнуто)</li>
+            <li>Дополнительные поля из анкеты Huntflow в плавающих окнах (LinkedIn, rabota.by)</li>
+            <li>Сохранение по Enter в полях ввода ссылки (LinkedIn, rabota.by)</li>
+            <li>Включение/выключение плавающего окна на rabota.by/hh.ru (кнопка с глазом в попапе)</li>
+            <li>Кнопка редактирования ссылки в плавающих окнах (LinkedIn, rabota.by)</li>
+            <li>Квадратная кнопка «Сохранить» с иконкой в форме ссылки на rabota.by</li>
+            <li>Адаптация плавающих окон под тёмную тему (LinkedIn, rabota.by)</li>
+            <li>Сохранение состояния плавающего окна (свёрнуто/развёрнуто, блоки) на LinkedIn и rabota.by</li>
+            <li>При одной вакансии статус подставляется сразу в плавающем окне LinkedIn</li>
+            <li>Метка «черный список» — приоритетная чёрная рамка плавающего окна</li>
+          </ul>
+        </li>
+        <li class="changelog-item">
+          <div class="changelog-version">1.3.x <span class="changelog-date">(01.02.2025)</span></div>
+          <ul class="changelog-ul">
+            <li>Плавающее окно на rabota.by/hh.ru: контакты, дополнительные поля, вакансии, причина отказов</li>
+            <li>Кнопка скрытия/показа напоминания в Google Meet (глаз в попапе)</li>
+            <li>Плавающее окно на LinkedIn: данные кандидата, комментарии, смена статуса, добавление на вакансию</li>
+            <li>Интеграция с Huntflow: кнопка на профилях LinkedIn, синхронизация вакансий и кандидатов</li>
+          </ul>
+        </li>
+      </ul>
+      </div>
+    </div>
+  </div>
+
+  <a href="https://hr.sftntx.com/wiki/page/-hr-helper-tool/" target="_blank" rel="noopener" class="wiki-pill" id="wiki-pill">
+    <img class="wiki-pill-icon" id="wiki-pill-icon" alt="" />
+    <span class="wiki-pill-sep">|</span>
+    <span>Wiki</span>
+  </a>
+
+  <script src="shared/constants.js"></script>
+  <script src="shared/utils/token.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

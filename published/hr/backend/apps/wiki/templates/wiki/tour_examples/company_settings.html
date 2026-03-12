@@ -1,0 +1,160 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Настройки компании - Пример{% endblock %}
+
+{% block page_title %}Настройки компании - Пример данных{% endblock %}
+
+{% block extra_css %}
+<style>
+    .tour-example-banner {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        text-align: center;
+    }
+    .example-data {
+        background: #f8f9fa;
+        border-left: 4px solid #007bff;
+        padding: 15px;
+        margin: 10px 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="tour-example-banner">
+        <h4><i class="fas fa-info-circle me-2"></i>Это пример страницы с демонстрационными данными</h4>
+        <p class="mb-0">Здесь показано, как будет выглядеть страница после заполнения</p>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-building me-2"></i>Базовые настройки компании</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Название компании</strong></label>
+                        <div class="example-data">
+                            <i class="fas fa-building text-primary me-2"></i>
+                            <strong>ООО "ТехноСофт"</strong>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Тема оформления</strong></label>
+                        <div class="example-data">
+                            <span class="badge bg-primary">Автоматическая (по системе)</span>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Основной календарь Google</strong></label>
+                        <div class="example-data">
+                            <i class="fas fa-calendar text-success me-2"></i>
+                            <strong>Календарь компании</strong>
+                            <small class="text-muted ms-2">(calendar@company.com)</small>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Оргструктура</strong></label>
+                        <div class="example-data">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6><i class="fas fa-sitemap me-2"></i>Отделы:</h6>
+                                    <ul>
+                                        <li><strong>IT</strong> - Руководитель: Иван Иванов</li>
+                                        <li><strong>HR</strong> - Руководитель: Мария Петрова</li>
+                                        <li><strong>Финансы</strong> - Руководитель: Петр Сидоров</li>
+                                    </ul>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6><i class="fas fa-users me-2"></i>Сотрудники:</h6>
+                                    <ul>
+                                        <li>Иван Иванов - CTO, IT</li>
+                                        <li>Мария Петрова - HR Manager, HR</li>
+                                        <li>Петр Сидоров - CFO, Финансы</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-layer-group me-2"></i>Активные грейды</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex flex-wrap gap-2">
+                        <span class="badge bg-primary" style="font-size: 1rem; padding: 8px 12px;">
+                            <i class="fas fa-star me-1"></i>Junior
+                        </span>
+                        <span class="badge bg-primary" style="font-size: 1rem; padding: 8px 12px;">
+                            <i class="fas fa-star me-1"></i>Middle
+                        </span>
+                        <span class="badge bg-primary" style="font-size: 1rem; padding: 8px 12px;">
+                            <i class="fas fa-star me-1"></i>Senior
+                        </span>
+                        <span class="badge bg-primary" style="font-size: 1rem; padding: 8px 12px;">
+                            <i class="fas fa-star me-1"></i>Lead
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-lightbulb me-2"></i>Подсказки</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled">
+                        <li class="mb-3">
+                            <i class="fas fa-check-circle text-success me-2"></i>
+                            <strong>Название компании</strong> используется во всех документах и уведомлениях
+                        </li>
+                        <li class="mb-3">
+                            <i class="fas fa-check-circle text-success me-2"></i>
+                            <strong>Календарь</strong> нужен для создания инвайтов и управления слотами
+                        </li>
+                        <li class="mb-3">
+                            <i class="fas fa-check-circle text-success me-2"></i>
+                            <strong>Грейды</strong> используются для зарплатных вилок и вакансий
+                        </li>
+                        <li>
+                            <i class="fas fa-check-circle text-success me-2"></i>
+                            <strong>Оргструктура</strong> помогает организовать работу команды
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-body text-center">
+                    <a href="{% url 'company_settings:basic' %}" class="btn btn-primary btn-lg" target="_blank">
+                        <i class="fas fa-external-link-alt me-2"></i>
+                        Перейти к настройкам
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Intro.js JS -->
+<script src="https://cdn.jsdelivr.net/npm/intro.js@7.2.0/minified/intro.min.js"></script>
+<!-- Wiki Tour Script -->
+<script src="{% static 'js/wiki-tour.js' %}"></script>
+{% endblock %}
+

@@ -1,0 +1,39 @@
+{% extends 'account/base.html' %}
+
+{% block auth_title %}Вход - HR Helper{% endblock %}
+{% block auth_page_title %}Вход в систему{% endblock %}
+
+{% block auth_header %}Вход в HR Helper{% endblock %}
+
+{% block auth_content %}
+{% load socialaccount %}
+
+<div class="text-center mb-4">
+    <a href="{% url 'accounts:google_oauth_redirect' %}" class="btn btn-primary btn-google btn-lg w-100">
+        <i class="fab fa-google me-2"></i>
+        Войти через Google
+    </a>
+</div>
+
+<div class="divider-with-text my-4">
+    <hr class="divider-line">
+    <span class="divider-text">или</span>
+    <hr class="divider-line">
+</div>
+
+<div class="text-center">
+    <small class="text-muted">Войти через админ панель</small>
+</div>
+<div class="text-center mt-3">
+    <a href="{% url 'admin:login' %}" class="btn btn-outline-secondary">
+        <i class="fas fa-cog me-2"></i>
+        Админ панель
+    </a>
+</div>
+
+<div class="text-center mt-4">
+    <small class="text-muted">
+        HR Helper - Система управления HR процессами
+    </small>
+</div>
+{% endblock %}

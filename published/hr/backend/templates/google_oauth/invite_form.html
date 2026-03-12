@@ -1,0 +1,229 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">{{ title }}</h1>
+                <div>
+                    <a href="{% url 'google_oauth:invite_create_combined' %}" class="btn btn-info me-2">
+                        <i class="fas fa-plus me-2"></i>Объединенная форма
+                    </a>
+                    <a href="{% url 'google_oauth:invite_list' %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Назад к списку
+                    </a>
+                </div>
+            </div>
+
+            <!-- Отображение структуры папок -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="alert alert-info">
+                        <h5><i class="fas fa-folder-tree me-2"></i>Структура папок для Scorecard:</h5>
+                        <p><strong>Полный путь:</strong></p>
+                        <code style="font-size: 16px; font-weight: bold; color: #000;">
+                            G-Drive/{{ path_preview }} | Scorecard FE.gsheet
+                        </code>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-lg-8">
+                    <div class="card shadow">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 font-weight-bold text-primary">Информация об инвайте</h6>
+                        </div>
+                        <div class="card-body">
+                            {% if messages %}
+                                {% for message in messages %}
+                                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                                        {{ message }}
+                                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                    </div>
+                                {% endfor %}
+                            {% endif %}
+                            
+                            <form method="post">
+                                {% csrf_token %}
+                                
+                                {% if form.non_field_errors %}
+                                    <div class="alert alert-danger">
+                                        {% for error in form.non_field_errors %}
+                                            <i class="fas fa-exclamation-triangle me-1"></i>
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                                
+                                <div class="row">
+                                    <div class="col-md-12 mb-3">
+                                        <label for="{{ form.candidate_url.id_for_label }}" class="form-label">
+                                            {{ form.candidate_url.label }}
+                                        </label>
+                                        {{ form.candidate_url }}
+                                        {% if form.candidate_url.help_text %}
+                                            <div class="form-text">{{ form.candidate_url.help_text }}</div>
+                                        {% endif %}
+                                        {% if form.candidate_url.errors %}
+                                            <div class="alert alert-danger small">
+                                                {% for error in form.candidate_url.errors %}
+                                                    <i class="fas fa-exclamation-triangle me-1"></i>
+                                                    {{ error|striptags }}
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.interview_datetime.id_for_label }}" class="form-label">
+                                            {{ form.interview_datetime.label }}
+                                        </label>
+                                        {{ form.interview_datetime }}
+                                        {% if form.interview_datetime.help_text %}
+                                            <div class="form-text">{{ form.interview_datetime.help_text }}</div>
+                                        {% endif %}
+                                        {% if form.interview_datetime.errors %}
+                                            <div class="alert alert-danger small">
+                                                {% for error in form.interview_datetime.errors %}
+                                                    <i class="fas fa-exclamation-triangle me-1"></i>
+                                                    {{ error|striptags }}
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    {% if form.status %}
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.status.id_for_label }}" class="form-label">
+                                            {{ form.status.label }}
+                                        </label>
+                                        {{ form.status }}
+                                        {% if form.status.help_text %}
+                                            <div class="form-text">{{ form.status.help_text }}</div>
+                                        {% endif %}
+                                        {% if form.status.errors %}
+                                            <div class="alert alert-danger small">
+                                                {% for error in form.status.errors %}
+                                                    <i class="fas fa-exclamation-triangle me-1"></i>
+                                                    {{ error|striptags }}
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="d-flex justify-content-between">
+                                    <a href="{% url 'google_oauth:invite_list' %}" class="btn btn-secondary">
+                                        <i class="fas fa-times me-2"></i>Отмена
+                                    </a>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save me-2"></i>Сохранить
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-4">
+                    <div class="card shadow">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 font-weight-bold text-primary">Информация</h6>
+                        </div>
+                        <div class="card-body">
+                            <h6>Формат ссылки на кандидата:</h6>
+                            <p class="text-muted small">
+                                <strong>Sandbox (работает):</strong><br>
+                                <code>https://sandbox.huntflow.dev/my/org694#/vacancy/[id вакансии]/filter/[id статуса]/id/[id кандидата]</code>
+                            </p>
+                            <p class="text-muted small">
+                                <strong>Production:</strong><br>
+                                <code>https://huntflow.ru/my/[название_аккаунта]#/vacancy/[id вакансии]/filter/[id статуса]/id/[id кандидата]</code>
+                            </p>
+                            <div class="alert alert-info small">
+                                <i class="fas fa-info-circle me-1"></i>
+                                <strong>Информация:</strong> Система автоматически определит доступность аккаунта через API.
+                            </div>
+                            
+                            <hr>
+                            
+                            <h6>Что происходит при создании:</h6>
+                            <ul class="text-muted small">
+                                <li>Парсинг URL и извлечение ID</li>
+                                <li>Получение информации о кандидате и вакансии</li>
+                                <li>Получение ссылки на шаблон scorecard</li>
+                                <li>Создание структуры папок в Google Drive</li>
+                                <li>Копирование и обработка scorecard</li>
+                            </ul>
+                            
+                            <hr>
+                            
+                            <h6>Шаблон scorecard:</h6>
+                            <p class="text-muted small">
+                                Ссылка на шаблон scorecard будет получена автоматически из данных вакансии в Huntflow API.
+                            </p>
+                        </div>
+                    </div>
+
+                    {% if invite %}
+                    <div class="card shadow mt-4">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 font-weight-bold text-primary">Действия</h6>
+                        </div>
+                        <div class="card-body">
+                            {% if invite.google_drive_file_url %}
+                                <a href="{{ invite.google_drive_file_url }}" target="_blank" class="btn btn-success btn-block mb-2">
+                                    <i class="fas fa-file-excel me-2"></i>Открыть Scorecard
+                                </a>
+                            {% endif %}
+                            
+                            <button type="button" class="btn btn-warning btn-block mb-2" onclick="regenerateScorecard({{ invite.pk }})">
+                                <i class="fas fa-sync me-2"></i>Пересоздать Scorecard
+                            </button>
+                            
+                            <a href="{% url 'google_oauth:invite_delete' invite.pk %}" class="btn btn-danger btn-block">
+                                <i class="fas fa-trash me-2"></i>Удалить инвайт
+                            </a>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function regenerateScorecard(inviteId) {
+    if (confirm('Вы уверены, что хотите пересоздать scorecard? Это удалит текущий файл и создаст новый.')) {
+        fetch(`/google-automation/invites/${inviteId}/regenerate-scorecard/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Scorecard успешно пересоздан!');
+                location.reload();
+            } else {
+                alert('Ошибка: ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('Ошибка: ' + error);
+        });
+    }
+}
+</script>
+{% endblock %}

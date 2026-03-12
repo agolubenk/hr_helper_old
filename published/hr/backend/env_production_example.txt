@@ -1,0 +1,47 @@
+# Переменные окружения для продакшена
+# Скопируйте этот файл в .env.production и заполните реальными значениями
+
+# Django настройки
+SECRET_KEY=your-very-long-and-secure-secret-key-here
+DEBUG=False
+ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com
+
+# База данных
+DB_NAME=hrhelper_production
+DB_USER=hrhelper_user
+DB_PASSWORD=your-database-password
+DB_HOST=localhost
+DB_PORT=5432
+
+# Redis
+REDIS_URL=redis://localhost:6379/1
+
+# Email настройки
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_HOST_USER=your-email@gmail.com
+EMAIL_HOST_PASSWORD=your-app-password
+
+# Celery
+CELERY_BROKER_URL=redis://localhost:6379/0
+CELERY_RESULT_BACKEND=redis://localhost:6379/0
+
+# API ключи
+HUNTFLOW_API_KEY=your-huntflow-api-key
+GEMINI_API_KEY=your-gemini-api-key
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+
+# Telegram
+TELEGRAM_BOT_TOKEN=your-telegram-bot-token
+
+# ClickUp
+CLICKUP_API_KEY=your-clickup-api-key
+
+# Notion
+NOTION_API_KEY=your-notion-api-key
+
+# Безопасность
+SECURE_SSL_REDIRECT=True
+SECURE_HSTS_SECONDS=31536000
+

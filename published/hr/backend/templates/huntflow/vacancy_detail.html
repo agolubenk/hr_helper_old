@@ -1,0 +1,184 @@
+{% extends 'common/base.html' %}
+
+{% block title %}Вакансия {{ vacancy.position }} - Huntflow{% endblock %}
+{% block page_title %}Вакансия: {{ vacancy.position }}{% endblock %}
+
+
+{% block content %}
+<div class="row">
+    <!-- Основная информация -->
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-briefcase me-2"></i>
+                    Основная информация
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>ID:</strong> {{ vacancy.id }}</p>
+                        <p><strong>Должность:</strong> {{ vacancy.position }}</p>
+                        {% if vacancy.company %}
+                        <p><strong>Компания:</strong> {{ vacancy.company }}</p>
+                        {% endif %}
+                        {% if vacancy.state %}
+                        <p><strong>Статус:</strong> 
+                            {% if vacancy.state == 'OPEN' %}
+                                <span class="badge bg-success">Открыта</span>
+                            {% elif vacancy.state == 'CLOSED' %}
+                                <span class="badge bg-danger">Закрыта</span>
+                            {% elif vacancy.state == 'HOLD' %}
+                                <span class="badge bg-warning">Приостановлена</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ vacancy.state }}</span>
+                            {% endif %}
+                        </p>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        {% if vacancy.created %}
+                        <p><strong>Создана:</strong> {{ vacancy.created|date:"d.m.Y H:i" }}</p>
+                        {% endif %}
+                        {% if vacancy.updated %}
+                        <p><strong>Обновлена:</strong> {{ vacancy.updated|date:"d.m.Y H:i" }}</p>
+                        {% endif %}
+                        {% if vacancy.deadline %}
+                        <p><strong>Дедлайн:</strong> {{ vacancy.deadline|date:"d.m.Y" }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                {% if vacancy.description %}
+                <hr>
+                <h6>Описание:</h6>
+                <p>{{ vacancy.description|linebreaks }}</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Дополнительные поля -->
+        {% if additional_fields %}
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-list me-2"></i>
+                    Дополнительные поля
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for field_name, field_value in additional_fields.items %}
+                    <div class="col-md-6 mb-3">
+                        <strong>{{ field_name }}:</strong>
+                        <span class="text-muted">{{ field_value|default:"Не указано" }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- Боковая панель -->
+    <div class="col-md-4">
+        <!-- Статистика -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-chart-bar me-2"></i>
+                    Статистика
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Кандидаты:</span>
+                    <span class="badge bg-primary">0</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Активные:</span>
+                    <span class="badge bg-success">0</span>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <span>Закрытые:</span>
+                    <span class="badge bg-secondary">0</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Быстрые действия -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-bolt me-2"></i>
+                    Быстрые действия
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{% url 'huntflow:applicants_list' account_id %}?vacancy={{ vacancy.id }}" 
+                       class="btn btn-primary">
+                        <i class="fas fa-users me-1"></i>
+                        Просмотреть кандидатов
+                    </a>
+                    <button class="btn btn-outline-secondary" onclick="copyVacancyInfo()">
+                        <i class="fas fa-copy me-1"></i>
+                        Скопировать информацию
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Debug Info -->
+{% if debug %}
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0">Отладочная информация</h6>
+            </div>
+            <div class="card-body">
+                <pre><code>{{ vacancy|pprint }}</code></pre>
+                {% if additional_fields %}
+                <hr>
+                <h6>Дополнительные поля:</h6>
+                <pre><code>{{ additional_fields|pprint }}</code></pre>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function copyVacancyInfo() {
+    const info = `Вакансия: ${document.title}\nID: {{ vacancy.id }}\nДолжность: {{ vacancy.position }}{% if vacancy.company %}\nКомпания: {{ vacancy.company }}{% endif %}{% if vacancy.description %}\nОписание: {{ vacancy.description|truncatewords:50 }}{% endif %}`;
+    
+    navigator.clipboard.writeText(info).then(function() {
+        showAlert('success', 'Информация скопирована в буфер обмена');
+    }, function() {
+        showAlert('danger', 'Не удалось скопировать информацию');
+    });
+}
+
+function showAlert(type, message) {
+    const alertHtml = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    
+    $('.messages').append(alertHtml);
+    
+    setTimeout(() => {
+        $('.alert').fadeOut();
+    }, 3000);
+}
+</script>
+{% endblock %}

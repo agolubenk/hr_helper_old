@@ -1,0 +1,900 @@
+{% extends 'common/base.html' %}
+
+{% block title %}Управление данными Chrome расширения - HR Helper{% endblock %}
+{% block page_title %}Управление данными Chrome расширения{% endblock %}
+
+{% block content %}
+<style>
+.extension-page-layout { display: flex; gap: 0; min-height: 60vh; }
+.extension-page-main { flex: 1; min-width: 0; }
+.extension-sidebar { width: 36px; flex-shrink: 0; background: #f8f9fa; border-left: 1px solid #dee2e6; display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 16px; position: sticky; top: 80px; align-self: flex-start; }
+.extension-sidebar a { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 6px; color: #495057; text-decoration: none; transition: all 0.2s; }
+.extension-sidebar a:hover { background: #e9ecef; color: #0a66c2; }
+.extension-sidebar a.active { background: #0a66c2; color: #fff; }
+.extension-sidebar a i { font-size: 16px; }
+</style>
+<div class="extension-page-layout">
+<div class="extension-page-main">
+<!-- Статистика -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center py-2" style="cursor: pointer;"
+         data-bs-toggle="collapse" data-bs-target="#statsCollapse" aria-expanded="true" aria-controls="statsCollapse">
+        <h6 class="mb-0">Статистика</h6>
+        <i class="fas fa-chevron-up extension-collapse-icon"></i>
+    </div>
+    <div class="collapse show" id="statsCollapse">
+    <div class="card-body py-3">
+<div class="row">
+    <div class="col-6 col-md-2">
+        <div class="card">
+            <div class="card-body text-center">
+                <h3 class="mb-0">{{ stats.total_links }}</h3>
+                <p class="text-muted mb-0">Всего связей</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-2">
+        <div class="card border-success">
+            <div class="card-body text-center">
+                <h3 class="mb-0 text-success">{{ stats.links_with_vacancy }}</h3>
+                <p class="text-muted mb-0">С вакансией</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-2">
+        <div class="card border-info">
+            <div class="card-body text-center">
+                <h3 class="mb-0 text-info">{{ stats.recent_links }}</h3>
+                <p class="text-muted mb-0">За неделю</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-2">
+        <a href="#resume-links-section" class="text-decoration-none d-block" title="Перейти к блоку hh.ru/rabota.by → Huntflow">
+            <div class="card border-primary">
+                <div class="card-body text-center">
+                    <h3 class="mb-0 text-primary">{{ stats.total_resume_links|default:0 }}</h3>
+                    <p class="text-muted mb-0">hh.ru/rabota.by → Huntflow связи</p>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-6 col-md-2">
+        <a href="#meet-links-section" class="text-decoration-none d-block" title="Перейти к блоку Google Meet → Huntflow">
+            <div class="card border-success">
+                <div class="card-body text-center">
+                    <h3 class="mb-0 text-success">{{ stats.total_meet_links|default:0 }}</h3>
+                    <p class="text-muted mb-0">Google Meet → Huntflow связи</p>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+    </div>
+    </div>
+</div>
+
+<!-- Кнопки копирования по грейдам для Google Meet (свёрнуто по умолчанию) -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center py-2" style="cursor: pointer;"
+                 data-bs-toggle="collapse" data-bs-target="#levelButtonsCollapse" aria-expanded="false" aria-controls="levelButtonsCollapse">
+                <h6 class="mb-0">Кнопки копирования по грейдам для Google Meet</h6>
+                <i class="fas fa-chevron-down" id="levelButtonsCollapseIcon"></i>
+            </div>
+            <div class="collapse" id="levelButtonsCollapse">
+                <div class="card-body">
+                    {% if vacancies_with_levels %}
+                    <div class="mb-3">
+                        {% for vacancy in vacancies_with_levels %}
+                        <div class="mb-3">
+                            <strong class="text-secondary">{{ vacancy.name }}:</strong>
+                            <div class="d-flex flex-wrap gap-2 mt-1">
+                                {% for level in vacancy.levels %}
+                                <button type="button" class="btn btn-outline-secondary level-btn"
+                                    data-vacancy="{{ vacancy.name }}"
+                                    data-level="{{ level }}"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#levelModal-{{ forloop.parentloop.counter0 }}-{{ forloop.counter0 }}">
+                                    {{ level }}
+                                </button>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <hr>
+                    {% else %}
+                    <p class="text-muted mb-3">Нет вакансий с уровнями. Проверьте подключение Huntflow и наличие сохранённых текстов в БД.</p>
+                    <hr>
+                    {% endif %}
+                    <button type="button" class="btn btn-warning" id="clearCacheBtn">
+                        <i class="fas fa-trash-alt me-2"></i>
+                        Очистить кэш
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- LinkedIn → Huntflow связи -->
+<div class="row mb-4" id="linkedin-section">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center py-2" style="cursor: pointer;"
+                 data-bs-toggle="collapse" data-bs-target="#linkedinCollapse" aria-expanded="true" aria-controls="linkedinCollapse">
+                <h5 class="card-title mb-0">
+                    <i class="fab fa-linkedin me-2"></i>
+                    LinkedIn → Huntflow связи
+                </h5>
+                <i class="fas fa-chevron-up extension-collapse-icon"></i>
+            </div>
+            <div class="collapse show" id="linkedinCollapse">
+            <div class="card-body">
+                {% if links %}
+                <div class="table-responsive">
+                    <table class="table table-hover" id="linksTable">
+                        <thead>
+                            <tr>
+                                <th>LinkedIn URL</th>
+                                <th>Target URL</th>
+                                <th>Account ID</th>
+                                <th>Applicant ID</th>
+                                <th>Vacancy ID</th>
+                                <th>Создано</th>
+                                <th>Обновлено</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for link in links %}
+                            <tr data-link-id="{{ link.id }}">
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="editable flex-grow-1" data-field="linkedin_url" data-link-id="{{ link.id }}">
+                                            {{ link.linkedin_url|truncatechars:60 }}
+                                        </span>
+                                        <a href="{{ link.linkedin_url }}" target="_blank" class="btn btn-sm btn-outline-primary" title="Открыть в новой вкладке">
+                                            <i class="fas fa-external-link-alt"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="editable flex-grow-1" data-field="target_url" data-link-id="{{ link.id }}">
+                                            {% if link.target_url %}
+                                                {{ link.target_url|truncatechars:60 }}
+                                            {% else %}
+                                                <span class="text-muted">—</span>
+                                            {% endif %}
+                                        </span>
+                                        {% if link.target_url %}
+                                        <a href="{{ link.target_url }}" target="_blank" class="btn btn-sm btn-outline-primary" title="Открыть в новой вкладке">
+                                            <i class="fas fa-external-link-alt"></i>
+                                        </a>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="editable" data-field="account_id" data-link-id="{{ link.id }}" data-type="number">
+                                        {{ link.account_id|default:"—" }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="editable" data-field="applicant_id" data-link-id="{{ link.id }}" data-type="number">
+                                        {{ link.applicant_id|default:"—" }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="editable" data-field="vacancy_id" data-link-id="{{ link.id }}" data-type="number">
+                                        {{ link.vacancy_id|default:"—" }}
+                                    </span>
+                                </td>
+                                <td>{{ link.created_at|date:"d.m.Y H:i" }}</td>
+                                <td>{{ link.updated_at|date:"d.m.Y H:i" }}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-danger delete-link-btn" data-link-id="{{ link.id }}">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted text-center">Нет сохраненных связей</p>
+                {% endif %}
+            </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Google Meet → Huntflow связи -->
+<div class="row mb-4" id="meet-links-section">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center py-2" style="cursor: pointer;"
+                 data-bs-toggle="collapse" data-bs-target="#meetCollapse" aria-expanded="true" aria-controls="meetCollapse">
+                <h5 class="card-title mb-0">
+                    <i class="fab fa-google-meet me-2"></i>
+                    Google Meet → Huntflow связи
+                </h5>
+                <i class="fas fa-chevron-up extension-collapse-icon"></i>
+            </div>
+            <div class="collapse show" id="meetCollapse">
+            <div class="card-body">
+                <p class="text-muted mb-2">Связи между встречами Google Meet и кандидатами в Huntflow. Создаются автоматически при создании инвайта с Google Meet. Используются расширением на meet.google.com для кнопок: грейд, Scorecard, контакт.</p>
+                {% if meet_links %}
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm">
+                        <thead>
+                            <tr>
+                                <th>Meet</th>
+                                <th>Кандидат</th>
+                                <th>Вакансия</th>
+                                <th>Грейд</th>
+                                <th>Huntflow</th>
+                                <th>Обновлено</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for m in meet_links %}
+                            <tr>
+                                <td>
+                                    <a href="{% if m.meet_url %}{{ m.meet_url }}{% else %}https://meet.google.com/{{ m.meet_code }}{% endif %}" target="_blank" rel="noopener" class="text-break">
+                                        <i class="fab fa-google-meet me-1"></i>{{ m.meet_code }}
+                                    </a>
+                                </td>
+                                <td>{{ m.candidate_name|default:"—" }}</td>
+                                <td>{{ m.vacancy_title|default:"—" }}</td>
+                                <td>{{ m.candidate_grade|default:"—" }}</td>
+                                <td>
+                                    {% if m.huntflow_candidate_url %}
+                                    <a href="{{ m.huntflow_candidate_url }}" target="_blank" rel="noopener" class="text-break">{{ m.huntflow_candidate_url|truncatechars:40 }}</a>
+                                    {% else %}
+                                    —
+                                    {% endif %}
+                                </td>
+                                <td>{{ m.updated_at|date:"d.m.Y H:i" }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted mb-0">Нет сохранённых связей. Связи создаются при создании инвайта с Google Meet через HR Helper.</p>
+                {% endif %}
+            </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- hh.ru/rabota.by → Huntflow связи (под блоком LinkedIn) -->
+<div class="row mb-4" id="resume-links-section">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center py-2" style="cursor: pointer;"
+                 data-bs-toggle="collapse" data-bs-target="#resumeCollapse" aria-expanded="true" aria-controls="resumeCollapse">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-link me-2"></i>
+                    hh.ru/rabota.by → Huntflow связи
+                </h5>
+                <i class="fas fa-chevron-up extension-collapse-icon"></i>
+            </div>
+            <div class="collapse show" id="resumeCollapse">
+            <div class="card-body">
+                <p class="text-muted mb-2">Связи между страницами резюме (hh.ru, rabota.by) и кандидатами в Huntflow. Сохраняются при нажатии «Применить» в попапе расширения на странице резюме и синхронизируются с сервером.</p>
+                <div class="alert alert-info py-2 mb-3 small">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Эти же связи используются на странице <a href="{% url 'hhru:dashboard' %}">откликов HH.ru</a>: при просмотре откликов по вакансии для каждого кандидата показывается, есть ли он в Huntflow; связь можно изменить или удалить прямо в карточке отклика.
+                </div>
+                {% if resume_links %}
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm">
+                        <thead>
+                            <tr>
+                                <th>Страница резюме</th>
+                                <th>Вакансия</th>
+                                <th>Huntflow</th>
+                                <th>Обновлено</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for r in resume_links %}
+                            <tr data-resume-link-id="{{ r.id }}">
+                                <td>
+                                    <a href="{{ r.resume_url }}" target="_blank" rel="noopener" class="text-break">{{ r.resume_url|truncatechars:60 }}</a>
+                                </td>
+                                <td>{{ r.vacancy_name|default:"—" }}</td>
+                                <td>
+                                    <a href="{{ r.huntflow_url }}" target="_blank" rel="noopener" class="text-break">{{ r.huntflow_url|truncatechars:50 }}</a>
+                                </td>
+                                <td>{{ r.updated_at|date:"d.m.Y H:i" }}</td>
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-danger delete-resume-link-btn" data-resume-link-id="{{ r.id }}" title="Удалить связь">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted mb-0">Нет сохранённых связей. Откройте страницу резюме на rabota.by или hh.ru, введите ссылку Huntflow в попапе расширения и нажмите «Применить».</p>
+                {% endif %}
+            </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+</div><!-- .extension-page-main -->
+<!-- Боковая панель с иконками приложений (36px) -->
+<aside class="extension-sidebar" aria-label="Навигация по разделам">
+    <a href="#linkedin-section" title="LinkedIn → Huntflow" class="extension-sidebar-link" data-section="linkedin-section">
+        <i class="fab fa-linkedin"></i>
+    </a>
+    <a href="#meet-links-section" title="Google Meet → Huntflow" class="extension-sidebar-link" data-section="meet-links-section">
+        <i class="fas fa-video"></i>
+    </a>
+    <a href="#resume-links-section" title="hh.ru / rabota.by → Huntflow" class="extension-sidebar-link" data-section="resume-links-section">
+        <i class="fas fa-briefcase"></i>
+    </a>
+</aside>
+</div><!-- .extension-page-layout -->
+
+<!-- Модальные окна для уровней (вакансия + уровень) -->
+{% for vacancy in vacancies_with_levels %}
+{% for level in vacancy.levels %}
+<div class="modal fade" id="levelModal-{{ forloop.parentloop.counter0 }}-{{ forloop.counter0 }}" tabindex="-1" aria-labelledby="levelModalLabel-{{ forloop.parentloop.counter0 }}-{{ forloop.counter0 }}" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="levelModalLabel-{{ forloop.parentloop.counter0 }}-{{ forloop.counter0 }}">{{ vacancy.name }}: {{ level }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form class="level-form" data-vacancy="{{ vacancy.name }}" data-level="{{ level }}">
+                    <div class="mb-3">
+                        <label class="form-label">Текст (многострочный):</label>
+                        <textarea class="form-control level-textarea" rows="10" placeholder="Введите текст для {{ vacancy.name }} — {{ level }}..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary save-level-text-btn" data-vacancy="{{ vacancy.name }}" data-level="{{ level }}" data-modal-id="levelModal-{{ forloop.parentloop.counter0 }}-{{ forloop.counter0 }}">Сохранить</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endfor %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    'use strict';
+    
+    // CSRF токен для AJAX запросов
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    const csrftoken = getCookie('csrftoken');
+    const extensionBaseUrl = "{{ extension_base_url|default:'/huntflow/chrome-extension' }}";
+
+    // Иконка свёрнутого блока «Кнопки копирования по грейдам»
+    const levelCollapse = document.getElementById('levelButtonsCollapse');
+    const levelCollapseIcon = document.getElementById('levelButtonsCollapseIcon');
+    if (levelCollapse && levelCollapseIcon) {
+        levelCollapse.addEventListener('show.bs.collapse', function() {
+            levelCollapseIcon.classList.remove('fa-chevron-down');
+            levelCollapseIcon.classList.add('fa-chevron-up');
+        });
+        levelCollapse.addEventListener('hide.bs.collapse', function() {
+            levelCollapseIcon.classList.remove('fa-chevron-up');
+            levelCollapseIcon.classList.add('fa-chevron-down');
+        });
+    }
+    
+    // Иконки свёртывания для всех карточек
+    document.querySelectorAll('[data-bs-toggle="collapse"]').forEach(function(btn) {
+        const icon = btn.querySelector('.extension-collapse-icon');
+        if (icon) {
+            const targetId = btn.getAttribute('data-bs-target');
+            const target = targetId ? document.querySelector(targetId) : null;
+            if (target) {
+                target.addEventListener('show.bs.collapse', function() {
+                    icon.classList.remove('fa-chevron-down');
+                    icon.classList.add('fa-chevron-up');
+                });
+                target.addEventListener('hide.bs.collapse', function() {
+                    icon.classList.remove('fa-chevron-up');
+                    icon.classList.add('fa-chevron-down');
+                });
+                icon.classList.toggle('fa-chevron-up', target.classList.contains('show'));
+                icon.classList.toggle('fa-chevron-down', !target.classList.contains('show'));
+            }
+        }
+    });
+    
+    // Боковая панель: скролл к разделу и разворот блока
+    document.querySelectorAll('.extension-sidebar-link').forEach(function(link) {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const sectionId = this.getAttribute('data-section');
+            const section = document.getElementById(sectionId);
+            if (section) {
+                section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                const card = section.querySelector('.card');
+                if (card) {
+                    const collapseEl = card.querySelector('.collapse');
+                    if (collapseEl && !collapseEl.classList.contains('show')) {
+                        const bsCollapse = bootstrap.Collapse.getOrCreateInstance(collapseEl);
+                        bsCollapse.show();
+                    }
+                }
+            }
+        });
+    });
+    
+    // Инлайн редактирование для связей
+    document.querySelectorAll('.editable[data-link-id]').forEach(function(element) {
+        element.addEventListener('dblclick', function() {
+            const linkId = this.dataset.linkId;
+            const field = this.dataset.field;
+            const type = this.dataset.type || 'text';
+            const currentValue = this.textContent.trim();
+            
+            // Получаем текстовое значение
+            let displayValue = this.textContent.trim();
+            if (displayValue === '—') {
+                displayValue = '';
+            }
+            
+            const input = document.createElement('input');
+            input.type = type === 'number' ? 'number' : 'text';
+            input.className = 'form-control form-control-sm';
+            input.value = displayValue;
+            
+            const originalHTML = this.innerHTML;
+            this.innerHTML = '';
+            this.appendChild(input);
+            input.focus();
+            input.select();
+            
+            const save = () => {
+                const newValue = input.value.trim();
+                updateLink(linkId, field, newValue, this, originalHTML);
+            };
+            
+            const cancel = () => {
+                this.innerHTML = originalHTML;
+            };
+            
+            input.addEventListener('blur', save);
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    save();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    cancel();
+                }
+            });
+        });
+    });
+    
+    // Инлайн редактирование для маппингов
+    document.querySelectorAll('.editable[data-thread-id]').forEach(function(element) {
+        element.addEventListener('dblclick', function() {
+            const threadId = this.dataset.threadId;
+            const field = this.dataset.field;
+            const currentValue = this.textContent.trim();
+            
+            // Получаем текстовое значение
+            let displayValue = this.textContent.trim();
+            
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'form-control form-control-sm';
+            input.value = displayValue;
+            
+            const originalHTML = this.innerHTML;
+            this.innerHTML = '';
+            this.appendChild(input);
+            input.focus();
+            input.select();
+            
+            const save = () => {
+                const newValue = input.value.trim();
+                updateThread(threadId, field, newValue, this, originalHTML);
+            };
+            
+            const cancel = () => {
+                this.innerHTML = originalHTML;
+            };
+            
+            input.addEventListener('blur', save);
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    save();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    cancel();
+                }
+            });
+        });
+    });
+    
+    // Обновление связи
+    function updateLink(linkId, field, value, element, originalHTML) {
+        const data = {};
+        data[field] = value === '' ? null : (field.includes('_id') && value ? parseInt(value) : value);
+        
+        fetch(`${extensionBaseUrl}/link/${linkId}/`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Обновляем отображение
+                if (field === 'linkedin_url' || field === 'target_url') {
+                    const cell = element.closest('td');
+                    if (value) {
+                        const truncated = value.length > 60 ? value.substring(0, 60) + '...' : value;
+                        element.textContent = truncated;
+                        // Обновляем кнопку открытия
+                        const openBtn = cell.querySelector('a.btn');
+                        if (openBtn) {
+                            openBtn.href = value;
+                        } else {
+                            // Создаем кнопку если её нет
+                            const btn = document.createElement('a');
+                            btn.href = value;
+                            btn.target = '_blank';
+                            btn.className = 'btn btn-sm btn-outline-primary';
+                            btn.title = 'Открыть в новой вкладке';
+                            btn.innerHTML = '<i class="fas fa-external-link-alt"></i>';
+                            cell.querySelector('.d-flex').appendChild(btn);
+                        }
+                    } else {
+                        element.textContent = '—';
+                        element.className = 'editable flex-grow-1 text-muted';
+                        // Удаляем кнопку если значение пустое
+                        const openBtn = cell.querySelector('a.btn');
+                        if (openBtn) openBtn.remove();
+                    }
+                } else if (field.includes('_id')) {
+                    element.textContent = value ? value : '—';
+                    if (!value) element.className = 'editable flex-grow-1 text-muted';
+                } else {
+                    element.textContent = value || '—';
+                    if (!value) element.className = 'editable flex-grow-1 text-muted';
+                }
+                showMessage('Связь обновлена', 'success');
+            } else {
+                element.innerHTML = originalHTML;
+                showMessage('Ошибка: ' + (data.message || 'Неизвестная ошибка'), 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            element.innerHTML = originalHTML;
+            showMessage('Ошибка при обновлении связи', 'danger');
+        });
+    }
+    
+    // Обновление маппинга
+    function updateThread(threadId, field, value, element, originalHTML) {
+        const data = {};
+        data[field] = value;
+        
+        fetch(`${extensionBaseUrl}/thread/${threadId}/`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Обновляем отображение
+                const cell = element.closest('td');
+                if (field === 'profile_url') {
+                    if (value) {
+                        const truncated = value.length > 60 ? value.substring(0, 60) + '...' : value;
+                        element.textContent = truncated;
+                        // Обновляем кнопку открытия
+                        const openBtn = cell.querySelector('a.btn');
+                        if (openBtn) {
+                            openBtn.href = value;
+                        } else {
+                            // Создаем кнопку если её нет
+                            const btn = document.createElement('a');
+                            btn.href = value;
+                            btn.target = '_blank';
+                            btn.className = 'btn btn-sm btn-outline-primary';
+                            btn.title = 'Открыть профиль в новой вкладке';
+                            btn.innerHTML = '<i class="fas fa-external-link-alt"></i>';
+                            cell.querySelector('.d-flex').appendChild(btn);
+                        }
+                    } else {
+                        element.textContent = '—';
+                        element.className = 'editable flex-grow-1 text-muted';
+                        // Удаляем кнопку если значение пустое
+                        const openBtn = cell.querySelector('a.btn');
+                        if (openBtn) openBtn.remove();
+                    }
+                } else if (field === 'thread_id') {
+                    const truncated = value.length > 40 ? value.substring(0, 40) + '...' : value;
+                    element.textContent = truncated;
+                    // Обновляем кнопку открытия тредса
+                    const openBtn = cell.querySelector('a.btn');
+                    if (openBtn) {
+                        openBtn.href = `https://www.linkedin.com/messaging/thread/${value}/`;
+                    } else {
+                        // Создаем кнопку если её нет
+                        const btn = document.createElement('a');
+                        btn.href = `https://www.linkedin.com/messaging/thread/${value}/`;
+                        btn.target = '_blank';
+                        btn.className = 'btn btn-sm btn-outline-primary';
+                        btn.title = 'Открыть тред в новой вкладке';
+                        btn.innerHTML = '<i class="fas fa-external-link-alt"></i>';
+                        cell.querySelector('.d-flex').appendChild(btn);
+                    }
+                } else {
+                    element.textContent = value || '—';
+                    if (!value) element.className = 'editable flex-grow-1 text-muted';
+                }
+                showMessage('Маппинг обновлен', 'success');
+            } else {
+                element.innerHTML = originalHTML;
+                showMessage('Ошибка: ' + (data.message || 'Неизвестная ошибка'), 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            element.innerHTML = originalHTML;
+            showMessage('Ошибка при обновлении маппинга', 'danger');
+        });
+    }
+    
+    // Удаление связи
+    document.querySelectorAll('.delete-link-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const linkId = this.dataset.linkId;
+            if (confirm('Вы уверены, что хотите удалить эту связь?')) {
+                fetch(`${extensionBaseUrl}/link/${linkId}/`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRFToken': csrftoken
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.querySelector(`tr[data-link-id="${linkId}"]`).remove();
+                        showMessage('Связь удалена', 'success');
+                    } else {
+                        showMessage('Ошибка: ' + (data.message || 'Неизвестная ошибка'), 'danger');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showMessage('Ошибка при удалении связи', 'danger');
+                });
+            }
+        });
+    });
+
+    // Удаление связи hh.ru/rabota.by → Huntflow
+    document.querySelectorAll('.delete-resume-link-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const linkId = this.dataset.resumeLinkId;
+            if (confirm('Вы уверены, что хотите удалить эту связь?')) {
+                fetch(`${extensionBaseUrl}/resume-link/${linkId}/`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRFToken': csrftoken
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.querySelector(`tr[data-resume-link-id="${linkId}"]`).remove();
+                        showMessage('Связь удалена', 'success');
+                    } else {
+                        showMessage('Ошибка: ' + (data.message || 'Неизвестная ошибка'), 'danger');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showMessage('Ошибка при удалении связи', 'danger');
+                });
+            }
+        });
+    });
+    
+    // Удаление маппинга
+    document.querySelectorAll('.delete-thread-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const threadId = this.dataset.threadId;
+            if (confirm('Вы уверены, что хотите удалить этот маппинг?')) {
+                fetch(`${extensionBaseUrl}/thread/${threadId}/`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRFToken': csrftoken
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.querySelector(`tr[data-thread-id="${threadId}"]`).remove();
+                        showMessage('Маппинг удален', 'success');
+                    } else {
+                        showMessage('Ошибка: ' + (data.message || 'Неизвестная ошибка'), 'danger');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showMessage('Ошибка при удалении маппинга', 'danger');
+                });
+            }
+        });
+    });
+    
+    // Очистка кэша
+    document.getElementById('clearCacheBtn').addEventListener('click', function() {
+        if (confirm('Вы уверены, что хотите очистить весь кэш?')) {
+            fetch(extensionBaseUrl + '/clear-cache/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrftoken
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showMessage('Кэш очищен', 'success');
+                } else {
+                    showMessage('Ошибка: ' + (data.message || 'Неизвестная ошибка'), 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showMessage('Ошибка при очистке кэша', 'danger');
+            });
+        }
+    });
+    
+    function levelTextUrl(vacancy, level) {
+        return extensionBaseUrl + '/level/' + encodeURIComponent(vacancy) + '/' + encodeURIComponent(level) + '/text/';
+    }
+    
+    // Сохранение текста для уровня (вакансия + уровень)
+    document.querySelectorAll('.save-level-text-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const vacancy = this.dataset.vacancy || '';
+            const level = this.dataset.level || '';
+            const modalId = this.dataset.modalId;
+            const modal = document.getElementById(modalId);
+            if (!modal) return;
+            const textarea = modal.querySelector('textarea');
+            const text = (textarea && textarea.value) ? textarea.value.trim() : '';
+            
+            fetch(levelTextUrl(vacancy, level), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrftoken
+                },
+                body: JSON.stringify({ text: text })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showMessage('Текст сохранен', 'success');
+                    const bsModal = bootstrap.Modal.getInstance(modal);
+                    if (bsModal) bsModal.hide();
+                } else {
+                    showMessage('Ошибка: ' + (data.message || 'Неизвестная ошибка'), 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showMessage('Ошибка при сохранении текста', 'danger');
+            });
+        });
+    });
+    
+    // Загрузка текста при открытии модального окна (вакансия + уровень)
+    document.querySelectorAll('.level-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const vacancy = this.dataset.vacancy || '';
+            const level = this.dataset.level || '';
+            const modalId = (this.dataset.bsTarget || '').replace('#', '');
+            const modal = document.getElementById(modalId);
+            if (!modal) return;
+            const textarea = modal.querySelector('textarea');
+            if (!textarea) return;
+            
+            fetch(levelTextUrl(vacancy, level), {
+                method: 'GET',
+                headers: { 'X-CSRFToken': csrftoken }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) textarea.value = data.text || '';
+            })
+            .catch(error => console.error('Error loading level text:', error));
+        });
+    });
+    
+    document.querySelectorAll('[id^="levelModal"]').forEach(function(modal) {
+        modal.addEventListener('show.bs.modal', function() {
+            const levelBtn = document.querySelector('[data-bs-target="#' + this.id + '"]');
+            if (!levelBtn) return;
+            const vacancy = levelBtn.dataset.vacancy || '';
+            const level = levelBtn.dataset.level || '';
+            const textarea = this.querySelector('textarea');
+            if (!textarea) return;
+            
+            fetch(levelTextUrl(vacancy, level), {
+                method: 'GET',
+                headers: { 'X-CSRFToken': csrftoken }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) textarea.value = data.text || '';
+            })
+            .catch(error => console.error('Error loading level text:', error));
+        });
+    });
+    
+    // Показ сообщений
+    function showMessage(message, type) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3`;
+        alertDiv.style.zIndex = '9999';
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.body.appendChild(alertDiv);
+        
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 3000);
+    }
+})();
+</script>
+{% endblock %}

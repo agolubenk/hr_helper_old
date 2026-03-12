@@ -1,0 +1,246 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}{{ plan.title }} - HR Helper{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <!-- Навигация -->
+            <nav aria-label="breadcrumb" class="mb-4">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'hiring_plan:plan_list' %}">Планы найма</a>
+                    </li>
+                    <li class="breadcrumb-item active" aria-current="page">{{ plan.title }}</li>
+                </ol>
+            </nav>
+
+            <!-- Заголовок плана -->
+            <div class="d-flex justify-content-between align-items-start mb-4">
+                <div>
+                    <h1 class="h3 mb-2">
+                        <i class="fas fa-clipboard-list text-primary me-2"></i>
+                        {{ plan.title }}
+                    </h1>
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="badge bg-{% if plan.status == 'active' %}success{% elif plan.status == 'draft' %}secondary{% elif plan.status == 'completed' %}primary{% elif plan.status == 'paused' %}warning{% else %}danger{% endif %} fs-6">
+                            {{ plan.get_status_display }}
+                        </span>
+                        <small class="text-muted">
+                            <i class="fas fa-calendar me-1"></i>
+                            {{ plan.start_date|date:"d.m.Y" }}
+                            {% if plan.end_date %} - {{ plan.end_date|date:"d.m.Y" }}{% endif %}
+                        </small>
+                        {% if plan.responsible_recruiter %}
+                        <small class="text-muted">
+                            <i class="fas fa-user me-1"></i>
+                            {{ plan.responsible_recruiter.get_full_name|default:plan.responsible_recruiter.username }}
+                        </small>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="btn-group" role="group">
+                    <a href="{% url 'hiring_plan:plan_update' plan.pk %}" class="btn btn-outline-primary">
+                        <i class="fas fa-edit me-2"></i>Редактировать
+                    </a>
+                    <a href="{% url 'hiring_plan:plan_dashboard' plan.pk %}" class="btn btn-outline-info">
+                        <i class="fas fa-chart-bar me-2"></i>Метрики
+                    </a>
+                    <a href="{% url 'hiring_plan:position_add' plan.pk %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Добавить позицию
+                    </a>
+                </div>
+            </div>
+
+            <!-- Описание плана -->
+            {% if plan.description %}
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-info-circle text-info me-2"></i>
+                        Описание плана
+                    </h5>
+                    <p class="card-text">{{ plan.description|linebreaks }}</p>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Общий прогресс -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-chart-line text-success me-2"></i>
+                        Общий прогресс
+                    </h5>
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="fw-bold">Выполнение плана</span>
+                                <span class="fw-bold text-{% if plan.completion_rate >= 80 %}success{% elif plan.completion_rate >= 50 %}warning{% else %}danger{% endif %}">
+                                    {{ plan.completion_rate }}%
+                                </span>
+                            </div>
+                            <div class="progress mb-3" style="height: 20px;">
+                                <div class="progress-bar bg-{% if plan.completion_rate >= 80 %}success{% elif plan.completion_rate >= 50 %}warning{% else %}danger{% endif %}" 
+                                     role="progressbar" 
+                                     style="width: {{ plan.completion_rate }}%"
+                                     aria-valuenow="{{ plan.completion_rate }}" 
+                                     aria-valuemin="0" 
+                                     aria-valuemax="100">
+                                    {{ plan.completion_rate }}%
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="row text-center">
+                                <div class="col-4">
+                                    <h4 class="mb-0 text-primary">{{ plan.total_positions }}</h4>
+                                    <small class="text-muted">Позиций</small>
+                                </div>
+                                <div class="col-4">
+                                    <h4 class="mb-0 text-success">{{ plan.total_headcount_hired }}</h4>
+                                    <small class="text-muted">Нанято</small>
+                                </div>
+                                <div class="col-4">
+                                    <h4 class="mb-0 text-warning">{{ plan.total_headcount_needed }}</h4>
+                                    <small class="text-muted">Требуется</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Позиции в плане -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-briefcase text-primary me-2"></i>
+                        Позиции в плане
+                    </h5>
+                    <a href="{% url 'hiring_plan:position_add' plan.pk %}" class="btn btn-primary btn-sm">
+                        <i class="fas fa-plus me-1"></i>Добавить позицию
+                    </a>
+                </div>
+                <div class="card-body p-0">
+                    {% if positions %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Вакансия</th>
+                                    <th>Проект</th>
+                                    <th>Грейды</th>
+                                    <th class="text-center">Требуется</th>
+                                    <th class="text-center">Нанято</th>
+                                    <th class="text-center">В процессе</th>
+                                    <th class="text-center">Прогресс</th>
+                                    <th>Приоритет</th>
+                                    <th>Дедлайн</th>
+                                    <th class="text-center">Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for position in positions %}
+                                <tr class="{% if position.is_overdue %}table-danger{% elif not position.is_active %}table-secondary{% endif %}">
+                                    <td>
+                                        <div>
+                                            <strong>{{ position.vacancy.name }}</strong>
+                                            {% if not position.is_active %}
+                                            <span class="badge bg-secondary ms-2">Неактивна</span>
+                                            {% endif %}
+                                        </div>
+                                        {% if position.specifics %}
+                                        <small class="text-muted">{{ position.specifics|truncatewords:10 }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if position.project %}
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-project-diagram me-1"></i>{{ position.project }}
+                                        </span>
+                                        {% else %}
+                                        <span class="text-muted">
+                                            <i class="fas fa-minus me-1"></i>Не указан
+                                        </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% for grade in position.grades.all %}
+                                        <span class="badge bg-info me-1">{{ grade.name }}</span>
+                                        {% empty %}
+                                        <span class="text-muted">Не указаны</span>
+                                        {% endfor %}
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="fw-bold">{{ position.headcount_needed }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="fw-bold text-success">{{ position.headcount_hired }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="fw-bold text-warning">{{ position.headcount_in_progress }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="d-flex align-items-center justify-content-center">
+                                            <div class="progress me-2" style="width: 60px; height: 8px;">
+                                                <div class="progress-bar bg-{% if position.fulfillment_rate >= 80 %}success{% elif position.fulfillment_rate >= 50 %}warning{% else %}danger{% endif %}" 
+                                                     role="progressbar" 
+                                                     style="width: {{ position.fulfillment_rate }}%">
+                                                </div>
+                                            </div>
+                                            <small class="text-muted">{{ position.fulfillment_rate }}%</small>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{% if position.priority == 1 %}danger{% elif position.priority == 2 %}warning{% elif position.priority == 3 %}info{% else %}secondary{% endif %}">
+                                            {{ position.get_priority_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if position.urgency_deadline %}
+                                        <span class="{% if position.is_overdue %}text-danger fw-bold{% elif position.urgency_deadline|timeuntil|slice:':1' == '0' %}text-warning{% endif %}">
+                                            {{ position.urgency_deadline|date:"d.m.Y" }}
+                                        </span>
+                                        {% if position.is_overdue %}
+                                        <i class="fas fa-exclamation-triangle text-danger ms-1" title="Просрочено"></i>
+                                        {% endif %}
+                                        {% else %}
+                                        <span class="text-muted">Не указан</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a href="{% url 'hiring_plan:position_update' position.pk %}" 
+                                               class="btn btn-outline-primary" title="Редактировать">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <a href="{% url 'hiring_plan:position_delete' position.pk %}" 
+                                               class="btn btn-outline-danger" title="Удалить">
+                                                <i class="fas fa-trash"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-briefcase fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">Позиции не добавлены</h5>
+                        <p class="text-muted">Добавьте первую позицию в план найма</p>
+                        <a href="{% url 'hiring_plan:position_add' plan.pk %}" class="btn btn-primary">
+                            <i class="fas fa-plus me-2"></i>Добавить позицию
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

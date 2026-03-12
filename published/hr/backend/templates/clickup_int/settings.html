@@ -1,0 +1,512 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+
+{% block content %}
+<!-- Контейнер для уведомлений -->
+<div id="notifications-container" style="position: fixed; top: 20px; right: 20px; z-index: 9999;"></div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card clickup-card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-cog me-2"></i>
+                    Настройки интеграции
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="post" id="settingsForm">
+                    {% csrf_token %}
+                    
+                    <!-- API токен из профиля -->
+                    <div class="mb-4">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>API токен ClickUp</strong> настраивается в профиле пользователя.
+                            {% if user.clickup_api_key %}
+                                <span class="text-success">✅ Настроен</span>
+                            {% else %}
+                                <span class="text-danger">❌ Не настроен</span>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mt-2">
+                            <a href="{% url 'accounts:api_keys' %}" class="btn btn-outline-primary btn-sm me-2">
+                                <i class="fas fa-cog me-1"></i>
+                                Настроить API ключ
+                            </a>
+                            <button type="button" class="btn btn-outline-success btn-sm" onclick="testConnection()">
+                                <i class="fas fa-plug me-1"></i>
+                                Тестировать подключение
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Путь к задачам -->
+                    <div class="mb-4">
+                        <h6 class="text-primary mb-3">
+                            <i class="fas fa-route me-2"></i>
+                            Путь к задачам
+                        </h6>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.team_id.id_for_label }}" class="form-label">
+                                    {{ form.team_id.label }}
+                                </label>
+                                {{ form.team_id }}
+                                {% if form.team_id.help_text %}
+                                    <div class="form-text">{{ form.team_id.help_text }}</div>
+                                {% endif %}
+                                {% if form.team_id.errors %}
+                                    <div class="text-danger">{{ form.team_id.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.space_id.id_for_label }}" class="form-label">
+                                    {{ form.space_id.label }}
+                                </label>
+                                {{ form.space_id }}
+                                {% if form.space_id.help_text %}
+                                    <div class="form-text">{{ form.space_id.help_text }}</div>
+                                {% endif %}
+                                {% if form.space_id.errors %}
+                                    <div class="text-danger">{{ form.space_id.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.folder_id.id_for_label }}" class="form-label">
+                                    {{ form.folder_id.label }}
+                                </label>
+                                {{ form.folder_id }}
+                                {% if form.folder_id.help_text %}
+                                    <div class="form-text">{{ form.folder_id.help_text }}</div>
+                                {% endif %}
+                                {% if form.folder_id.errors %}
+                                    <div class="text-danger">{{ form.folder_id.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.list_id.id_for_label }}" class="form-label">
+                                    {{ form.list_id.label }}
+                                </label>
+                                {{ form.list_id }}
+                                {% if form.list_id.help_text %}
+                                    <div class="form-text">{{ form.list_id.help_text }}</div>
+                                {% endif %}
+                                {% if form.list_id.errors %}
+                                    <div class="text-danger">{{ form.list_id.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Индикатор загрузки -->
+                        <div id="loadingIndicator" class="text-center" style="display: none;">
+                            <div class="loading-spinner mx-auto mb-2"></div>
+                            <small class="text-muted">Загрузка данных...</small>
+                        </div>
+                    </div>
+                    
+                    <!-- Настройки синхронизации -->
+                    <div class="mb-4">
+                        <h6 class="text-primary mb-3">
+                            <i class="fas fa-sync me-2"></i>
+                            Настройки синхронизации
+                        </h6>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <div class="form-check">
+                                    {{ form.auto_sync }}
+                                    <label class="form-check-label" for="{{ form.auto_sync.id_for_label }}">
+                                        {{ form.auto_sync.label }}
+                                    </label>
+                                </div>
+                                {% if form.auto_sync.help_text %}
+                                    <div class="form-text">{{ form.auto_sync.help_text }}</div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.sync_interval.id_for_label }}" class="form-label">
+                                    {{ form.sync_interval.label }}
+                                </label>
+                                {{ form.sync_interval }}
+                                {% if form.sync_interval.help_text %}
+                                    <div class="form-text">{{ form.sync_interval.help_text }}</div>
+                                {% endif %}
+                                {% if form.sync_interval.errors %}
+                                    <div class="text-danger">{{ form.sync_interval.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-12 mb-3">
+                                <label for="{{ form.huntflow_filter.id_for_label }}" class="form-label">
+                                    <i class="fas fa-filter me-1"></i>
+                                    {{ form.huntflow_filter.label }}
+                                </label>
+                                {{ form.huntflow_filter }}
+                                {% if form.huntflow_filter.help_text %}
+                                    <div class="form-text">{{ form.huntflow_filter.help_text }}</div>
+                                {% endif %}
+                                {% if form.huntflow_filter.errors %}
+                                    <div class="text-danger">{{ form.huntflow_filter.errors.0 }}</div>
+                                {% endif %}
+                                
+                                <!-- Дополнительная информация о фильтре -->
+                                <div class="alert alert-info mt-2">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>Опции фильтра:</strong>
+                                    <ul class="mb-0 mt-2">
+                                        <li><strong>Все задачи</strong> - синхронизировать все задачи из выбранного списка</li>
+                                        <li><strong>Только с тегом huntflow</strong> - синхронизировать только уже обработанные задачи</li>
+                                        <li><strong>Только без тега huntflow</strong> - синхронизировать только новые, необработанные задачи</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Кнопки -->
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn clickup-btn">
+                            <i class="fas fa-save me-1"></i>
+                            Сохранить настройки
+                        </button>
+                        <a href="{% url 'clickup_int:dashboard' %}" class="btn clickup-btn-outline">
+                            <i class="fas fa-arrow-left me-1"></i>
+                            Назад к дашборду
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Справка -->
+    <div class="col-lg-4">
+        <div class="card clickup-card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-question-circle me-2"></i>
+                    Справка
+                </h5>
+            </div>
+            <div class="card-body">
+                <h6>Как получить API токен:</h6>
+                <ol class="small">
+                    <li>Войдите в ClickUp</li>
+                    <li>Перейдите в настройки профиля</li>
+                    <li>Найдите раздел "Apps"</li>
+                    <li>Создайте новый API токен</li>
+                    <li>Скопируйте токен (начинается с "pk_")</li>
+                </ol>
+                
+                <h6 class="mt-3">Как найти ID элементов:</h6>
+                <ul class="small">
+                    <li><strong>Команда:</strong> URL содержит /team/</li>
+                    <li><strong>Пространство:</strong> URL содержит /space/</li>
+                    <li><strong>Папка:</strong> URL содержит /folder/</li>
+                    <li><strong>Список:</strong> URL содержит /list/</li>
+                </ul>
+                
+                <div class="alert alert-info mt-3">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Совет:</strong> Используйте кнопку "Тестировать подключение" для проверки API токена.
+                </div>
+            </div>
+        </div>
+        
+        <!-- Статус подключения -->
+        <div class="card clickup-card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-plug me-2"></i>
+                    Статус подключения
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="connectionStatus" class="text-center py-3">
+                    <i class="fas fa-question-circle text-muted mb-2" style="font-size: 2rem;"></i>
+                    <p class="text-muted mb-0">Нажмите "Тестировать подключение" для проверки</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<!-- Стили уже подключены в base.html -->
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Функция тестирования подключения
+function testConnection() {
+    const statusDiv = document.getElementById('connectionStatus');
+    statusDiv.innerHTML = `
+        <div class="loading-spinner mx-auto mb-2"></div>
+        <p class="text-muted mb-0">Тестирование подключения...</p>
+    `;
+    
+    fetch('{% url "clickup_int:test_connection" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            statusDiv.innerHTML = `
+                <i class="fas fa-check-circle text-success mb-2" style="font-size: 2rem;"></i>
+                <p class="text-success mb-0">Подключение успешно!</p>
+                <small class="text-muted">Пользователь: ${data.user_info?.user?.username || 'Неизвестно'}</small>
+            `;
+            showNotification(data.message, 'success');
+        } else {
+            statusDiv.innerHTML = `
+                <i class="fas fa-times-circle text-danger mb-2" style="font-size: 2rem;"></i>
+                <p class="text-danger mb-0">Ошибка подключения</p>
+                <small class="text-muted">${data.message}</small>
+            `;
+            showNotification(data.message, 'error');
+        }
+    })
+    .catch(error => {
+        statusDiv.innerHTML = `
+            <i class="fas fa-exclamation-triangle text-warning mb-2" style="font-size: 2rem;"></i>
+            <p class="text-warning mb-0">Ошибка запроса</p>
+            <small class="text-muted">${error.message}</small>
+        `;
+        showNotification('Ошибка тестирования подключения: ' + error.message, 'error');
+    });
+}
+
+// Функция загрузки пространств
+function loadSpaces(teamId) {
+    const spaceSelect = document.getElementById('id_space_id');
+    const folderSelect = document.getElementById('id_folder_id');
+    const listSelect = document.getElementById('id_list_id');
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    
+    if (!teamId) {
+        // Сбрасываем все зависимые поля
+        spaceSelect.innerHTML = '<option value="">Выберите команду...</option>';
+        spaceSelect.disabled = true;
+        folderSelect.innerHTML = '<option value="">Выберите пространство...</option>';
+        folderSelect.disabled = true;
+        listSelect.innerHTML = '<option value="">Выберите папку или пространство...</option>';
+        listSelect.disabled = true;
+        return;
+    }
+    
+    // Если выбрано "Все пространства", пространства уже загружены в форме
+    if (teamId === 'all_spaces') {
+        spaceSelect.disabled = false;
+        folderSelect.innerHTML = '<option value="">Выберите пространство...</option>';
+        folderSelect.disabled = true;
+        listSelect.innerHTML = '<option value="">Выберите папку или пространство...</option>';
+        listSelect.disabled = true;
+        return;
+    }
+    
+    loadingIndicator.style.display = 'block';
+    spaceSelect.disabled = true;
+    folderSelect.disabled = true;
+    listSelect.disabled = true;
+    
+    fetch(`{% url "clickup_int:get_spaces" %}?team_id=${teamId}`)
+    .then(response => response.json())
+    .then(data => {
+        loadingIndicator.style.display = 'none';
+        
+        if (data.success) {
+            spaceSelect.innerHTML = '<option value="">Выберите пространство...</option>';
+            data.spaces.forEach(space => {
+                spaceSelect.innerHTML += `<option value="${space.id}">${space.name}</option>`;
+            });
+            spaceSelect.disabled = false;
+        } else {
+            spaceSelect.innerHTML = `<option value="">Ошибка: ${data.message}</option>`;
+            showNotification(data.message, 'error');
+        }
+    })
+    .catch(error => {
+        loadingIndicator.style.display = 'none';
+        spaceSelect.innerHTML = `<option value="">Ошибка загрузки</option>`;
+        showNotification('Ошибка загрузки пространств: ' + error.message, 'error');
+    });
+}
+
+// Функция загрузки папок
+function loadFolders(spaceId) {
+    const folderSelect = document.getElementById('id_folder_id');
+    const listSelect = document.getElementById('id_list_id');
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    
+    if (!spaceId) {
+        folderSelect.innerHTML = '<option value="">Выберите пространство...</option>';
+        folderSelect.disabled = true;
+        listSelect.innerHTML = '<option value="">Выберите папку или пространство...</option>';
+        listSelect.disabled = true;
+        return;
+    }
+    
+    loadingIndicator.style.display = 'block';
+    folderSelect.disabled = true;
+    listSelect.disabled = true;
+    
+    fetch(`{% url "clickup_int:get_folders" %}?space_id=${spaceId}`)
+    .then(response => response.json())
+    .then(data => {
+        loadingIndicator.style.display = 'none';
+        
+        if (data.success) {
+            folderSelect.innerHTML = '<option value="">Без папки</option>';
+            data.folders.forEach(folder => {
+                folderSelect.innerHTML += `<option value="${folder.id}">${folder.name}</option>`;
+            });
+            folderSelect.disabled = false;
+            
+            // Загружаем списки для пространства (без папки)
+            loadLists(spaceId, null);
+        } else {
+            folderSelect.innerHTML = `<option value="">Ошибка: ${data.message}</option>`;
+            showNotification(data.message, 'error');
+        }
+    })
+    .catch(error => {
+        loadingIndicator.style.display = 'none';
+        folderSelect.innerHTML = `<option value="">Ошибка загрузки</option>`;
+        showNotification('Ошибка загрузки папок: ' + error.message, 'error');
+    });
+}
+
+// Функция загрузки списков
+function loadLists(spaceId, folderId) {
+    const listSelect = document.getElementById('id_list_id');
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    
+    if (!spaceId && !folderId) {
+        listSelect.innerHTML = '<option value="">Выберите папку или пространство...</option>';
+        listSelect.disabled = true;
+        return;
+    }
+    
+    loadingIndicator.style.display = 'block';
+    listSelect.disabled = true;
+    
+    let url = '';
+    if (folderId) {
+        url = `{% url "clickup_int:get_lists" %}?folder_id=${folderId}`;
+    } else {
+        url = `{% url "clickup_int:get_lists" %}?space_id=${spaceId}`;
+    }
+    
+    fetch(url)
+    .then(response => response.json())
+    .then(data => {
+        loadingIndicator.style.display = 'none';
+        
+        if (data.success) {
+            listSelect.innerHTML = '<option value="">Выберите список задач...</option>';
+            data.lists.forEach(list => {
+                listSelect.innerHTML += `<option value="${list.id}">${list.name}</option>`;
+            });
+            listSelect.disabled = false;
+        } else {
+            listSelect.innerHTML = `<option value="">Ошибка: ${data.message}</option>`;
+            showNotification(data.message, 'error');
+        }
+    })
+    .catch(error => {
+        loadingIndicator.style.display = 'none';
+        listSelect.innerHTML = `<option value="">Ошибка загрузки</option>`;
+        showNotification('Ошибка загрузки списков: ' + error.message, 'error');
+    });
+}
+
+// Инициализация обработчиков событий
+document.addEventListener('DOMContentLoaded', function() {
+    const teamSelect = document.getElementById('id_team_id');
+    const spaceSelect = document.getElementById('id_space_id');
+    const folderSelect = document.getElementById('id_folder_id');
+    const listSelect = document.getElementById('id_list_id');
+    
+    // Обработчик изменения команды
+    teamSelect.addEventListener('change', function() {
+        loadSpaces(this.value);
+    });
+    
+    // Обработчик изменения пространства
+    spaceSelect.addEventListener('change', function() {
+        loadFolders(this.value);
+    });
+    
+    // Обработчик изменения папки
+    folderSelect.addEventListener('change', function() {
+        const spaceId = spaceSelect.value;
+        const folderId = this.value;
+        loadLists(spaceId, folderId);
+    });
+});
+
+// Функция для показа уведомлений
+function showNotification(message, type = 'info') {
+    const container = document.getElementById('notifications-container');
+    if (!container) {
+        // Создаем контейнер для уведомлений, если его нет
+        const newContainer = document.createElement('div');
+        newContainer.id = 'notifications-container';
+        newContainer.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 9999;';
+        document.body.appendChild(newContainer);
+        return showNotification(message, type); // Рекурсивный вызов
+    }
+    
+    const notification = document.createElement('div');
+    
+    const alertClass = type === 'success' ? 'alert-success' : 
+                      type === 'error' ? 'alert-danger' : 
+                      type === 'warning' ? 'alert-warning' : 'alert-info';
+    
+    notification.className = `alert ${alertClass} alert-dismissible fade show`;
+    notification.style.cssText = 'min-width: 300px; margin-bottom: 10px;';
+    
+    const icon = type === 'success' ? 'check-circle' : 
+                 type === 'error' ? 'times-circle' : 
+                 type === 'warning' ? 'exclamation-triangle' : 'info-circle';
+    
+    notification.innerHTML = `
+        <i class="fas fa-${icon} me-2"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    
+    container.appendChild(notification);
+    
+    // Автоматически удаляем уведомление через 5 секунд
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 5000);
+}
+
+// Тема инициализируется в базовом шаблоне
+</script>
+{% endblock %}
+
+
+
+

@@ -1,0 +1,831 @@
+{% extends 'common/base.html' %}
+{% load huntflow_filters %}
+
+{% block title %}Редактирование кандидата: {{ applicant.first_name|default:"" }} {{ applicant.last_name|default:"" }}{% endblock %}
+{% block page_title %}Редактирование кандидата: {{ applicant.first_name|default:"" }} {{ applicant.last_name|default:"" }}{% endblock %}
+
+
+{% block content %}
+<form method="post">
+    {% csrf_token %}
+    <div class="row">
+        <!-- Основная информация -->
+        <div class="col-md-8">
+            <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-user me-2"></i>
+                    Основная информация по ID {{ applicant.id }}
+                </h5>
+            </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <!-- Первая строка: Вакансия | Статус -->
+                            <div class="row mb-3">
+                                <div class="col-4">
+                                    <strong>Вакансия:</strong> 
+                                    {% if applicant.vacancy_info %}
+                                        <span class="badge bg-primary">{{ applicant.vacancy_info.position }}</span>
+                                    {% else %}
+                                        <span class="text-muted">Нет вакансий</span>
+                                    {% endif %}
+                                </div>
+                                <div class="col-8">
+                                    <div class="d-flex align-items-center gap-2">
+                                    <strong>Статус:</strong>
+                                        <select name="status_id" class="form-select form-select-sm d-inline-block w-auto">
+                                        <option value="">Выберите статус</option>
+                                        {% if statuses and statuses.items %}
+                                            {% for status in statuses.items %}
+                                                <option value="{{ status.id }}" 
+                                                        {% if applicant.status_info and status.id == applicant.status_info.id %}selected{% endif %}>
+                                                    {{ status.name }}
+                                                </option>
+                                            {% endfor %}
+                                        {% endif %}
+                                    </select>
+                                        <button type="button" class="btn btn-primary btn-sm" id="toggle-status-comment" title="Добавить комментарий к статусу">
+                                            <i class="fas fa-comment"></i>
+                                        </button>
+                            </div>
+                            
+                                    <!-- Коллапс для комментария к статусу -->
+                                    <div class="collapse mt-2" id="status-comment-collapse">
+                                        <div class="add-comment-section mb-4">
+                                            <form id="status-comment-form" class="comment-form">
+                                                {% csrf_token %}
+                                                <div class="form-group">
+                                                    <label for="status_comment" class="form-label">
+                                                        <i class="fas fa-plus-circle me-1"></i>
+                                                        Комментарий к изменению статуса
+                                                    </label>
+                                                    <div class="comment-input-wrapper">
+                                                        <textarea 
+                                                            id="status_comment" 
+                                                            name="status_comment" 
+                                                            class="form-control comment-textarea" 
+                                                            rows="1" 
+                                                            placeholder="Укажите причину изменения статуса (необязательно)"
+                                                        ></textarea>
+                                                    </div>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+
+                            
+                            <!-- Вторая строка: ФИО (все 3 поля) -->
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <strong>ФИО:</strong>
+                                    <div class="d-flex gap-2 mt-1">
+                                        <input type="text" class="form-control form-control-sm" name="first_name" 
+                                               value="{{ applicant.first_name|default:'' }}" placeholder="Имя">
+                                        <input type="text" class="form-control form-control-sm" name="last_name" 
+                                               value="{{ applicant.last_name|default:'' }}" placeholder="Фамилия">
+                                        <input type="text" class="form-control form-control-sm" name="middle_name" 
+                                               value="{{ applicant.middle_name|default:'' }}" placeholder="Отчество">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Третья строка: Зарплатные ожидания -->
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                <label for="money" class="form-label"><strong>Зарплатные ожидания:</strong></label>
+                                <input type="text" class="form-control" id="money" name="money" 
+                                       value="{{ applicant.money|default:'' }}" placeholder="Например: 1000$" maxlength="100" data-maxlength="100">
+                                <div class="maxlength-feedback" id="money-feedback"></div>
+                                </div>
+                            </div>
+                            
+                            <!-- Четвертая строка: Метки -->
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                <label class="form-label"><strong>Метки:</strong></label>
+                                <div class="tokenfield-container">
+                                    <!-- Контейнер для выбранных тегов и поля ввода -->
+                                    <div class="selected-tags" id="selected-tags">
+                                        {% if applicant.enriched_tags %}
+                                            {% for tag in applicant.enriched_tags %}
+                                                <span class="tag-token" data-tag-id="{{ tag.id }}">
+                                                    {% if tag.color %}
+                                                        <span class="badge me-1" style="background-color: #{{ tag.color }} !important; color: {{ tag.color|get_contrast_color }} !important;">{{ tag.name }}</span>
+                                                    {% else %}
+                                                        <span class="badge bg-secondary me-1">{{ tag.name }}</span>
+                                                    {% endif %}
+                                                    <button type="button" class="btn-close" aria-label="Удалить"></button>
+                                                </span>
+                                            {% endfor %}
+                                        {% endif %}
+                                        <!-- Поле ввода -->
+                                        <input type="text" class="tag-input" id="tag-input" placeholder="Выберите или введите метку...">
+                                    </div>
+                                    
+                                    <!-- Выпадающий список -->
+                                    <div class="tag-dropdown" id="tag-dropdown" style="display: none;">
+                                        {% if tags and tags.items %}
+                                            {% for tag in tags.items %}
+                                                <div class="tag-option" data-tag-id="{{ tag.id }}" data-tag-name="{{ tag.name }}" data-tag-color="{{ tag.color|default:'' }}">
+                                                    {% if tag.color %}
+                                                        <span class="badge me-2" style="background-color: #{{ tag.color }} !important; color: {{ tag.color|get_contrast_color }} !important;">{{ tag.name }}</span>
+                                                    {% else %}
+                                                        <span class="badge bg-secondary me-2">{{ tag.name }}</span>
+                                                    {% endif %}
+                                                </div>
+                                            {% endfor %}
+                                        {% else %}
+                                            <div class="tag-option text-muted">Метки не найдены</div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <!-- Скрытые поля для отправки выбранных тегов -->
+                                    <div id="hidden-tag-inputs">
+                                        {% if applicant.enriched_tags %}
+                                            {% for tag in applicant.enriched_tags %}
+                                                <input type="hidden" name="tags" value="{{ tag.id }}">
+                                            {% endfor %}
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            
+        </div>
+                    
+            <!-- Контакты -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-address-book me-2"></i>
+                        Контакты
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="email" class="form-label"><strong>Email:</strong></label>
+                                <input type="email" class="form-control" id="email" name="email" 
+                                       value="{{ applicant.email|default:'' }}" placeholder="email@example.com" maxlength="255" data-maxlength="255">
+                                <div class="maxlength-feedback" id="email-feedback"></div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="phone" class="form-label"><strong>Телефон:</strong></label>
+                                <input type="tel" class="form-control" id="phone" name="phone" 
+                                       value="{{ applicant.phone|default:'' }}" placeholder="+375 29 123-45-67" maxlength="20" data-maxlength="20">
+                                <div class="maxlength-feedback" id="phone-feedback"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Telegram -->
+                    <div class="mb-3">
+                        <label for="telegram" class="form-label"><strong>Telegram:</strong></label>
+                        <div class="input-group">
+                            <span class="input-group-text">@</span>
+                            <input type="text" class="form-control" id="telegram" name="telegram" 
+                                   value="{% if applicant.social %}{% for social in applicant.social %}{% if social.social_type == 'TELEGRAM' %}{{ social.value }}{% endif %}{% endfor %}{% endif %}" 
+                                   placeholder="username" maxlength="50" data-maxlength="50">
+                        </div>
+                        <div class="maxlength-feedback" id="telegram-feedback"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Анкета кандидата -->
+            {% if questionary %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-clipboard-list me-2"></i>
+                        Анкета кандидата
+                        <span class="badge bg-primary ms-2">{{ questionary|length }} полей</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for field_key, field_data in questionary.items %}
+                        <div class="col-12 mb-3">
+                            <div class="questionary-field">
+                                <div class="d-flex align-items-center gap-2">
+                                    <label for="questionary_{{ field_key }}" class="form-label mb-0" style="min-width: 200px; flex-shrink: 0;">
+                                        <strong>{{ field_data.title }}</strong>
+                                    </label>
+                                
+                                    {% if field_data.type == 'textarea' %}
+                                        <textarea class="form-control flex-grow-1" id="questionary_{{ field_key }}" 
+                                                  name="questionary_{{ field_key }}" rows="2"
+                                                  placeholder="Введите {{ field_data.title|lower }}">{{ field_data.value|default:'' }}</textarea>
+                                    {% elif field_data.type == 'select' %}
+                                        <select class="form-select flex-grow-1" id="questionary_{{ field_key }}" 
+                                                name="questionary_{{ field_key }}">
+                                            <option value="">Выберите {{ field_data.title|lower }}</option>
+                                            {% if field_data.options %}
+                                                {% for option in field_data.options %}
+                                                    {% if option.value %}
+                                                        <option value="{{ option.value }}" 
+                                                                {% if field_data.value == option.value %}selected{% endif %}>
+                                                            {{ option.title|default:option.value }}
+                                                        </option>
+                                                    {% elif option.title %}
+                                                        <option value="{{ option.title }}" 
+                                                                {% if field_data.value == option.title %}selected{% endif %}>
+                                                            {{ option.title }}
+                                                        </option>
+                                                    {% else %}
+                                                        <option value="{{ option }}" 
+                                                                {% if field_data.value == option %}selected{% endif %}>
+                                                            {{ option }}
+                                                        </option>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            {% else %}
+                                                <!-- Если опций нет, показываем текущее значение -->
+                                                {% if field_data.value %}
+                                                    <option value="{{ field_data.value }}" selected>{{ field_data.value }}</option>
+                                                {% endif %}
+                                            {% endif %}
+                                        </select>
+                                    {% elif field_data.type == 'checkbox' %}
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="questionary_{{ field_key }}" 
+                                                   name="questionary_{{ field_key }}" value="true"
+                                                   {% if field_data.value %}checked{% endif %}>
+                                        </div>
+                                    {% else %}
+                                        <input type="text" class="form-control flex-grow-1" id="questionary_{{ field_key }}" 
+                                               name="questionary_{{ field_key }}" 
+                                               value="{{ field_data.value|default:'' }}"
+                                               placeholder="Введите {{ field_data.title|lower }}">
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Боковая панель -->
+        <div class="col-md-4 sticky-sidebar">
+            <!-- Действия -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-cogs me-2"></i>
+                        Действия
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-save me-1"></i>
+                            Сохранить изменения
+                        </button>
+                        <a href="{% url 'huntflow:applicant_detail' account_id applicant.id %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times me-1"></i>
+                            Отменить
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Информация -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Информация
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted mb-2">
+                        <i class="fas fa-edit me-1"></i>
+                        <strong>Редактируемые поля:</strong> основные данные, контакты, статус, метки, анкета.
+                    </p>
+                    <p class="small text-muted mb-2">
+                        <i class="fas fa-lock me-1"></i>
+                        <strong>Только просмотр:</strong> вакансия (редактируется в Huntflow).
+                    </p>
+                    <p class="small text-muted mb-0">
+                        <i class="fas fa-save me-1"></i>
+                        <strong>Сохранение:</strong> все изменения сохраняются в Huntflow.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- Стили уже подключены в base.html -->
+
+<script>
+// Функция для показа уведомлений
+function showAlert(type, message) {
+    const alertHtml = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    
+    // Ищем контейнер для сообщений или создаем его
+    let messagesContainer = document.querySelector('.messages');
+    if (!messagesContainer) {
+        messagesContainer = document.createElement('div');
+        messagesContainer.className = 'messages';
+        document.body.insertBefore(messagesContainer, document.body.firstChild);
+    }
+    
+    messagesContainer.insertAdjacentHTML('beforeend', alertHtml);
+    
+    setTimeout(() => {
+        const alert = messagesContainer.querySelector('.alert:last-child');
+        if (alert) {
+            alert.classList.remove('show');
+            setTimeout(() => alert.remove(), 150);
+        }
+    }, 3000);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Управление коллапсом комментария к статусу
+    const toggleStatusCommentBtn = document.getElementById('toggle-status-comment');
+    const statusCommentCollapse = document.getElementById('status-comment-collapse');
+    const statusCommentTextarea = document.getElementById('status_comment');
+    
+    if (toggleStatusCommentBtn && statusCommentCollapse) {
+        toggleStatusCommentBtn.addEventListener('click', function() {
+            const isCollapsed = statusCommentCollapse.classList.contains('show');
+            
+            if (isCollapsed) {
+                // Сворачиваем
+                statusCommentCollapse.classList.remove('show');
+                toggleStatusCommentBtn.innerHTML = '<i class="fas fa-comment"></i>';
+                toggleStatusCommentBtn.title = 'Добавить комментарий к статусу';
+                // Сворачиваем textarea
+                if (statusCommentTextarea) {
+                    statusCommentTextarea.classList.remove('expanded');
+                }
+            } else {
+                // Разворачиваем
+                statusCommentCollapse.classList.add('show');
+                toggleStatusCommentBtn.innerHTML = '<i class="fas fa-comment-slash"></i>';
+                toggleStatusCommentBtn.title = 'Скрыть комментарий к статусу';
+            }
+        });
+    }
+    
+    // Обработка textarea комментария к статусу (как в applicant_detail.html)
+    if (statusCommentTextarea) {
+        // Обработка фокуса на textarea
+        statusCommentTextarea.addEventListener('focus', function() {
+            this.classList.add('expanded');
+        });
+        
+        // Обработка потери фокуса
+        statusCommentTextarea.addEventListener('blur', function() {
+            if (!this.value.trim()) {
+                this.classList.remove('expanded');
+            }
+        });
+        
+        // Обработка клика вне формы
+        document.addEventListener('click', function(e) {
+            if (!statusCommentCollapse.contains(e.target) && !statusCommentTextarea.value.trim()) {
+                statusCommentTextarea.classList.remove('expanded');
+            }
+        });
+    }
+    
+    const tagInput = document.getElementById('tag-input');
+    const tagDropdown = document.getElementById('tag-dropdown');
+    const selectedTagsContainer = document.getElementById('selected-tags');
+    const hiddenInputsContainer = document.getElementById('hidden-tag-inputs');
+    
+    // Массив для отслеживания выбранных тегов
+    let selectedTags = [];
+    
+    // Инициализация выбранных тегов
+    function initializeSelectedTags() {
+        const existingTags = selectedTagsContainer.querySelectorAll('.tag-token');
+        existingTags.forEach(tag => {
+            const tagId = tag.getAttribute('data-tag-id');
+            const tagName = tag.querySelector('.badge').textContent;
+            const tagColor = tag.querySelector('.badge').style.backgroundColor || '';
+            selectedTags.push({
+                id: tagId,
+                name: tagName,
+                color: tagColor
+            });
+            
+            // Добавляем обработчик удаления к существующим тегам
+            const removeBtn = tag.querySelector('.btn-close');
+            if (removeBtn) {
+                removeBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    removeTag(tagId);
+                });
+            }
+        });
+    }
+    
+    // Добавление тега
+    function addTag(tagId, tagName, tagColor) {
+        // Проверяем, не выбран ли уже этот тег
+        if (selectedTags.some(tag => tag.id === tagId)) {
+            return;
+        }
+        
+        // Добавляем в массив
+        selectedTags.push({
+            id: tagId,
+            name: tagName,
+            color: tagColor
+        });
+        
+        // Создаем визуальный элемент тега
+        const tagElement = document.createElement('span');
+        tagElement.className = 'tag-token';
+        tagElement.setAttribute('data-tag-id', tagId);
+        
+        // Формируем стиль для бейджа
+        let badgeStyle = '';
+        if (tagColor) {
+            const contrastColor = getContrastColor(tagColor);
+            badgeStyle = `style="background-color: #${tagColor} !important; color: ${contrastColor} !important;"`;
+        } else {
+            badgeStyle = 'class="badge bg-secondary me-1"';
+        }
+        
+        tagElement.innerHTML = `
+            <span class="badge me-1" ${badgeStyle}>${tagName}</span>
+            <button type="button" class="btn-close" aria-label="Удалить"></button>
+        `;
+        
+        // Добавляем обработчик удаления
+        const removeBtn = tagElement.querySelector('.btn-close');
+        removeBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            removeTag(tagId);
+        });
+        
+        // Добавляем в контейнер перед полем ввода
+        tagInput.parentNode.insertBefore(tagElement, tagInput);
+        
+        // Обновляем скрытые поля
+        updateHiddenInputs();
+        
+        // Очищаем поле ввода
+        tagInput.value = '';
+        
+        // Скрываем выпадающий список после добавления тега
+        tagDropdown.style.display = 'none';
+        
+        // Сохраняем фокус на поле ввода
+        setTimeout(() => {
+            tagInput.focus();
+        }, 10);
+    }
+    
+    // Удаление тега
+    function removeTag(tagId) {
+        // Удаляем из массива
+        selectedTags = selectedTags.filter(tag => tag.id !== tagId);
+        
+        // Находим и удаляем визуальный элемент
+        const tagElement = selectedTagsContainer.querySelector(`[data-tag-id="${tagId}"]`);
+        if (tagElement) {
+            tagElement.classList.add('removing');
+            setTimeout(() => {
+                tagElement.remove();
+            }, 300);
+        }
+        
+        // Обновляем скрытые поля
+        updateHiddenInputs();
+    }
+    
+    // Обновление скрытых полей для отправки формы
+    function updateHiddenInputs() {
+        // Очищаем существующие скрытые поля
+        hiddenInputsContainer.innerHTML = '';
+        
+        // Добавляем новые скрытые поля для каждого выбранного тега
+        selectedTags.forEach(tag => {
+            const hiddenInput = document.createElement('input');
+            hiddenInput.type = 'hidden';
+            hiddenInput.name = 'tags';
+            hiddenInput.value = tag.id;
+            hiddenInputsContainer.appendChild(hiddenInput);
+        });
+    }
+    
+    // Обновление выпадающего списка (скрытие уже выбранных тегов)
+    function updateDropdown() {
+        const options = tagDropdown.querySelectorAll('.tag-option');
+        options.forEach(option => {
+            const tagId = option.getAttribute('data-tag-id');
+            if (tagId && selectedTags.some(tag => tag.id === tagId)) {
+                option.style.display = 'none';
+            } else {
+                option.style.display = 'block';
+            }
+        });
+    }
+    
+    // Обработка клика по опции в выпадающем списке
+    tagDropdown.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const option = e.target.closest('.tag-option');
+        if (option && option.getAttribute('data-tag-id')) {
+            const tagId = option.getAttribute('data-tag-id');
+            const tagName = option.getAttribute('data-tag-name');
+            const tagColor = option.getAttribute('data-tag-color');
+            
+            addTag(tagId, tagName, tagColor);
+        }
+    });
+    
+    // Предотвращаем скрытие выпадающего списка при наведении на него
+    tagDropdown.addEventListener('mouseenter', function(e) {
+        e.stopPropagation();
+    });
+    
+    tagDropdown.addEventListener('mouseleave', function(e) {
+        e.stopPropagation();
+    });
+    
+    // Функция для позиционирования выпадающего списка
+    function positionDropdown() {
+        const inputRect = tagInput.getBoundingClientRect();
+        tagDropdown.style.top = (inputRect.bottom + window.scrollY + 2) + 'px';
+        tagDropdown.style.left = inputRect.left + 'px';
+        tagDropdown.style.width = inputRect.width + 'px';
+        tagDropdown.style.zIndex = '9999';
+        tagDropdown.style.position = 'absolute';
+        
+        // ПРОВЕРЯЕМ СОДЕРЖИМОЕ СПИСКА
+        const options = tagDropdown.querySelectorAll('.tag-option');
+        console.log('Список позиционирован. Количество опций:', options.length);
+        console.log('HTML списка:', tagDropdown.innerHTML);
+        console.log('Стили списка:', {
+            display: tagDropdown.style.display,
+            visibility: tagDropdown.style.visibility,
+            opacity: tagDropdown.style.opacity,
+            position: tagDropdown.style.position,
+            zIndex: tagDropdown.style.zIndex
+        });
+    }
+    
+    // Обработка ввода в поле поиска
+    tagInput.addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase();
+        const options = tagDropdown.querySelectorAll('.tag-option');
+        
+        // Показываем список при вводе
+        positionDropdown();
+        tagDropdown.style.display = 'block';
+        
+        options.forEach(option => {
+            if (option.getAttribute('data-tag-name')) {
+                const tagId = option.getAttribute('data-tag-id');
+                const tagName = option.getAttribute('data-tag-name').toLowerCase();
+                
+                // Проверяем, не выбран ли уже этот тег
+                const isSelected = selectedTags.some(tag => tag.id === tagId);
+                
+                // Показываем только если тег не выбран И соответствует поиску
+                if (!isSelected && tagName.includes(searchTerm)) {
+                    option.style.display = 'block';
+                } else {
+                    option.style.display = 'none';
+                }
+            }
+        });
+    });
+    
+    // Обработка фокуса на поле ввода
+    tagInput.addEventListener('focus', function() {
+        // Показываем выпадающий список при фокусе
+        positionDropdown();
+        tagDropdown.style.display = 'block';
+        
+        // Применяем фильтрацию как при вводе
+        const searchTerm = this.value.toLowerCase();
+        const options = tagDropdown.querySelectorAll('.tag-option');
+        
+        options.forEach(option => {
+            if (option.getAttribute('data-tag-name')) {
+                const tagId = option.getAttribute('data-tag-id');
+                const tagName = option.getAttribute('data-tag-name').toLowerCase();
+                
+                // Проверяем, не выбран ли уже этот тег
+                const isSelected = selectedTags.some(tag => tag.id === tagId);
+                
+                // Показываем только если тег не выбран И соответствует поиску
+                if (!isSelected && tagName.includes(searchTerm)) {
+                    option.style.display = 'block';
+                } else {
+                    option.style.display = 'none';
+                }
+            }
+        });
+    });
+    
+    // Скрытие выпадающего списка при клике вне его
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.tokenfield-container') && 
+            !e.target.closest('.tag-dropdown')) {
+            tagDropdown.style.display = 'none';
+        }
+    });
+    
+    // Убираем лишние обработчики
+    
+    // Обновление позиции выпадающего списка при скролле
+    window.addEventListener('scroll', function() {
+        if (tagDropdown.style.display === 'block') {
+            positionDropdown();
+        }
+    });
+    
+    // Обновление позиции при изменении размера окна
+    window.addEventListener('resize', function() {
+        if (tagDropdown.style.display === 'block') {
+            positionDropdown();
+        }
+    });
+    
+    // СПИСОК ВСЕГДА ВИДЕН! НАХУЙ ВСЕ СОБЫТИЯ!
+    const tokenfieldContainer = document.querySelector('.tokenfield-container');
+    
+    // ПРОСТОЕ РЕШЕНИЕ: показываем при наведении мыши, скрываем при убирании
+    tokenfieldContainer.addEventListener('mouseenter', function() {
+        positionDropdown();
+        tagDropdown.style.display = 'block';
+    });
+    
+    tokenfieldContainer.addEventListener('mouseleave', function() {
+        tagDropdown.style.display = 'none';
+    });
+    
+    // Обработка нажатия клавиш в поле ввода
+    tagInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const searchTerm = this.value.trim();
+            if (searchTerm) {
+                // Ищем первый подходящий тег
+                const options = tagDropdown.querySelectorAll('.tag-option');
+                for (let option of options) {
+                    const tagId = option.getAttribute('data-tag-id');
+                    const tagName = option.getAttribute('data-tag-name').toLowerCase();
+                    
+                    // Проверяем, не выбран ли уже этот тег
+                    const isSelected = selectedTags.some(tag => tag.id === tagId);
+                    
+                    if (!isSelected && tagName.includes(searchTerm.toLowerCase()) && option.style.display !== 'none') {
+                        const tagColor = option.getAttribute('data-tag-color');
+                        addTag(tagId, option.getAttribute('data-tag-name'), tagColor);
+                        break;
+                    }
+                }
+            }
+        } else if (e.key === 'Backspace' && this.value === '') {
+            // Если поле ввода пустое и нажат Backspace, удаляем последний тег
+            e.preventDefault();
+            if (selectedTags.length > 0) {
+                const lastTag = selectedTags[selectedTags.length - 1];
+                removeTag(lastTag.id);
+            }
+        }
+    });
+    
+    // Инициализация
+    initializeSelectedTags();
+    
+    // Инициализация Bootstrap Maxlength
+    initializeMaxlength();
+});
+
+// Функция для вычисления контрастности цвета
+function getContrastColor(hexColor) {
+    if (!hexColor) {
+        return '#000000';
+    }
+    
+    // Убираем # если есть
+    hexColor = hexColor.replace('#', '');
+    
+    // Проверяем, что это валидный hex цвет
+    if (hexColor.length !== 6) {
+        return '#000000';
+    }
+    
+    try {
+        // Конвертируем hex в RGB
+        const r = parseInt(hexColor.substr(0, 2), 16);
+        const g = parseInt(hexColor.substr(2, 2), 16);
+        const b = parseInt(hexColor.substr(4, 2), 16);
+        
+        // Вычисляем яркость по формуле W3C
+        // Используем веса для учета восприятия яркости человеческим глазом
+        const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+        
+        // Возвращаем черный для светлых цветов, белый для темных
+        return brightness > 128 ? '#000000' : '#ffffff';
+    } catch (error) {
+        // Если не удалось распарсить, возвращаем черный по умолчанию
+        return '#000000';
+    }
+}
+
+// Функция для применения контрастного цвета к меткам
+function applyContrastToTags() {
+    // Обрабатываем существующие метки
+    const existingTags = document.querySelectorAll('.tag-token .badge');
+    existingTags.forEach(badge => {
+        const bgColor = badge.style.backgroundColor;
+        if (bgColor && bgColor !== 'rgb(108, 117, 125)') { // Не обрабатываем серые метки
+            const contrastColor = getContrastColor(bgColor);
+            badge.style.color = contrastColor + ' !important';
+        }
+    });
+    
+    // Обрабатываем опции в выпадающем списке
+    const dropdownOptions = document.querySelectorAll('.tag-option .badge');
+    dropdownOptions.forEach(badge => {
+        const bgColor = badge.style.backgroundColor;
+        if (bgColor && bgColor !== 'rgb(108, 117, 125)') { // Не обрабатываем серые метки
+            const contrastColor = getContrastColor(bgColor);
+            badge.style.color = contrastColor + ' !important';
+        }
+    });
+}
+
+// Функция для инициализации Bootstrap Maxlength
+function initializeMaxlength() {
+    // Находим все поля с атрибутом data-maxlength
+    const inputs = document.querySelectorAll('input[data-maxlength]');
+    
+    inputs.forEach(input => {
+        const maxLength = parseInt(input.getAttribute('data-maxlength'));
+        const feedbackId = input.id + '-feedback';
+        const feedback = document.getElementById(feedbackId);
+        
+        if (feedback) {
+            // Функция обновления счетчика
+            function updateCounter() {
+                const currentLength = input.value.length;
+                const remaining = maxLength - currentLength;
+                
+                // Обновляем текст
+                feedback.textContent = `${currentLength}/${maxLength} символов`;
+                
+                // Устанавливаем цвет в зависимости от оставшихся символов
+                feedback.className = 'maxlength-feedback';
+                
+                if (remaining <= 0) {
+                    feedback.classList.add('danger');
+                } else if (remaining <= maxLength * 0.1) { // 10% от максимума
+                    feedback.classList.add('warning');
+                } else if (remaining <= maxLength * 0.2) { // 20% от максимума
+                    feedback.classList.add('warning');
+                } else {
+                    feedback.classList.add('success');
+                }
+            }
+            
+            // Обновляем при загрузке страницы
+            updateCounter();
+            
+            // Обновляем при вводе
+            input.addEventListener('input', updateCounter);
+            input.addEventListener('paste', function() {
+                setTimeout(updateCounter, 10); // Небольшая задержка для обработки вставки
+            });
+        }
+    });
+}
+</script>
+{% endblock %}

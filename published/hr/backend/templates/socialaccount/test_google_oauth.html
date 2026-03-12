@@ -1,0 +1,80 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Тест Google OAuth - HR Helper{% endblock %}
+{% block page_title %}Тест Google OAuth{% endblock %}
+
+{% block extra_css %}
+<link href="{% static 'css/socialaccount.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fab fa-google me-2 text-danger"></i>
+                    Тест Google OAuth
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <h6>Информация о текущем состоянии:</h6>
+                    <ul>
+                        <li><strong>URL:</strong> {{ request.get_full_path }}</li>
+                        <li><strong>Пользователь:</strong> {{ user }}</li>
+                        <li><strong>Авторизован:</strong> {{ user.is_authenticated }}</li>
+                    </ul>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Доступные URL для Google OAuth:</h6>
+                        <ul class="list-unstyled">
+                            <li><a href="{% url 'google_login' %}" class="btn btn-outline-primary btn-sm mb-2">google_login</a></li>
+                            <li><a href="/accounts/google/login/" class="btn btn-outline-primary btn-sm mb-2">/accounts/google/login/</a></li>
+                            <li><a href="{% url 'account_login' %}" class="btn btn-outline-secondary btn-sm mb-2">account_login</a></li>
+                        </ul>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h6>Тестовые кнопки:</h6>
+                        <div class="d-grid gap-2">
+                            <a href="{% url 'google_login' %}" class="btn btn-danger">
+                                <i class="fab fa-google me-2"></i>
+                                Войти через Google (google_login)
+                            </a>
+                            
+                            <a href="/accounts/google/login/" class="btn btn-warning">
+                                <i class="fas fa-external-link-alt me-2"></i>
+                                Прямой URL Google OAuth
+                            </a>
+                            
+                            <a href="{% url 'account_login' %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>
+                                Назад к выбору входа
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="alert alert-warning">
+                    <h6>Возможные проблемы:</h6>
+                    <ul class="mb-0">
+                        <li>Браузер блокирует всплывающие окна</li>
+                        <li>Проблемы с CORS</li>
+                        <li>Неправильные настройки Google OAuth</li>
+                        <li>Проблемы с редиректом</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+

@@ -1,0 +1,458 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Массовый импорт задач ClickUp{% endblock %}
+
+{% block extra_css %}
+<!-- Стили уже подключены в base.html -->
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Заголовок страницы -->
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-download me-2"></i>
+            Массовый импорт задач ClickUp
+        </h1>
+        <a href="{% url 'clickup_int:tasks_list' %}" class="btn btn-sm btn-primary shadow-sm">
+            <i class="fas fa-list me-1"></i>
+            К списку задач
+        </a>
+    </div>
+
+    {% if not is_configured %}
+    <!-- Предупреждение о настройках -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="alert alert-warning" role="alert">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>Внимание!</strong> Для массового импорта необходимо настроить интеграцию с ClickUp.
+                <a href="{% url 'clickup_int:settings' %}" class="alert-link">Перейти к настройкам</a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row">
+        <!-- Основная панель импорта -->
+        <div class="col-lg-8">
+            <div class="card import-card mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-rocket me-2"></i>
+                        Запуск массового импорта
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if is_configured %}
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="progress-card card mb-3">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">
+                                        <i class="fas fa-tasks me-2"></i>
+                                        Импорт задач
+                                    </h5>
+                                    <p class="card-text">
+                                        Импортируйте все задачи из настроенного списка ClickUp с соблюдением ограничений API
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="stats-card card mb-3">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">
+                                        <i class="fas fa-clock me-2"></i>
+                                        Безопасный режим
+                                    </h5>
+                                    <p class="card-text">
+                                        Рандомные интервалы 10-45 секунд между запросами для соблюдения лимитов API
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Выбор вакансии Huntflow и опции импорта -->
+                    {% if huntflow_vacancies %}
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="m-0 font-weight-bold text-primary">
+                                        <i class="fas fa-briefcase me-2"></i>
+                                        Выбор вакансии в Huntflow
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="form-group">
+                                        <label for="huntflowVacancySelect" class="form-label">
+                                            <i class="fas fa-list me-1"></i>
+                                            Вакансия для привязки кандидатов:
+                                        </label>
+                                        <select id="huntflowVacancySelect" class="form-select">
+                                            <option value="">Без привязки к вакансии</option>
+                                            {% for vacancy in huntflow_vacancies %}
+                                            <option value="{{ vacancy.id }}">
+                                                {{ vacancy.position }} 
+                                                {% if vacancy.company %} - {{ vacancy.company }}{% endif %}
+                                                {% if vacancy.state %} ({{ vacancy.state }}){% endif %}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                        <div class="form-text">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            Выберите вакансию, к которой будут привязаны импортированные кандидаты
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Опции импорта -->
+                        <div class="col-md-6">
+                            <div class="card border-primary">
+                                <div class="card-header">
+                                    <h6 class="mb-0">
+                                        <i class="fas fa-cog me-2"></i>
+                                        Опции импорта
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="form-check mb-3">
+                                        <input 
+                                            type="checkbox" 
+                                            class="form-check-input" 
+                                            id="include_comments" 
+                                            name="include_comments" 
+                                            checked
+                                        >
+                                        <label class="form-check-label" for="include_comments">
+                                            <strong>Передавать комментарии в Huntflow</strong>
+                                        </label>
+                                        <div class="form-text">
+                                            Если отмечено, все комментарии из ClickUp будут переданы в профиль кандидата в Huntflow
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="alert alert-info mb-0">
+                                        <small>
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            Комментарии помогают рекрутерам лучше понять контекст кандидата
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="text-center mt-4">
+                        <button id="startBulkImport" class="btn btn-bulk-import btn-lg">
+                            <i class="fas fa-play me-2"></i>
+                            Запустить массовый импорт
+                        </button>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Процесс импорта может занять длительное время в зависимости от количества задач.
+                            Вы можете отслеживать прогресс на отдельной странице.
+                        </small>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-cog fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">Настройте интеграцию с ClickUp</h5>
+                        <p class="text-muted">Для запуска массового импорта необходимо настроить API ключ и путь к списку задач</p>
+                        <a href="{% url 'clickup_int:settings' %}" class="btn btn-primary">
+                            <i class="fas fa-cog me-2"></i>
+                            Перейти к настройкам
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Боковая панель с информацией -->
+        <div class="col-lg-4">
+            <div class="card import-card mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Информация об импорте
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <h6 class="text-primary">Что импортируется:</h6>
+                        <ul class="list-unstyled">
+                            <li><i class="fas fa-check text-success me-2"></i>Основная информация о задачах</li>
+                            <li><i class="fas fa-check text-success me-2"></i>Описания задач</li>
+                            <li><i class="fas fa-cog text-primary me-2"></i>Комментарии (опционально)</li>
+                            <li><i class="fas fa-check text-success me-2"></i>Вложения и файлы</li>
+                            <li><i class="fas fa-check text-success me-2"></i>Дополнительные поля</li>
+                            <li><i class="fas fa-check text-success me-2"></i>Статусы и исполнители</li>
+                            {% if huntflow_vacancies %}
+                            <li><i class="fas fa-briefcase text-info me-2"></i>Привязка к выбранной вакансии</li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <h6 class="text-primary">Особенности:</h6>
+                        <ul class="list-unstyled">
+                            <li><i class="fas fa-shield-alt text-info me-2"></i>Соблюдение лимитов API</li>
+                            <li><i class="fas fa-redo text-info me-2"></i>Повтор неудачных импортов</li>
+                            <li><i class="fas fa-chart-line text-info me-2"></i>Отслеживание прогресса</li>
+                            <li><i class="fas fa-history text-info me-2"></i>История импортов</li>
+                            <li><i class="fas fa-tachometer-alt text-info me-2"></i>Оптимизация производительности</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- История импортов -->
+    {% if recent_imports %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card import-card">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-history me-2"></i>
+                        История массовых импортов
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Дата</th>
+                                    <th>Статус</th>
+                                    <th>Прогресс</th>
+                                    <th>Результат</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for import_item in recent_imports %}
+                                <tr class="import-history-item {{ import_item.status }}">
+                                    <td>
+                                        <small class="text-muted">
+                                            {{ import_item.created_at|date:"d.m.Y H:i" }}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <span class="import-status {{ import_item.status }}">
+                                            {{ import_item.get_status_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if import_item.total_tasks > 0 %}
+                                        <div class="progress" style="height: 20px;">
+                                            <div class="progress-bar" role="progressbar" 
+                                                 style="width: {{ import_item.progress_percentage }}%"
+                                                 aria-valuenow="{{ import_item.progress_percentage }}" 
+                                                 aria-valuemin="0" aria-valuemax="100">
+                                                {{ import_item.progress_percentage }}%
+                                            </div>
+                                        </div>
+                                        <small class="text-muted">
+                                            {{ import_item.processed_tasks }} / {{ import_item.total_tasks }}
+                                        </small>
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if import_item.total_tasks > 0 %}
+                                        <span class="badge bg-success">{{ import_item.successful_tasks }} успешно</span>
+                                        {% if import_item.failed_tasks > 0 %}
+                                        <span class="badge bg-danger">{{ import_item.failed_tasks }} ошибок</span>
+                                        {% endif %}
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'clickup_int:bulk_import_progress' import_item.id %}" 
+                                           class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-eye me-1"></i>
+                                            Детали
+                                        </a>
+                                        {% if import_item.failed_tasks > 0 and import_item.status == 'completed' %}
+                                        <button class="btn btn-sm btn-outline-warning retry-failed-tasks" 
+                                                data-import-id="{{ import_item.id }}">
+                                            <i class="fas fa-redo me-1"></i>
+                                            Повторить
+                                        </button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Уведомления -->
+<div id="notifications-container" class="position-fixed" style="top: 20px; right: 20px; z-index: 9999;"></div>
+
+<script>
+// Функция для показа уведомлений
+function showNotification(message, type = 'info') {
+    const container = document.getElementById('notifications-container');
+    const notification = document.createElement('div');
+    
+    const alertClass = type === 'success' ? 'alert-success' : 
+                      type === 'error' ? 'alert-danger' : 
+                      type === 'warning' ? 'alert-warning' : 'alert-info';
+    
+    notification.className = `alert ${alertClass} alert-dismissible fade show`;
+    notification.style.cssText = 'min-width: 300px; margin-bottom: 10px;';
+    
+    const icon = type === 'success' ? 'check-circle' : 
+                 type === 'error' ? 'times-circle' : 
+                 type === 'warning' ? 'exclamation-triangle' : 'info-circle';
+    
+    notification.innerHTML = `
+        <i class="fas fa-${icon} me-2"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    container.appendChild(notification);
+    
+    // Автоматически удаляем через 5 секунд
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+        }
+    }, 5000);
+}
+
+// Ждем загрузки DOM
+document.addEventListener('DOMContentLoaded', function() {
+    const startButton = document.getElementById('startBulkImport');
+    const retryButtons = document.querySelectorAll('.retry-failed-tasks');
+    
+    // Запуск массового импорта
+    if (startButton) {
+        startButton.addEventListener('click', function() {
+            startButton.disabled = true;
+            startButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Запуск...';
+            
+            // Получаем выбранную вакансию и опцию комментариев
+            const vacancySelect = document.getElementById('huntflowVacancySelect');
+            const includeCommentsCheckbox = document.getElementById('include_comments');
+            const selectedVacancyId = vacancySelect ? vacancySelect.value : '';
+            const includeComments = includeCommentsCheckbox ? includeCommentsCheckbox.checked : true;
+            
+            // Подтверждение пользователя с информацией о комментариях
+            let confirmMessage = `Вы действительно хотите запустить массовый импорт?`;
+            if (selectedVacancyId) {
+                const selectedOption = vacancySelect.options[vacancySelect.selectedIndex];
+                confirmMessage += `\n\nВакансия: ${selectedOption.text}`;
+            }
+            confirmMessage += `\nПередача комментариев: ${includeComments ? 'Да' : 'Нет'}`;
+            
+            if (!confirm(confirmMessage)) {
+                return;
+            }
+            
+            // Создаем FormData для отправки POST данных
+            const formData = new FormData();
+            if (selectedVacancyId) {
+                formData.append('huntflow_vacancy_id', selectedVacancyId);
+            }
+            formData.append('include_comments', includeComments ? 'on' : '');
+            
+            fetch('{% url "clickup_int:start_bulk_import" %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('meta[name=csrf-token]').getAttribute('content'),
+                },
+                body: formData,
+            })
+            .then(response => {
+                console.log('Response status:', response.status);
+                console.log('Response headers:', response.headers);
+                return response.json();
+            })
+            .then(data => {
+                console.log('Response data:', data);
+                if (data.success) {
+                    showNotification('Массовый импорт запущен!', 'success');
+                    // Перенаправляем на страницу прогресса
+                    window.location.href = `{% url 'clickup_int:bulk_import_progress' 0 %}`.replace('0', data.import_id);
+                } else {
+                    showNotification(data.error || 'Ошибка запуска импорта', 'error');
+                    startButton.disabled = false;
+                    startButton.innerHTML = '<i class="fas fa-play me-2"></i>Запустить массовый импорт';
+                }
+            })
+            .catch(error => {
+                console.error('Ошибка:', error);
+                showNotification('Ошибка запуска импорта: ' + error.message, 'error');
+                startButton.disabled = false;
+                startButton.innerHTML = '<i class="fas fa-play me-2"></i>Запустить массовый импорт';
+            });
+        });
+    }
+    
+    // Повтор неудачных задач
+    retryButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const importId = this.dataset.importId;
+            
+            if (!confirm('Повторить импорт неудачных задач?')) {
+                return;
+            }
+            
+            this.disabled = true;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Повтор...';
+            
+            fetch(`{% url 'clickup_int:retry_failed_tasks' 0 %}`.replace('0', importId), {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('meta[name=csrf-token]').getAttribute('content'),
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('Повторный импорт запущен!', 'success');
+                    // Обновляем страницу
+                    setTimeout(() => window.location.reload(), 1000);
+                } else {
+                    showNotification(data.error || 'Ошибка повтора импорта', 'error');
+                    this.disabled = false;
+                    this.innerHTML = '<i class="fas fa-redo me-1"></i>Повторить';
+                }
+            })
+            .catch(error => {
+                console.error('Ошибка:', error);
+                showNotification('Ошибка повтора импорта', 'error');
+                this.disabled = false;
+                this.innerHTML = '<i class="fas fa-redo me-1"></i>Повторить';
+            });
+        });
+    });
+});
+</script>
+{% endblock %}

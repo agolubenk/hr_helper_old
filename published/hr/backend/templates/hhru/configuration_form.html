@@ -1,0 +1,169 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - HR Helper{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-cog me-2"></i>
+                        {{ title }}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <h5><i class="fas fa-info-circle me-2"></i>Как получить данные для конфигурации:</h5>
+                        <ol class="mb-0">
+                            <li>Перейдите на <a href="https://dev.hh.ru/" target="_blank">dev.hh.ru</a></li>
+                            <li>Войдите в свой аккаунт работодателя</li>
+                            <li>Создайте новое приложение или откройте существующее</li>
+                            <li>Скопируйте <strong>Client ID</strong> и <strong>Client Secret</strong></li>
+                            <li>Укажите <strong>Redirect URI</strong>: <code>{{ request.scheme }}://{{ request.get_host }}{% url 'hhru:oauth_callback' %}</code></li>
+                        </ol>
+                    </div>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {{ form.non_field_errors }}
+                        </div>
+                        {% endif %}
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.name.id_for_label }}" class="form-label">
+                                {{ form.name.label }}
+                            </label>
+                            {{ form.name }}
+                            {% if form.name.errors %}
+                            <div class="text-danger small">{{ form.name.errors }}</div>
+                            {% endif %}
+                            {% if form.name.help_text %}
+                            <div class="form-text">{{ form.name.help_text }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.client_id.id_for_label }}" class="form-label">
+                                {{ form.client_id.label }}
+                            </label>
+                            {{ form.client_id }}
+                            {% if form.client_id.errors %}
+                            <div class="text-danger small">{{ form.client_id.errors }}</div>
+                            {% endif %}
+                            {% if form.client_id.help_text %}
+                            <div class="form-text">{{ form.client_id.help_text }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.client_secret.id_for_label }}" class="form-label">
+                                {{ form.client_secret.label }}
+                            </label>
+                            {{ form.client_secret }}
+                            {% if form.client_secret.errors %}
+                            <div class="text-danger small">{{ form.client_secret.errors }}</div>
+                            {% endif %}
+                            {% if form.client_secret.help_text %}
+                            <div class="form-text">{{ form.client_secret.help_text }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.redirect_uri.id_for_label }}" class="form-label">
+                                {{ form.redirect_uri.label }}
+                            </label>
+                            <div class="input-group">
+                                {{ form.redirect_uri }}
+                                <button type="button" class="btn btn-outline-secondary" onclick="copyRedirectUri()">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                            {% if form.redirect_uri.errors %}
+                            <div class="text-danger small">{{ form.redirect_uri.errors }}</div>
+                            {% endif %}
+                            {% if form.redirect_uri.help_text %}
+                            <div class="form-text">{{ form.redirect_uri.help_text }}</div>
+                            {% endif %}
+                            <div class="form-text">
+                                <strong>Текущий Redirect URI:</strong> 
+                                <code id="currentRedirectUri">{{ request.scheme }}://{{ request.get_host }}{% url 'hhru:oauth_callback' %}</code>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3 form-check">
+                            {{ form.is_active }}
+                            <label for="{{ form.is_active.id_for_label }}" class="form-check-label">
+                                {{ form.is_active.label }}
+                            </label>
+                            {% if form.is_active.errors %}
+                            <div class="text-danger small">{{ form.is_active.errors }}</div>
+                            {% endif %}
+                            {% if form.is_active.help_text %}
+                            <div class="form-text">{{ form.is_active.help_text }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        {% if form.is_default %}
+                        <div class="mb-3 form-check">
+                            {{ form.is_default }}
+                            <label for="{{ form.is_default.id_for_label }}" class="form-check-label">
+                                {{ form.is_default.label }}
+                            </label>
+                            {% if form.is_default.errors %}
+                            <div class="text-danger small">{{ form.is_default.errors }}</div>
+                            {% endif %}
+                            {% if form.is_default.help_text %}
+                            <div class="form-text">{{ form.is_default.help_text }}</div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{% url 'hhru:configurations_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-2"></i>
+                                Отмена
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>
+                                {{ submit_text }}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyRedirectUri() {
+    const redirectUri = document.getElementById('currentRedirectUri').textContent;
+    navigator.clipboard.writeText(redirectUri).then(function() {
+        alert('Redirect URI скопирован в буфер обмена!');
+    }, function(err) {
+        console.error('Ошибка копирования: ', err);
+    });
+}
+
+// Автоматически заполняем redirect_uri при загрузке страницы, если поле пустое
+document.addEventListener('DOMContentLoaded', function() {
+    const redirectUriField = document.getElementById('{{ form.redirect_uri.id_for_label }}');
+    if (redirectUriField && !redirectUriField.value) {
+        redirectUriField.value = document.getElementById('currentRedirectUri').textContent;
+    }
+});
+</script>
+{% endblock %}
+
+
+
+
+
+
+

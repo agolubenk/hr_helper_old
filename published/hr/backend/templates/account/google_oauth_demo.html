@@ -1,0 +1,92 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Google OAuth Demo - HR Helper{% endblock %}
+{% block page_title %}Демонстрация Google OAuth{% endblock %}
+
+{% block auth_content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fab fa-google me-2 text-danger"></i>
+                    Google OAuth Авторизация
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Информация:</strong> Эта страница демонстрирует Google OAuth авторизацию, реализованную в системе HR Helper.
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-cog me-2"></i>Текущие настройки:</h6>
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item">
+                                <strong>Client ID:</strong> 
+                                <code>968014303116-vtqq5f39tkaningitmj3dbq25snnmdgp.apps.googleusercontent.com</code>
+                            </li>
+                            <li class="list-group-item">
+                                <strong>Redirect URI:</strong> 
+                                <code>http://127.0.0.1:8000/google-oauth/callback/</code>
+                            </li>
+                            <li class="list-group-item">
+                                <strong>Scopes:</strong> 
+                                <ul class="mb-0">
+                                    <li>email</li>
+                                    <li>profile</li>
+                                    <li>calendar</li>
+                                    <li>drive</li>
+                                    <li>spreadsheets</li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-play me-2"></i>Тестирование:</h6>
+                        <div class="d-grid gap-2">
+                            <a href="/auth/google/login/" class="btn btn-danger btn-lg">
+                                <i class="fab fa-google me-2"></i>
+                                Запустить Google OAuth
+                            </a>
+                            <a href="{% url 'accounts:google_oauth_redirect' %}" class="btn btn-outline-danger">
+                                <i class="fas fa-external-link-alt me-2"></i>
+                                Альтернативная реализация
+                            </a>
+                            <a href="{% url 'accounts:account_login' %}" class="btn btn-outline-primary">
+                                <i class="fas fa-sign-in-alt me-2"></i>
+                                Страница входа
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="my-4">
+
+                <h6><i class="fas fa-code me-2"></i>Как это работает:</h6>
+                <ol>
+                    <li><strong>Пользователь нажимает кнопку</strong> - переходит на URL <code>/google-oauth/oauth/start/</code></li>
+                    <li><strong>Система генерирует state</strong> - для безопасности OAuth flow</li>
+                    <li><strong>Перенаправление на Google</strong> - с правильными параметрами OAuth2</li>
+                    <li><strong>Google авторизация</strong> - пользователь авторизуется в Google</li>
+                    <li><strong>Callback обработка</strong> - Google возвращает код авторизации</li>
+                    <li><strong>Получение токенов</strong> - система обменивает код на access/refresh токены</li>
+                    <li><strong>Сохранение в БД</strong> - токены сохраняются для дальнейшего использования</li>
+                </ol>
+
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle me-2"></i>
+                    <strong>Статус:</strong> Google OAuth авторизация настроена и работает корректно!
+                </div>
+            </div>
+            <div class="card-footer text-center">
+                <small class="text-muted">
+                    HR Helper - Система управления HR процессами
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

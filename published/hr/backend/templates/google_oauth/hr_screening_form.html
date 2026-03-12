@@ -1,0 +1,719 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Селектор вакансии и свободные слоты -->
+    <div class="row" style="margin-bottom: -5px;">
+        <div class="col-12">
+            <div class="vacancy-selector">
+                <div class="row align-items-center" style="margin-top: 0 !important;">
+                    <div class="col-md-8">
+                        <!-- Информация о выбранной вакансии -->
+                        {% if selected_vacancy %}
+                        <div class="automation-card">
+                            <div class="row align-items-center">
+                                <div class="col-12">
+                                    <!-- Кнопки копирования вопросов и слотов -->
+                                    <div class="copy-buttons">
+                                        <div class="d-flex gap-2 flex-wrap">
+                                            <!-- Кнопки копирования для Беларуси -->
+                                            <button class="btn-copy btn-copy-vacancy-link-belarus position-relative" 
+                                                    onclick="window.copyVacancyLink('belarus')"
+                                                    {% if not selected_vacancy.vacancy_link_belarus %}disabled{% endif %}
+                                                    title="Скопировать ссылку на вакансию (Беларусь)">
+                                                <i class="fas fa-link"></i>
+                                                <div class="position-absolute top-0 start-100 translate-middle">
+                                                    <span class="flag-emoji">🇧🇾</span>
+                                                </div>
+                                                <div class="copy-tooltip">Скопировать ссылку на вакансию (Беларусь)</div>
+                                            </button>
+                                            
+                                            <button class="btn-copy btn-copy-belarus position-relative" 
+                                                    onclick="copyQuestions('belarus')"
+                                                    {% if not selected_vacancy.questions_belarus %}disabled{% endif %}
+                                                    title="Скопировать вопросы для Беларуси">
+                                                <i class="fas fa-question"></i>
+                                                <div class="position-absolute top-0 start-100 translate-middle">
+                                                    <span class="flag-emoji">🇧🇾</span>
+                                                </div>
+                                                <div class="copy-tooltip">Скопировать вопросы для Беларуси</div>
+                                            </button>
+                                            
+                                            <!-- Кнопки копирования для Польши -->
+                                            <button class="btn-copy btn-copy-vacancy-link-poland position-relative" 
+                                                    onclick="window.copyVacancyLink('poland')"
+                                                    {% if not selected_vacancy.vacancy_link_poland %}disabled{% endif %}
+                                                    title="Скопировать ссылку на вакансию (Польша)">
+                                                <i class="fas fa-link"></i>
+                                                <div class="position-absolute top-0 start-100 translate-middle">
+                                                    <span class="flag-emoji">🇵🇱</span>
+                                                </div>
+                                                <div class="copy-tooltip">Скопировать ссылку на вакансию (Польша)</div>
+                                            </button>
+                                            
+                                            <button class="btn-copy btn-copy-poland position-relative" 
+                                                    onclick="copyQuestions('poland')"
+                                                    {% if not selected_vacancy.questions_poland %}disabled{% endif %}
+                                                    title="Скопировать вопросы для Польши">
+                                                <i class="fas fa-question"></i>
+                                                <div class="position-absolute top-0 start-100 translate-middle">
+                                                    <span class="flag-emoji">🇵🇱</span>
+                                                </div>
+                                                <div class="copy-tooltip">Скопировать вопросы для Польши</div>
+                                            </button>
+                                            
+                                            <!-- Кнопки копирования слотов -->
+                                            <button class="btn-copy btn-copy-current-week" 
+                                                    onclick="window.copyWeekSlots('current')"
+                                                    title="Скопировать слоты текущей недели">
+                                                <i class="fas fa-calendar-week"></i>
+                                                <div class="copy-tooltip">Скопировать слоты текущей недели</div>
+                                            </button>
+                                            
+                                            <button class="btn-copy btn-copy-next-week" 
+                                                    onclick="window.copyWeekSlots('next')"
+                                                    title="Скопировать слоты следующей недели">
+                                                <i class="fas fa-calendar-plus"></i>
+                                                <div class="copy-tooltip">Скопировать слоты следующей недели</div>
+                                            </button>
+                                            
+                                            <button class="btn-copy btn-copy-all-slots" 
+                                                    onclick="window.copyAllSlots()"
+                                                    title="Скопировать все слоты">
+                                                <i class="fas fa-copy"></i>
+                                                <div class="copy-tooltip">Скопировать все слоты</div>
+                                            </button>
+                                            
+                                            <button class="btn-copy btn-refresh-slots" 
+                                                    onclick="window.refreshSlots()"
+                                                    title="Обновить слоты">
+                                                <i class="fas fa-sync-alt"></i>
+                                                <div class="copy-tooltip">Обновить слоты</div>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        <form method="GET" id="vacancyForm">
+                            <select name="vacancy_id" class="form-select" onchange="this.form.submit()">
+                                <option value="">-- Выберите вакансию --</option>
+                                {% for vacancy in active_vacancies %}
+                                    <option value="{{ vacancy.id }}" 
+                                            {% if selected_vacancy and vacancy.id == selected_vacancy.id %}selected{% endif %}>
+                                        {{ vacancy.name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </form>
+                        {% if selected_vacancy %}
+                        <div class="mt-2 text-end">
+                            <a href="{% url 'vacancies:vacancy_detail' selected_vacancy.id %}" target="_blank" class="badge bg-primary fs-6 me-2 clickable-badge" style="text-decoration: none; cursor: pointer;">
+                                <i class="fas fa-briefcase me-2"></i> Вакансия
+                                <i class="fas fa-external-link-alt ms-1"></i>
+                            </a>
+                            <span class="badge bg-success fs-6 clickable-badge" onclick="toggleSlotsCard()" style="cursor: pointer;">
+                                <i class="fas fa-clock me-2"></i> Свободные слоты
+                            </span>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Свободные слоты -->
+    {% if selected_vacancy %}
+    <div class="row">
+        <div class="col-12">
+            <div class="collapse" id="slotsCardBody">
+            <!-- Текущая неделя -->
+            <div class="week-section current-week mb-4">
+                <h6 class="text-primary mb-3">
+                    <i class="fas fa-calendar-week me-2"></i>
+                    Текущая неделя
+                    <button class="btn btn-sm btn-outline-primary float-end btn-collapse" type="button" data-bs-toggle="collapse" data-bs-target="#currentWeekSlots" aria-expanded="true" aria-controls="currentWeekSlots">
+                        <i class="fas fa-chevron-up"></i>
+                    </button>
+                </h6>
+                <div class="collapse show" id="currentWeekSlots">
+                    <div class="row">
+                        <!-- Слоты будут добавлены через JavaScript -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Следующая неделя -->
+            <div class="week-section next-week">
+                <h6 class="text-info mb-3">
+                    <i class="fas fa-calendar-plus me-2"></i>
+                    Следующая неделя
+                    <button class="btn btn-sm btn-outline-info float-end btn-collapse" type="button" data-bs-toggle="collapse" data-bs-target="#nextWeekSlots" aria-expanded="true" aria-controls="nextWeekSlots">
+                        <i class="fas fa-chevron-up"></i>
+                    </button>
+                </h6>
+                <div class="collapse show" id="nextWeekSlots">
+                    <div class="row">
+                        <!-- Слоты будут добавлены через JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">{{ title }}</h1>
+                <a href="{% url 'google_oauth:hr_screening_list' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Назад к списку
+                </a>
+            </div>
+
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <div class="row">
+                <div class="col-lg-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-clipboard-list"></i> Данные для HR-скрининга
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <form method="post" id="hr-screening-form">
+                                {% csrf_token %}
+                                
+                                <div class="mb-3">
+                                    {{ form.input_data.label_tag }}
+                                    {{ form.input_data }}
+                                    {% if form.input_data.help_text %}
+                                        <div class="form-text">{{ form.input_data.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.input_data.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.input_data.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Индикатор типа действия -->
+                                <div id="action-type-indicator" class="mb-3" style="display: none;">
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-robot"></i>
+                                        <span id="action-type-text">Анализируем тип действия...</span>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex justify-content-between">
+                                    <a href="{% url 'google_oauth:hr_screening_list' %}" class="btn btn-secondary">
+                                        <i class="fas fa-times"></i> Отмена
+                                    </a>
+                                    <button type="submit" class="btn btn-primary" id="submit-btn">
+                                        <i class="fas fa-magic"></i> Анализировать с AI
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-lg-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-info-circle"></i> Инструкция
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <h6>Как использовать HR-скрининг:</h6>
+                            <ol class="small">
+                                <li>Вставьте ссылку на кандидата из Huntflow</li>
+                                <li>Добавьте любые дополнительные данные о кандидате</li>
+                                <li>Нажмите "Анализировать с AI"</li>
+                                <li>Система автоматически извлечет информацию и проанализирует данные</li>
+                            </ol>
+                            
+                            <h6 class="mt-3">Пример данных:</h6>
+                            <div class="bg-light p-3 rounded small">
+                                <code>
+                                    https://sandbox.huntflow.dev/my/org499#/vacancy/3/filter/workon/id/17<br><br>
+                                    Кандидат: Иван Петров<br>
+                                    Ожидания по зарплате: 150,000 - 200,000 руб<br>
+                                    Опыт работы: 3 года в разработке<br>
+                                    Технологии: Python, Django, PostgreSQL<br>
+                                    Дополнительная информация: ...
+                                </code>
+                            </div>
+                            
+                            <div class="alert alert-info mt-3 small">
+                                <i class="fas fa-lightbulb"></i>
+                                <strong>Совет:</strong> Чем больше информации вы предоставите, тем точнее будет анализ AI.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Инструкция по командам -->
+                    <div class="card mt-3">
+                        <div class="card-header">
+                            <h6 class="m-0 font-weight-bold text-primary">
+                                <i class="fas fa-keyboard me-2"></i>Автоматическое определение
+                            </h6>
+                        </div>
+                        <div class="card-body p-3">
+                            <div class="commands-list">
+                                <div class="command-item mb-3">
+                                    <div class="command-header">
+                                        <span class="command-badge bg-success">HR</span>
+                                        <strong class="ms-2">HR-скрининг</strong>
+                                    </div>
+                                    <div class="command-description small">
+                                        Определяется по ключевым словам: зарплата, опыт, навыки, технологии, senior, junior, middle
+                                    </div>
+                                </div>
+                                
+                                <div class="command-item">
+                                    <div class="command-header">
+                                        <span class="command-badge bg-warning">IN</span>
+                                        <strong class="ms-2">Инвайт</strong>
+                                    </div>
+                                    <div class="command-description small">
+                                        Определяется по датам, времени, дням недели: сегодня, завтра, 14:00, понедельник
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Стили из чат-интерфейса -->
+<style>
+/* === СТИЛИ ДЛЯ СЕЛЕКТОРА ВАКАНСИИ И СЛОТОВ === */
+.vacancy-selector {
+    border-radius: 12px;
+    margin-bottom: 20px;
+}
+
+.automation-card {
+    border: 1px solid var(--hr-border, #dee2e6);
+    border-radius: 8px;
+    padding-bottom: 15px;
+    padding-left: 15px;
+    padding-right: 15px;
+    padding-top: -65px!important;
+}
+
+.btn-copy {
+    background: var(--hr-primary, #007bff);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-copy:hover {
+    background: var(--hr-primary-hover, #0056b3);
+    transform: translateY(-1px);
+}
+
+.btn-copy:disabled {
+    background: var(--hr-secondary, #6c757d);
+    cursor: not-allowed;
+    transform: none;
+}
+
+.flag-emoji {
+    font-size: 12px;
+    line-height: 1;
+}
+
+.copy-tooltip {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--hr-dark, #333);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s ease;
+    z-index: 1000;
+    margin-bottom: 5px;
+}
+
+.btn-copy:hover .copy-tooltip {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* === СТИЛИ ДЛЯ БЛОКА КОМАНД === */
+.commands-list {
+    font-size: 0.9rem;
+}
+
+.command-item {
+    border-left: 3px solid var(--hr-border, #dee2e6);
+    padding-left: 12px;
+    transition: all 0.2s ease;
+}
+
+.command-item:hover {
+    border-left-color: var(--hr-primary, #007bff);
+    background-color: rgba(0, 123, 255, 0.05);
+    border-radius: 4px;
+    padding: 8px 12px;
+    margin: -8px -12px;
+}
+
+.command-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.command-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: white;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.command-description {
+    line-height: 1.4;
+}
+
+/* === КНОПКИ КОПИРОВАНИЯ === */
+.copy-buttons .btn-copy {
+    width: 40px !important;
+    height: 40px !important;
+    border-radius: 50% !important;
+    border: none !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 16px !important;
+    transition: all 0.3s ease !important;
+    cursor: pointer !important;
+    position: relative !important;
+    margin: 2px !important;
+}
+
+.copy-buttons .btn-copy-belarus {
+    background: linear-gradient(135deg, #ff6b6b, #ee5a24) !important;
+    color: white !important;
+    border: 2px solid #fff !important;
+    box-shadow: 0 2px 8px rgba(255, 107, 107, 0.3) !important;
+}
+
+.copy-buttons .btn-copy-belarus:hover {
+    background: linear-gradient(135deg, #ee5a24, #d63031) !important;
+    box-shadow: 0 4px 15px rgba(255, 107, 107, 0.5) !important;
+    transform: scale(1.1) !important;
+}
+
+.copy-buttons .btn-copy-poland {
+    background: linear-gradient(135deg, #4834d4, #686de0) !important;
+    color: white !important;
+    border: 2px solid #fff !important;
+    box-shadow: 0 2px 8px rgba(72, 52, 212, 0.3) !important;
+}
+
+.copy-buttons .btn-copy-poland:hover {
+    background: linear-gradient(135deg, #686de0, #5f3dc4) !important;
+    box-shadow: 0 4px 15px rgba(72, 52, 212, 0.5) !important;
+    transform: scale(1.1) !important;
+}
+
+.copy-buttons .btn-copy-vacancy-link-belarus {
+    background: linear-gradient(135deg, #e74c3c, #c0392b) !important;
+    color: white !important;
+    border: 2px solid #fff !important;
+    box-shadow: 0 2px 8px rgba(231, 76, 60, 0.3) !important;
+}
+
+.copy-buttons .btn-copy-vacancy-link-belarus:hover {
+    background: linear-gradient(135deg, #c0392b, #a93226) !important;
+    box-shadow: 0 4px 15px rgba(231, 76, 60, 0.5) !important;
+    transform: scale(1.1) !important;
+}
+
+.copy-buttons .btn-copy-vacancy-link-poland {
+    background: linear-gradient(135deg, #f39c12, #e67e22) !important;
+    color: white !important;
+    border: 2px solid #fff !important;
+    box-shadow: 0 2px 8px rgba(243, 156, 18, 0.3) !important;
+}
+
+.copy-buttons .btn-copy-vacancy-link-poland:hover {
+    background: linear-gradient(135deg, #e67e22, #d35400) !important;
+    box-shadow: 0 4px 15px rgba(243, 156, 18, 0.5) !important;
+    transform: scale(1.1) !important;
+}
+
+.copy-buttons .btn-copy-current-week {
+    background: linear-gradient(135deg, #fd79a8, #e84393) !important;
+    color: white !important;
+    border: 2px solid #fff !important;
+    box-shadow: 0 2px 8px rgba(253, 121, 168, 0.3) !important;
+}
+
+.copy-buttons .btn-copy-current-week:hover {
+    background: linear-gradient(135deg, #e84393, #d63031) !important;
+    box-shadow: 0 4px 15px rgba(253, 121, 168, 0.5) !important;
+    transform: scale(1.1) !important;
+}
+
+.copy-buttons .btn-copy-next-week {
+    background: linear-gradient(135deg, #0984e3, #74b9ff) !important;
+    color: white !important;
+    border: 2px solid #fff !important;
+    box-shadow: 0 2px 8px rgba(9, 132, 227, 0.3) !important;
+}
+
+.copy-buttons .btn-copy-next-week:hover {
+    background: linear-gradient(135deg, #74b9ff, #0984e3) !important;
+    box-shadow: 0 4px 15px rgba(9, 132, 227, 0.5) !important;
+    transform: scale(1.1) !important;
+}
+
+.copy-buttons .btn-copy-all-slots {
+    background: linear-gradient(135deg, #6c5ce7, #a29bfe) !important;
+    color: white !important;
+    border: 2px solid #fff !important;
+    box-shadow: 0 2px 8px rgba(108, 92, 231, 0.3) !important;
+}
+
+.copy-buttons .btn-copy-all-slots:hover {
+    background: linear-gradient(135deg, #a29bfe, #6c5ce7) !important;
+    box-shadow: 0 4px 15px rgba(108, 92, 231, 0.5) !important;
+    transform: scale(1.1) !important;
+}
+
+.copy-buttons .btn-refresh-slots {
+    background: linear-gradient(135deg, #17a2b8, #138496) !important;
+    color: white !important;
+    border: 2px solid #fff !important;
+    box-shadow: 0 2px 8px rgba(23, 162, 184, 0.3) !important;
+}
+
+.copy-buttons .btn-refresh-slots:hover {
+    background: linear-gradient(135deg, #138496, #0f6674) !important;
+    box-shadow: 0 4px 15px rgba(23, 162, 184, 0.5) !important;
+    transform: scale(1.1) !important;
+}
+
+.copy-buttons .btn-copy:disabled {
+    opacity: 0.4 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+    filter: grayscale(0.8) !important;
+    background: linear-gradient(135deg, #6c757d, #495057) !important;
+    border: 2px solid #6c757d !important;
+    box-shadow: 0 2px 4px rgba(108, 117, 125, 0.2) !important;
+}
+
+.copy-buttons .btn-copy:disabled:hover {
+    transform: none !important;
+    box-shadow: 0 2px 4px rgba(108, 117, 125, 0.2) !important;
+    filter: grayscale(0.8) !important;
+}
+
+.copy-buttons .btn-copy .copy-tooltip {
+    position: absolute !important;
+    bottom: -35px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    background: rgba(0, 0, 0, 0.8) !important;
+    color: white !important;
+    padding: 5px 10px !important;
+    border-radius: 5px !important;
+    font-size: 12px !important;
+    white-space: nowrap !important;
+    opacity: 0 !important;
+    transition: opacity 0.3s ease !important;
+    pointer-events: none !important;
+    z-index: 1000 !important;
+}
+
+.copy-buttons .btn-copy:hover .copy-tooltip {
+    opacity: 1 !important;
+}
+
+.copy-buttons .btn-copy .flag-emoji {
+    font-size: 12px !important;
+    line-height: 1 !important;
+    background: rgba(230, 230, 230, 0.15) !important;
+    border-radius: 50% !important;
+    padding: 2px !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+    display: inline-block !important;
+    line-height: 1 !important;
+    min-width: 21px !important;
+    min-height: 21px !important;
+    text-align: center !important;
+    margin-top: 7px !important;
+    margin-left: -7px !important;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Автоматическое изменение размера textarea
+    const textarea = document.querySelector('textarea');
+    if (textarea) {
+        textarea.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+        });
+    }
+    
+    // Показываем индикатор загрузки при отправке формы
+    const form = document.querySelector('#hr-screening-form');
+    const submitBtn = form.querySelector('button[type="submit"]');
+    
+    form.addEventListener('submit', function() {
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Анализируем...';
+        submitBtn.disabled = true;
+    });
+    
+    // Автоматическое определение типа действия
+    const inputData = document.querySelector('#id_input_data');
+    const actionIndicator = document.getElementById('action-type-indicator');
+    const actionText = document.getElementById('action-type-text');
+    
+    let debounceTimer;
+    
+    inputData.addEventListener('input', function() {
+        clearTimeout(debounceTimer);
+        
+        // Показываем индикатор
+        actionIndicator.style.display = 'block';
+        actionText.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Анализируем текст...';
+        
+        // Дебаунс для предотвращения частых вызовов
+        debounceTimer = setTimeout(() => {
+            const text = this.value.trim();
+            if (text.length > 10) { // Анализируем только если текст достаточно длинный
+                // В форме HR-скрининга всегда показываем готовность
+                actionText.innerHTML = '<i class="fas fa-clipboard-list"></i> Готово для HR-скрининга';
+                actionIndicator.className = 'mb-3';
+                actionIndicator.querySelector('.alert').className = 'alert alert-success';
+            } else {
+                actionIndicator.style.display = 'none';
+            }
+        }, 500); // Задержка 500мс
+    });
+});
+</script>
+
+<!-- Данные для работы со слотами -->
+{{ calendar_events_data|json_script:"calendar-events" }}
+
+{% if selected_vacancy %}
+<script type="application/json" id="vacancy-data">
+{
+    "vacancy_link_belarus": "{{ selected_vacancy.vacancy_link_belarus|escapejs }}",
+    "vacancy_link_poland": "{{ selected_vacancy.vacancy_link_poland|escapejs }}",
+    "questions_belarus": "{{ selected_vacancy.questions_belarus|escapejs }}",
+    "questions_poland": "{{ selected_vacancy.questions_poland|escapejs }}"
+}
+</script>
+
+<script>
+window.vacancyLinkBelarus = "{{ selected_vacancy.vacancy_link_belarus|escapejs }}";
+window.vacancyLinkPoland = "{{ selected_vacancy.vacancy_link_poland|escapejs }}";
+window.questionsBelarus = "{{ selected_vacancy.questions_belarus|escapejs }}";
+window.questionsPoland = "{{ selected_vacancy.questions_poland|escapejs }}";
+</script>
+{% endif %}
+
+<script type="application/json" id="slots-settings-data">
+{{ slots_settings.to_dict|default:"{}"|safe }}
+</script>
+
+<!-- Подключение скриптов для работы со слотами -->
+<script src="{% static 'js/vacancy-slots.js' %}"></script>
+
+<script>
+// Настройки пользователя для рабочих часов
+window.userWorkHours = {
+    startHour: {{ user.interview_start_time.hour|default:10 }},
+    endHour: {{ user.interview_end_time.hour|default:18 }}
+};
+</script>
+
+<script>
+// Функция для переключения карточки слотов по клику на бейдж
+function toggleSlotsCard() {
+    console.log('🔄 toggleSlotsCard вызвана');
+    const slotsCardBody = document.getElementById('slotsCardBody');
+    
+    if (slotsCardBody) {
+        // Проверяем текущее состояние
+        const isCollapsed = slotsCardBody.classList.contains('collapse') && !slotsCardBody.classList.contains('show');
+        
+        // Пробуем Bootstrap Collapse
+        if (typeof bootstrap !== 'undefined' && bootstrap.Collapse) {
+            const bsCollapse = new bootstrap.Collapse(slotsCardBody, {
+                toggle: true
+            });
+        } else {
+            // Альтернативный способ без Bootstrap
+            if (slotsCardBody.classList.contains('show')) {
+                slotsCardBody.classList.remove('show');
+                slotsCardBody.style.display = 'none';
+            } else {
+                slotsCardBody.classList.add('show');
+                slotsCardBody.style.display = 'block';
+            }
+        }
+    }
+}
+
+// Функции копирования теперь находятся в copy-buttons.js
+</script>
+
+<script src="{% static 'js/copy-buttons.js' %}"></script>
+
+{% endblock %}

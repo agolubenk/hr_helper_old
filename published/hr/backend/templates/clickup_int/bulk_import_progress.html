@@ -1,0 +1,486 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Прогресс массового импорта{% endblock %}
+
+{% block extra_css %}
+<!-- Стили уже подключены в base.html -->
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Заголовок страницы -->
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-chart-line me-2"></i>
+            Прогресс массового импорта
+        </h1>
+        <div>
+            <a href="{% url 'clickup_int:bulk_import' %}" class="btn btn-sm btn-outline-primary me-2">
+                <i class="fas fa-arrow-left me-1"></i>
+                Назад к импорту
+            </a>
+            <a href="{% url 'clickup_int:tasks_list' %}" class="btn btn-sm btn-primary">
+                <i class="fas fa-list me-1"></i>
+                К списку задач
+            </a>
+        </div>
+    </div>
+
+    <!-- Индикатор автообновления -->
+    <div id="autoRefreshIndicator" class="auto-refresh-indicator" style="display: none;">
+        <i class="fas fa-sync-alt spinner me-2"></i>
+        Автообновление каждые 5 сек
+    </div>
+
+    <div class="row">
+        <!-- Основная информация -->
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Информация об импорте
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>ID импорта:</strong> #{{ bulk_import.id }}</p>
+                            <p><strong>Создан:</strong> {{ bulk_import.created_at|date:"d.m.Y H:i:s" }}</p>
+                            <p><strong>Обновлен:</strong> <span id="lastUpdated">{{ bulk_import.updated_at|date:"d.m.Y H:i:s" }}</span></p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Статус:</strong> 
+                                <span id="importStatus" class="status-badge status-{{ bulk_import.status }}">
+                                    {{ bulk_import.get_status_display }}
+                                </span>
+                            </p>
+                            {% if bulk_import.completed_at %}
+                            <p><strong>Завершен:</strong> {{ bulk_import.completed_at|date:"d.m.Y H:i:s" }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Прогресс-бар -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-tasks me-2"></i>
+                        Прогресс импорта
+                    </h5>
+                    <div class="progress-card p-4 mb-3">
+                        <div class="progress-bar-custom">
+                            <div id="progressFill" class="progress-fill" style="width: {{ bulk_import.progress_percentage }}%">
+                                {{ bulk_import.progress_percentage }}%
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row text-center">
+                        <div class="col-md-4">
+                            <h4 id="totalTasks">{{ bulk_import.total_tasks }}</h4>
+                            <small class="text-muted">Всего задач</small>
+                        </div>
+                        <div class="col-md-4">
+                            <h4 id="processedTasks">{{ bulk_import.processed_tasks }}</h4>
+                            <small class="text-muted">Обработано</small>
+                        </div>
+                        <div class="col-md-4">
+                            <h4 id="remainingTasks">{{ bulk_import.total_tasks|add:"-"|add:bulk_import.processed_tasks }}</h4>
+                            <small class="text-muted">Осталось</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Статистика -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="success-card p-4 text-center">
+                        <h3 id="successfulTasks">{{ bulk_import.successful_tasks }}</h3>
+                        <p class="mb-0">Успешно импортировано</p>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="error-card p-4 text-center">
+                        <h3 id="failedTasks">{{ bulk_import.failed_tasks }}</h3>
+                        <p class="mb-0">Неудачных импортов</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Неудачные задачи -->
+            {% if bulk_import.failed_task_ids %}
+            <div class="card mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Неудачные задачи ({{ bulk_import.failed_task_ids|length }})
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="failed-tasks-list">
+                        {% for task_id in bulk_import.failed_task_ids %}
+                        <div class="failed-task-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>ID задачи:</strong> {{ task_id }}
+                                </div>
+                                <a href="{% url 'clickup_int:task_detail' task_id %}" 
+                                   class="btn btn-sm btn-outline-primary" target="_blank">
+                                    <i class="fas fa-external-link-alt me-1"></i>
+                                    Открыть
+                                </a>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    {% if bulk_import.status == 'completed' and bulk_import.failed_tasks > 0 %}
+                    <div class="text-center mt-3">
+                        <button id="retryFailedTasks" class="btn btn-retry">
+                            <i class="fas fa-redo me-2"></i>
+                            Повторить импорт неудачных задач
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Сообщение об ошибке -->
+            {% if bulk_import.error_message %}
+            <div class="card mb-4">
+                <div class="card-header py-3 bg-danger text-white">
+                    <h6 class="m-0 font-weight-bold">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        Ошибка импорта
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <pre class="text-danger">{{ bulk_import.error_message }}</pre>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Боковая панель -->
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-cog me-2"></i>
+                        Управление
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Автообновление</label>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="autoRefreshToggle" checked>
+                            <label class="form-check-label" for="autoRefreshToggle">
+                                Обновлять каждые 5 секунд
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <button id="refreshNow" class="btn btn-outline-primary btn-sm w-100">
+                            <i class="fas fa-sync-alt me-2"></i>
+                            Обновить сейчас
+                        </button>
+                    </div>
+                    
+                    {% if bulk_import.status == 'running' %}
+                    <div class="mb-3">
+                        <button id="stopImport" class="btn btn-danger btn-sm w-100">
+                            <i class="fas fa-stop me-2"></i>
+                            Остановить импорт
+                        </button>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="mb-3">
+                        <a href="{% url 'clickup_int:tasks_list' %}" class="btn btn-primary btn-sm w-100">
+                            <i class="fas fa-list me-2"></i>
+                            Просмотреть импортированные задачи
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Информация о процессе -->
+            <div class="card">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-info-circle me-2"></i>
+                        О процессе
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted">
+                        Массовый импорт выполняется с соблюдением ограничений API ClickUp.
+                        Между запросами делаются паузы от 10 до 45 секунд.
+                    </p>
+                    
+                    <p class="small text-muted">
+                        Если импорт прервался, вы можете повторить неудачные задачи.
+                        Успешно импортированные задачи не будут дублироваться.
+                    </p>
+                    
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            <strong>Последнее обновление:</strong><br>
+                            <span id="lastRefresh">Загрузка...</span>
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Уведомления -->
+<div id="notifications-container" class="position-fixed" style="top: 20px; right: 20px; z-index: 9999;"></div>
+
+<script>
+// Функция для показа уведомлений
+function showNotification(message, type = 'info') {
+    const container = document.getElementById('notifications-container');
+    const notification = document.createElement('div');
+    
+    const alertClass = type === 'success' ? 'alert-success' : 
+                      type === 'error' ? 'alert-danger' : 
+                      type === 'warning' ? 'alert-warning' : 'alert-info';
+    
+    notification.className = `alert ${alertClass} alert-dismissible fade show`;
+    notification.style.cssText = 'min-width: 300px; margin-bottom: 10px;';
+    
+    const icon = type === 'success' ? 'check-circle' : 
+                 type === 'error' ? 'times-circle' : 
+                 type === 'warning' ? 'exclamation-triangle' : 'info-circle';
+    
+    notification.innerHTML = `
+        <i class="fas fa-${icon} me-2"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    container.appendChild(notification);
+    
+    // Автоматически удаляем через 5 секунд
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+        }
+    }, 5000);
+}
+
+// Ждем загрузки DOM
+document.addEventListener('DOMContentLoaded', function() {
+    const autoRefreshToggle = document.getElementById('autoRefreshToggle');
+    const refreshNowButton = document.getElementById('refreshNow');
+    const retryFailedTasksButton = document.getElementById('retryFailedTasks');
+    const stopImportButton = document.getElementById('stopImport');
+    const autoRefreshIndicator = document.getElementById('autoRefreshIndicator');
+    
+    let refreshInterval;
+    let isRefreshing = false;
+    
+    // Функция обновления данных
+    function refreshData() {
+        if (isRefreshing) return;
+        
+        isRefreshing = true;
+        refreshNowButton.disabled = true;
+        refreshNowButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Обновление...';
+        
+        fetch(`{% url 'clickup_int:get_bulk_import_progress' bulk_import.id %}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                updateProgress(data.data);
+            } else {
+                console.error('Ошибка API:', data.error);
+                showNotification(`Ошибка получения данных: ${data.error}`, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Ошибка обновления:', error);
+            showNotification(`Ошибка обновления: ${error.message}`, 'error');
+        })
+        .finally(() => {
+            isRefreshing = false;
+            refreshNowButton.disabled = false;
+            refreshNowButton.innerHTML = '<i class="fas fa-sync-alt me-2"></i>Обновить сейчас';
+            document.getElementById('lastRefresh').textContent = new Date().toLocaleTimeString();
+        });
+    }
+    
+    // Функция обновления интерфейса
+    function updateProgress(data) {
+        // Обновляем статус
+        const statusElement = document.getElementById('importStatus');
+        statusElement.className = `status-badge status-${data.status}`;
+        statusElement.textContent = getStatusText(data.status);
+        
+        // Скрываем кнопку остановки если импорт не выполняется
+        if (stopImportButton) {
+            if (data.status === 'running') {
+                stopImportButton.style.display = 'block';
+            } else {
+                stopImportButton.style.display = 'none';
+            }
+        }
+        
+        // Обновляем прогресс
+        const progressFill = document.getElementById('progressFill');
+        progressFill.style.width = `${data.progress_percentage}%`;
+        progressFill.textContent = `${data.progress_percentage}%`;
+        
+        // Обновляем счетчики
+        document.getElementById('totalTasks').textContent = data.total_tasks;
+        document.getElementById('processedTasks').textContent = data.processed_tasks;
+        document.getElementById('remainingTasks').textContent = data.total_tasks - data.processed_tasks;
+        document.getElementById('successfulTasks').textContent = data.successful_tasks;
+        document.getElementById('failedTasks').textContent = data.failed_tasks;
+        document.getElementById('lastUpdated').textContent = new Date(data.updated_at).toLocaleString();
+        
+        // Если импорт завершен, останавливаем автообновление
+        if (data.status === 'completed' || data.status === 'failed' || data.status === 'cancelled' || data.status === 'stopped') {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+                refreshInterval = null;
+            }
+            autoRefreshToggle.checked = false;
+            autoRefreshIndicator.style.display = 'none';
+        }
+    }
+    
+    // Функция получения текста статуса
+    function getStatusText(status) {
+        const statusTexts = {
+            'pending': 'Ожидает',
+            'running': 'Выполняется',
+            'completed': 'Завершен',
+            'failed': 'Ошибка',
+            'cancelled': 'Отменен',
+            'stopped': 'Остановлен'
+        };
+        return statusTexts[status] || status;
+    }
+    
+    // Переключатель автообновления
+    autoRefreshToggle.addEventListener('change', function() {
+        if (this.checked) {
+            refreshInterval = setInterval(refreshData, 5000);
+            autoRefreshIndicator.style.display = 'block';
+        } else {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+                refreshInterval = null;
+            }
+            autoRefreshIndicator.style.display = 'none';
+        }
+    });
+    
+    // Кнопка обновления
+    refreshNowButton.addEventListener('click', refreshData);
+    
+    // Кнопка остановки импорта
+    if (stopImportButton) {
+        stopImportButton.addEventListener('click', function() {
+            if (!confirm('Вы уверены, что хотите остановить массовый импорт?')) {
+                return;
+            }
+            
+            this.disabled = true;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Остановка...';
+            
+            fetch(`{% url 'clickup_int:stop_bulk_import' bulk_import.id %}`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('meta[name=csrf-token]').getAttribute('content'),
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('Массовый импорт остановлен!', 'success');
+                    // Обновляем данные
+                    refreshData();
+                } else {
+                    showNotification(data.error || 'Ошибка остановки импорта', 'error');
+                    this.disabled = false;
+                    this.innerHTML = '<i class="fas fa-stop me-2"></i>Остановить импорт';
+                }
+            })
+            .catch(error => {
+                console.error('Ошибка:', error);
+                showNotification('Ошибка остановки импорта', 'error');
+                this.disabled = false;
+                this.innerHTML = '<i class="fas fa-stop me-2"></i>Остановить импорт';
+            });
+        });
+    }
+    
+    // Кнопка повтора неудачных задач
+    if (retryFailedTasksButton) {
+        retryFailedTasksButton.addEventListener('click', function() {
+            if (!confirm('Повторить импорт неудачных задач?')) {
+                return;
+            }
+            
+            this.disabled = true;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Повтор...';
+            
+            fetch(`{% url 'clickup_int:retry_failed_tasks' bulk_import.id %}`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('meta[name=csrf-token]').getAttribute('content'),
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('Повторный импорт запущен!', 'success');
+                    // Включаем автообновление
+                    autoRefreshToggle.checked = true;
+                    autoRefreshToggle.dispatchEvent(new Event('change'));
+                } else {
+                    showNotification(data.error || 'Ошибка повтора импорта', 'error');
+                    this.disabled = false;
+                    this.innerHTML = '<i class="fas fa-redo me-2"></i>Повторить импорт неудачных задач';
+                }
+            })
+            .catch(error => {
+                console.error('Ошибка:', error);
+                showNotification('Ошибка повтора импорта', 'error');
+                this.disabled = false;
+                this.innerHTML = '<i class="fas fa-redo me-2"></i>Повторить импорт неудачных задач';
+            });
+        });
+    }
+    
+    // Запускаем автообновление при загрузке страницы
+    if (autoRefreshToggle.checked) {
+        refreshInterval = setInterval(refreshData, 5000);
+        autoRefreshIndicator.style.display = 'block';
+    }
+    
+    // Первоначальное обновление
+    refreshData();
+});
+</script>
+{% endblock %}

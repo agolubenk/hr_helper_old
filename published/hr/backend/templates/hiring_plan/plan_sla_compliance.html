@@ -1,0 +1,272 @@
+{% extends 'common/base.html' %}
+
+{% block title %}SLA Compliance плана "{{ plan.title }}" - HR Helper{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <!-- Навигация -->
+            <nav aria-label="breadcrumb" class="mb-4">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'hiring_plan:plan_list' %}">Планы найма</a>
+                    </li>
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'hiring_plan:plan_detail' plan.pk %}">{{ plan.title }}</a>
+                    </li>
+                    <li class="breadcrumb-item active" aria-current="page">SLA Compliance</li>
+                </ol>
+            </nav>
+
+            <!-- Заголовок -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="h3 mb-0">
+                        <i class="fas fa-chart-line text-primary me-2"></i>
+                        SLA Compliance
+                    </h1>
+                    <p class="text-muted mb-0">Соответствие SLA для плана "{{ plan.title }}"</p>
+                </div>
+                <div>
+                    <a href="{% url 'hiring_plan:plan_sla_create' plan.pk %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Создать SLA
+                    </a>
+                </div>
+                <a href="{% url 'hiring_plan:plan_detail' plan.pk %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Назад к плану
+                </a>
+            </div>
+
+            <!-- Общая статистика SLA -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="mb-0">{{ sla_compliance.total }}</h4>
+                                    <p class="mb-0">Всего позиций</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-list fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="mb-0">{{ sla_compliance.on_time }}</h4>
+                                    <p class="mb-0">В срок</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-check-circle fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-warning text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="mb-0">{{ sla_compliance.warning }}</h4>
+                                    <p class="mb-0">Предупреждение</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-exclamation-triangle fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-danger text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="mb-0">{{ sla_compliance.critical|add:sla_compliance.overdue }}</h4>
+                                    <p class="mb-0">Критично/Просрочено</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-times-circle fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Средний compliance -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">Средний Compliance</h5>
+                            <div class="display-4 text-primary">{{ sla_compliance.average_compliance }}%</div>
+                            <p class="text-muted">Средний процент соответствия SLA</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Детальная таблица позиций -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-table me-2"></i>
+                        Детальная информация по позициям
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if sla_compliance.positions %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Позиция</th>
+                                        <th>Тип</th>
+                                        <th>Time-to-Fill</th>
+                                        <th>Compliance</th>
+                                        <th>Статус SLA</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in sla_compliance.positions %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ item.position.vacancy.name }}</strong>
+                                            <br>
+                                            <small class="text-muted">{{ item.position.project|default:"Без проекта" }}</small>
+                                        </td>
+                                        <td>
+                                            {% if item.position.position_type %}
+                                                <span class="badge bg-info">{{ item.position.position_type.name }}</span>
+                                            {% else %}
+                                                <span class="text-muted">Не указан</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if item.time_to_fill %}
+                                                <strong>{{ item.time_to_fill }}</strong> дней
+                                            {% else %}
+                                                <span class="text-muted">N/A</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if item.compliance %}
+                                                <span class="badge bg-{% if item.compliance >= 100 %}success{% elif item.compliance >= 80 %}warning{% else %}danger{% endif %}">
+                                                    {{ item.compliance }}%
+                                                </span>
+                                            {% else %}
+                                                <span class="text-muted">N/A</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if item.status == 'on_time' %}
+                                                <span class="badge bg-success">В срок</span>
+                                            {% elif item.status == 'warning' %}
+                                                <span class="badge bg-warning">Предупреждение</span>
+                                            {% elif item.status == 'critical' %}
+                                                <span class="badge bg-danger">Критично</span>
+                                            {% elif item.status == 'overdue' %}
+                                                <span class="badge bg-danger">Просрочено</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Нет SLA</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-chart-line fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">Нет данных по SLA</h5>
+                            <p class="text-muted">Закрытые позиции будут отображаться здесь</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Статистика по типам позиций -->
+            {% if position_types %}
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-pie me-2"></i>
+                        Статистика по типам позиций
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for type_name, stats in position_types.items %}
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card border">
+                                <div class="card-body">
+                                    <h6 class="card-title">{{ type_name }}</h6>
+                                    <div class="row text-center">
+                                        <div class="col-3">
+                                            <div class="text-primary fw-bold">{{ stats.total }}</div>
+                                            <small class="text-muted">Всего</small>
+                                        </div>
+                                        <div class="col-3">
+                                            <div class="text-success fw-bold">{{ stats.fulfilled }}</div>
+                                            <small class="text-muted">Закрыто</small>
+                                        </div>
+                                        <div class="col-3">
+                                            <div class="text-warning fw-bold">{{ stats.in_progress }}</div>
+                                            <small class="text-muted">В процессе</small>
+                                        </div>
+                                        <div class="col-3">
+                                            <div class="text-danger fw-bold">{{ stats.overdue }}</div>
+                                            <small class="text-muted">Просрочено</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Причины замен -->
+            {% if replacement_reasons %}
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-exchange-alt me-2"></i>
+                        Статистика по причинам замен
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for reason in replacement_reasons %}
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card border">
+                                <div class="card-body">
+                                    <h6 class="card-title">{{ reason.replacement_reason|default:"Не указана" }}</h6>
+                                    <div class="text-center">
+                                        <div class="display-6 text-primary">{{ reason.count }}</div>
+                                        <small class="text-muted">позиций</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

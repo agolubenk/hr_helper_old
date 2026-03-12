@@ -1,0 +1,217 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Аккаунт HeadHunter.ru - HR Helper{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="mb-0">
+                    <i class="fas fa-user-circle me-2"></i>
+                    Аккаунт HeadHunter.ru
+                </h2>
+                <a href="{% url 'hhru:accounts_list' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>
+                    Назад к списку
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Информация об аккаунте -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Основная информация</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-borderless">
+                        <tr>
+                            <th width="40%">Имя:</th>
+                            <td>{{ account.first_name }} {{ account.last_name }} {{ account.middle_name }}</td>
+                        </tr>
+                        <tr>
+                            <th>Email:</th>
+                            <td>{{ account.email|default:"Не указан" }}</td>
+                        </tr>
+                        <tr>
+                            <th>HH User ID:</th>
+                            <td><code>{{ account.hh_user_id }}</code></td>
+                        </tr>
+                        <tr>
+                            <th>Работодатель:</th>
+                            <td>
+                                {% if account.is_employer %}
+                                    <span class="badge bg-success">Да</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Нет</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Администратор:</th>
+                            <td>
+                                {% if account.is_admin %}
+                                    <span class="badge bg-primary">Да</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Нет</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Токен доступа:</th>
+                            <td>
+                                {% if token_valid %}
+                                    <span class="badge bg-success">Активен</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Истек</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Подключен:</th>
+                            <td>{{ account.created_at|date:"d.m.Y H:i" }}</td>
+                        </tr>
+                        <tr>
+                            <th>Обновлен:</th>
+                            <td>{{ account.updated_at|date:"d.m.Y H:i" }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Действия</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button type="button" class="btn btn-outline-primary" onclick="testConnection()">
+                            <i class="fas fa-network-wired me-2"></i>
+                            Тестировать подключение
+                        </button>
+                        {% if account.needs_refresh %}
+                        <button type="button" class="btn btn-outline-warning" onclick="refreshToken()">
+                            <i class="fas fa-sync-alt me-2"></i>
+                            Обновить токен
+                        </button>
+                        {% endif %}
+                        <a href="{% url 'hhru:logs_list' %}?account={{ account.id }}" class="btn btn-outline-info">
+                            <i class="fas fa-history me-2"></i>
+                            Просмотреть логи
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Данные профиля из HH.ru -->
+    {% if profile_data %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Данные профиля из HH.ru</h5>
+                </div>
+                <div class="card-body">
+                    <pre class="bg-light p-3 rounded" style="max-height: 400px; overflow-y: auto;">{{ profile_data|safe }}</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Вакансии -->
+    {% if vacancies %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Вакансии работодателя</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Название</th>
+                                    <th>Статус</th>
+                                    <th>Дата создания</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for vacancy in vacancies %}
+                                <tr>
+                                    <td>{{ vacancy.name }}</td>
+                                    <td>
+                                        <span class="badge bg-{% if vacancy.archived %}secondary{% else %}success{% endif %}">
+                                            {% if vacancy.archived %}Архивная{% else %}Активная{% endif %}
+                                        </span>
+                                    </td>
+                                    <td>{{ vacancy.created_at|date:"d.m.Y" }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function testConnection() {
+    fetch('{% url "hhru:test_connection_ajax" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'account_id={{ account.id }}'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Подключение успешно: ' + data.message);
+        } else {
+            alert('Ошибка подключения: ' + (data.error || data.message));
+        }
+    })
+    .catch(error => {
+        alert('Ошибка: ' + error);
+    });
+}
+
+function refreshToken() {
+    fetch('{% url "hhru:refresh_token_ajax" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'account_id={{ account.id }}'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Токен успешно обновлен');
+            location.reload();
+        } else {
+            alert('Ошибка обновления токена: ' + (data.error || data.message));
+        }
+    })
+    .catch(error => {
+        alert('Ошибка: ' + error);
+    });
+}
+</script>
+{% endblock %}
+

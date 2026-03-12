@@ -1,0 +1,173 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Профиль пользователя - Пример{% endblock %}
+
+{% block page_title %}Профиль пользователя - Пример данных{% endblock %}
+
+{% block extra_css %}
+<style>
+    .tour-example-banner {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        text-align: center;
+    }
+    .example-data {
+        background: #f8f9fa;
+        border-left: 4px solid #28a745;
+        padding: 15px;
+        margin: 10px 0;
+    }
+    .integration-status {
+        display: inline-block;
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+    }
+    .status-connected {
+        background: #d4edda;
+        color: #155724;
+    }
+    .status-disconnected {
+        background: #f8d7da;
+        color: #721c24;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="tour-example-banner">
+        <h4><i class="fas fa-info-circle me-2"></i>Это пример страницы с демонстрационными данными</h4>
+        <p class="mb-0">Здесь показано, как будет выглядеть профиль после настройки</p>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-user me-2"></i>Основная информация</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-3 text-center">
+                            <img src="https://via.placeholder.com/150" class="img-thumbnail rounded-circle" alt="Avatar">
+                        </div>
+                        <div class="col-md-9">
+                            <div class="example-data">
+                                <h5><i class="fas fa-user text-primary me-2"></i>Иван Иванов</h5>
+                                <p class="mb-1"><i class="fas fa-envelope me-2"></i>ivan.ivanov@company.com</p>
+                                <p class="mb-1"><i class="fas fa-briefcase me-2"></i>Рекрутер</p>
+                                <p class="mb-0"><i class="fas fa-building me-2"></i>Отдел HR</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Telegram</strong></label>
+                        <div class="example-data">
+                            <i class="fab fa-telegram text-info me-2"></i>
+                            <strong>@ivan_ivanov</strong>
+                            <small class="text-muted ms-2">(используется в инвайтах для кандидатов)</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-plug me-2"></i>Интеграции</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center example-data">
+                            <div>
+                                <i class="fab fa-google text-danger me-2"></i>
+                                <strong>Google OAuth</strong>
+                                <small class="text-muted ms-2">(для календаря и инвайтов)</small>
+                            </div>
+                            <span class="integration-status status-connected">
+                                <i class="fas fa-check-circle me-1"></i>Подключено
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center example-data">
+                            <div>
+                                <i class="fas fa-robot text-warning me-2"></i>
+                                <strong>Gemini API</strong>
+                                <small class="text-muted ms-2">(для AI-помощника)</small>
+                            </div>
+                            <span class="integration-status status-connected">
+                                <i class="fas fa-check-circle me-1"></i>Настроено
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center example-data">
+                            <div>
+                                <i class="fas fa-briefcase text-primary me-2"></i>
+                                <strong>Huntflow API</strong>
+                                <small class="text-muted ms-2">(для синхронизации вакансий)</small>
+                            </div>
+                            <span class="integration-status status-connected">
+                                <i class="fas fa-check-circle me-1"></i>Настроено
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-lightbulb me-2"></i>Важно</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled">
+                        <li class="mb-3">
+                            <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                            <strong>Google OAuth</strong> обязателен для работы с календарем
+                        </li>
+                        <li class="mb-3">
+                            <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                            <strong>Telegram</strong> нужен рекрутерам для связи с кандидатами
+                        </li>
+                        <li class="mb-3">
+                            <i class="fas fa-info-circle text-info me-2"></i>
+                            <strong>API ключи</strong> хранятся безопасно и используются только для ваших запросов
+                        </li>
+                        <li>
+                            <i class="fas fa-info-circle text-info me-2"></i>
+                            Профиль можно редактировать в любой момент
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-body text-center">
+                    <a href="{% url 'accounts:profile' %}" class="btn btn-success btn-lg" target="_blank">
+                        <i class="fas fa-external-link-alt me-2"></i>
+                        Перейти к профилю
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Intro.js JS -->
+<script src="https://cdn.jsdelivr.net/npm/intro.js@7.2.0/minified/intro.min.js"></script>
+<!-- Wiki Tour Script -->
+<script src="{% static 'js/wiki-tour.js' %}"></script>
+{% endblock %}
+

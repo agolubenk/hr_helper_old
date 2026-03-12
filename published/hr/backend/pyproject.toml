@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hrhelper"
+version = "0.1.0"
+description = "HR Helper Django Application"
+authors = [{name = "HR Helper Team"}]
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "Django>=4.2.0",
+    "requests>=2.28.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "django-debug-toolbar",
+    "pytest-django",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["apps.*", "config"]

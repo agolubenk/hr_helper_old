@@ -1,0 +1,152 @@
+{% extends 'common/base.html' %}
+
+{% block title %}Дашборд Gemini AI - HR Helper{% endblock %}
+{% block page_title %}Дашборд Gemini AI{% endblock %}
+
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-robot me-2"></i>
+                        Добро пожаловать в Gemini AI
+                    </h5>
+                    <div class="btn-group" role="group">
+                        <a href="{% url 'gemini:settings' %}" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-cog me-1"></i>
+                            Настройки
+                        </a>
+                        {% if has_api_key %}
+                        <a href="{% url 'gemini:new_chat' %}" class="btn btn-gemini btn-sm">
+                            <i class="fas fa-comments me-1"></i>
+                            Новый чат
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if has_api_key %}
+                    <div class="text-center">
+                        <div class="mb-4">
+                            <i class="fas fa-check-circle text-success" style="font-size: 4rem;"></i>
+                        </div>
+                        <h4 class="text-success mb-3">API ключ настроен!</h4>
+                        <p class="text-muted mb-4">
+                            Вы можете начать общение с Gemini AI. Создайте новую сессию чата или выберите существующую.
+                        </p>
+                        <a href="{% url 'gemini:new_chat' %}" class="btn btn-gemini btn-lg">
+                            <i class="fas fa-comments me-2"></i>
+                            Начать новый чат
+                        </a>
+                    </div>
+                {% else %}
+                    <div class="text-center">
+                        <div class="mb-4">
+                            <i class="fas fa-exclamation-triangle text-warning" style="font-size: 4rem;"></i>
+                        </div>
+                        <h4 class="text-warning mb-3">API ключ не настроен</h4>
+                        <p class="text-muted mb-4">
+                            Для работы с Gemini AI необходимо настроить API ключ. 
+                            Получите ключ в <a href="https://makersuite.google.com/app/apikey" target="_blank">Google AI Studio</a>.
+                        </p>
+                        <a href="{% url 'gemini:settings' %}" class="btn btn-warning btn-lg">
+                            <i class="fas fa-cog me-2"></i>
+                            Настроить API ключ
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-history me-2"></i>
+                    История чатов
+                </h6>
+            </div>
+            <div class="card-body">
+                {% if chat_sessions %}
+                    {% for session in chat_sessions %}
+                        <a href="{% url 'gemini:chat_session' session.id %}" class="session-item" 
+                            data-updated="{{ session.updated_at|date:'c' }}">
+                            <div class="session-title">{{ session.title }}</div>
+                            <div class="session-date">
+                                {{ session.updated_at|date:"d.m.Y H:i" }}
+                            </div>
+                        </a>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-comments" style="font-size: 2rem; opacity: 0.3;"></i>
+                        <p class="mt-2 mb-0">Пока нет чатов</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Возможности
+                </h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        Анализ HR-данных
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        Помощь с документами
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        Ответы на вопросы
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        Генерация контента
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        Анализ кандидатов
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Определяем активность чатов на основе времени последнего обновления
+    const sessionItems = document.querySelectorAll('.session-item');
+    const now = new Date();
+    
+    sessionItems.forEach(function(item) {
+        const updatedDate = new Date(item.dataset.updated);
+        const timeDiff = now - updatedDate;
+        const hoursDiff = timeDiff / (1000 * 60 * 60);
+        
+        // Недавно активные (менее 1 часа)
+        if (hoursDiff < 1) {
+            item.classList.add('recently-active');
+        }
+        // Старые активные (от 1 до 24 часов)
+        else if (hoursDiff < 24) {
+            item.classList.add('old-active');
+        }
+        // Очень старые (более 24 часов) - без дополнительных стилей
+    });
+});
+</script>
+{% endblock %}

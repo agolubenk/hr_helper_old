@@ -1,0 +1,228 @@
+{% extends 'common/base.html' %}
+
+{% block title %}
+{% if object %}Редактирование KPI/OKR{% else %}Создание KPI/OKR{% endif %} - HR Helper
+{% endblock %}
+
+{% block page_title %}
+{% if object %}Редактирование KPI/OKR{% else %}Создание KPI/OKR{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-{% if object %}edit{% else %}plus{% endif %} me-2"></i>
+                    {% if object %}Редактирование KPI/OKR{% else %}Создание KPI/OKR{% endif %}
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+
+                    <!-- Блок 1: Основная информация -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="text-primary mb-3">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Основная информация
+                            </h6>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.name.id_for_label }}" class="form-label">
+                                    {{ form.name.label }}
+                                    <span class="text-danger">*</span>
+                                </label>
+                                {{ form.name }}
+                                {% if form.name.errors %}
+                                    <div class="text-danger">{{ form.name.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.metric_type.id_for_label }}" class="form-label">
+                                    {{ form.metric_type.label }}
+                                    <span class="text-danger">*</span>
+                                </label>
+                                {{ form.metric_type }}
+                                {% if form.metric_type.errors %}
+                                    <div class="text-danger">{{ form.metric_type.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label for="{{ form.description.id_for_label }}" class="form-label">
+                                    {{ form.description.label }}
+                                </label>
+                                {{ form.description }}
+                                {% if form.description.errors %}
+                                    <div class="text-danger">{{ form.description.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Блок 2: Целевые значения -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="text-primary mb-3">
+                                <i class="fas fa-target me-1"></i>
+                                Целевые значения
+                            </h6>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.target_value.id_for_label }}" class="form-label">
+                                    {{ form.target_value.label }}
+                                    <span class="text-danger">*</span>
+                                </label>
+                                {{ form.target_value }}
+                                {% if form.target_value.errors %}
+                                    <div class="text-danger">{{ form.target_value.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.unit.id_for_label }}" class="form-label">
+                                    {{ form.unit.label }}
+                                </label>
+                                {{ form.unit }}
+                                {% if form.unit.errors %}
+                                    <div class="text-danger">{{ form.unit.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Блок 3: Период -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="text-primary mb-3">
+                                <i class="fas fa-calendar me-1"></i>
+                                Период
+                            </h6>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.period_start.id_for_label }}" class="form-label">
+                                    {{ form.period_start.label }}
+                                    <span class="text-danger">*</span>
+                                </label>
+                                {{ form.period_start }}
+                                {% if form.period_start.errors %}
+                                    <div class="text-danger">{{ form.period_start.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.period_end.id_for_label }}" class="form-label">
+                                    {{ form.period_end.label }}
+                                    <span class="text-danger">*</span>
+                                </label>
+                                {{ form.period_end }}
+                                {% if form.period_end.errors %}
+                                    <div class="text-danger">{{ form.period_end.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Блок 4: Связи (опционально) -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="text-primary mb-3">
+                                <i class="fas fa-link me-1"></i>
+                                Связи (опционально)
+                            </h6>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ form.position_type.id_for_label }}" class="form-label">
+                                    {{ form.position_type.label }}
+                                </label>
+                                {{ form.position_type }}
+                                {% if form.position_type.errors %}
+                                    <div class="text-danger">{{ form.position_type.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="{{ form.grade.id_for_label }}" class="form-label">
+                                    {{ form.grade.label }}
+                                </label>
+                                {{ form.grade }}
+                                {% if form.grade.errors %}
+                                    <div class="text-danger">{{ form.grade.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">План найма</label>
+                                <input type="text" class="form-control" value="{{ hiring_plan.title }}" readonly>
+                                <div class="form-text">KPI/OKR будет привязан к этому плану</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Информация о типах метрик -->
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-info-circle me-2"></i>Информация о типах метрик:</h6>
+                        <ul class="mb-0">
+                            <li><strong>KPI (Key Performance Indicator):</strong> Ключевые показатели эффективности</li>
+                            <li><strong>OKR (Objectives and Key Results):</strong> Цели и ключевые результаты</li>
+                            <li><strong>Кастомная метрика:</strong> Специальные показатели для конкретных задач</li>
+                        </ul>
+                    </div>
+
+                    <!-- Кнопки -->
+                    <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+                        <div>
+                            <a href="{% url 'hiring_plan:plan_kpi_okr' plan.pk %}" class="btn btn-outline-secondary btn-lg">
+                                <i class="fas fa-arrow-left me-2"></i>Назад к KPI/OKR
+                            </a>
+                        </div>
+                        <div>
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-save me-2"></i>
+                                {% if object %}Сохранить изменения{% else %}Создать KPI/OKR{% endif %}
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const periodStartInput = document.getElementById('{{ form.period_start.id_for_label }}');
+    const periodEndInput = document.getElementById('{{ form.period_end.id_for_label }}');
+    
+    function validatePeriod() {
+        const startDate = new Date(periodStartInput.value);
+        const endDate = new Date(periodEndInput.value);
+        
+        if (startDate && endDate && startDate > endDate) {
+            periodEndInput.setCustomValidity('Дата окончания не может быть раньше даты начала');
+        } else {
+            periodEndInput.setCustomValidity('');
+        }
+    }
+    
+    periodStartInput.addEventListener('change', validatePeriod);
+    periodEndInput.addEventListener('change', validatePeriod);
+});
+</script>
+{% endblock %}

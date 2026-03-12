@@ -1,0 +1,184 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}{{ req.name|truncatechars:50 }} — Заявка плана найма{% endblock %}
+{% block page_title %}Заявка: {{ req.name|truncatechars:60 }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="mb-3 d-flex flex-wrap gap-2 align-items-center">
+            <a href="{% url 'clickup_int:hiring_plan_requests_list' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-arrow-left me-1"></i>К списку заявок
+            </a>
+            <a href="{% url 'clickup_int:hiring_plan_from_clickup' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-folder-open me-1"></i>Выбор папки
+            </a>
+            <a href="{% url 'clickup_int:dashboard' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-th-large me-1"></i>Дашборд ClickUp
+            </a>
+        </div>
+
+        <div class="card clickup-card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
+                <h5 class="mb-0"><i class="fas fa-file-alt me-2"></i>{{ req.name|default:"Без названия" }}</h5>
+                <span class="badge bg-secondary">{{ req.get_request_type_display }}</span>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <table class="table table-sm table-borderless mb-0">
+                            <tr>
+                                <th class="text-muted" style="width: 40%;">ID задачи ClickUp</th>
+                                <td><code>{{ req.clickup_task_id }}</code></td>
+                            </tr>
+                            <tr>
+                                <th class="text-muted">Тип заявки</th>
+                                <td><span class="badge bg-secondary">{{ req.get_request_type_display }}</span></td>
+                            </tr>
+                            <tr>
+                                <th class="text-muted">Статус в ClickUp</th>
+                                <td>{{ req.clickup_status|default:"—" }}</td>
+                            </tr>
+                            <tr>
+                                <th class="text-muted">Нормализованный статус</th>
+                                <td>{{ req.normalized_status|default:"—" }}</td>
+                            </tr>
+                            <tr>
+                                <th class="text-muted">Спринт (List)</th>
+                                <td>{{ req.list_name|default:req.list_id|default:"—" }} <small class="text-muted">({{ req.list_id|default:"—" }})</small></td>
+                            </tr>
+                            <tr>
+                                <th class="text-muted">Папка</th>
+                                <td><code>{{ req.folder_id|default:"—" }}</code></td>
+                            </tr>
+                            <tr>
+                                <th class="text-muted">Отдел / группа</th>
+                                <td>{{ req.department|default:"—" }}</td>
+                            </tr>
+                            <tr>
+                                <th class="text-muted">Рекрутер</th>
+                                <td>{% if req.recruiter %}{{ req.recruiter.get_full_name|default:req.recruiter.username }} <small class="text-muted">{{ req.recruiter.email }}</small>{% else %}—{% endif %}</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <table class="table table-sm table-borderless mb-0">
+                            <tr>
+                                <th class="text-muted" style="width: 40%;">Дата создания</th>
+                                <td>{% if req.date_created %}{{ req.date_created|date:"d.m.Y H:i" }}{% else %}—{% endif %}</td>
+                            </tr>
+                            <tr>
+                                <th class="text-muted">Дата обновления</th>
+                                <td>{% if req.date_updated %}{{ req.date_updated|date:"d.m.Y H:i" }}{% else %}—{% endif %}</td>
+                            </tr>
+                            <tr>
+                                <th class="text-muted">Дата начала</th>
+                                <td>{% if req.start_date %}{{ req.start_date|date:"d.m.Y" }}{% else %}—{% endif %}</td>
+                            </tr>
+                            <tr>
+                                <th class="text-muted">Срок (due)</th>
+                                <td>{% if req.due_date %}{{ req.due_date|date:"d.m.Y" }}{% else %}—{% endif %}</td>
+                            </tr>
+                            <tr>
+                                <th class="text-muted">Синхронизировано</th>
+                                <td>{{ req.synced_at|date:"d.m.Y H:i" }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if req.assignees %}
+        <div class="card clickup-card mb-4">
+            <div class="card-header"><h6 class="mb-0"><i class="fas fa-users me-2"></i>Ответственные (assignees)</h6></div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0">
+                    {% for a in req.assignees %}
+                    <li class="mb-2">
+                        {% if a.email %}<a href="mailto:{{ a.email }}">{{ a.email }}</a>{% endif %}
+                        {% if a.username %} — {{ a.username }}{% endif %}
+                        {% if a.id %}<small class="text-muted"> (id: {{ a.id }})</small>{% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if req.creator and req.creator.id %}
+        <div class="card clickup-card mb-4">
+            <div class="card-header"><h6 class="mb-0"><i class="fas fa-user-plus me-2"></i>Создатель</h6></div>
+            <div class="card-body">
+                {{ req.creator.username|default:req.creator.email|default:"—" }}
+                {% if req.creator.email %}<small class="text-muted">{{ req.creator.email }}</small>{% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if req.custom_fields %}
+        <div class="card clickup-card mb-4">
+            <div class="card-header"><h6 class="mb-0"><i class="fas fa-list-ul me-2"></i>Кастомные поля ClickUp</h6></div>
+            <div class="card-body">
+                {% if req.custom_fields|length > 0 %}
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr><th>Название</th><th>Тип</th><th>Значение</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for cf in req.custom_fields %}
+                            <tr>
+                                <td>{{ cf.name|default:cf.id }}</td>
+                                <td><small class="text-muted">{{ cf.type|default:"—" }}</small></td>
+                                <td>
+                                    {% if "initiator" in cf.name|lower or "инициатор" in cf.name|lower %}
+                                        {% if cf.value %}
+                                            {% if cf.value.0.email %}
+                                                {% for u in cf.value %}
+                                                    <div class="mb-1">{% if u.username %}{{ u.username }}{% elif u.initials %}{{ u.initials }}{% else %}—{% endif %} — <a href="mailto:{{ u.email }}">{{ u.email }}</a></div>
+                                                {% endfor %}
+                                            {% else %}
+                                                {{ cf.value }}
+                                            {% endif %}
+                                        {% else %}
+                                            —
+                                        {% endif %}
+                                    {% elif cf.value != None and cf.value != '' %}
+                                        {{ cf.value }}
+                                    {% elif cf.value_richtext %}
+                                        {{ cf.value_richtext|truncatechars:150 }}
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <pre class="mb-0 small bg-light p-3 rounded">{{ req.custom_fields }}</pre>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="card clickup-card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <a class="text-decoration-none text-dark" data-bs-toggle="collapse" href="#rawTask" role="button">
+                        <i class="fas fa-code me-2"></i>Слепок задачи (raw)
+                    </a>
+                </h6>
+            </div>
+            <div class="collapse" id="rawTask">
+                <div class="card-body">
+                    <pre class="mb-0 small bg-light p-3 rounded" style="max-height: 400px; overflow: auto;">{{ req.raw_task }}</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

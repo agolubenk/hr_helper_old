@@ -1,0 +1,11 @@
+{
+  "name": "hrhelper-linkedin-huntflow",
+  "private": true,
+  "description": "Скрипт генерации иконок расширения из SVG",
+  "scripts": {
+    "generate-icons": "node generate-icons.js"
+  },
+  "devDependencies": {
+    "sharp": "^0.33.5"
+  }
+}

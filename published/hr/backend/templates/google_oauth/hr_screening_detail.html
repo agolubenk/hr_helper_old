@@ -1,0 +1,399 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}HR-скрининг: {{ hr_screening.candidate_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">HR-скрининг: {{ hr_screening.candidate_name|default:"Не указано" }}</h1>
+                <div class="btn-group">
+                    <a href="{% url 'google_oauth:hr_screening_list' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Назад к списку
+                    </a>
+                    {% if hr_screening.status == 'error' %}
+                        <button type="button" class="btn btn-warning retry-analysis-btn" data-pk="{{ hr_screening.pk }}">
+                            <i class="fas fa-redo"></i> Повторить анализ
+                        </button>
+                    {% endif %}
+                    {% if hr_screening.candidate_id and hr_screening.gemini_analysis %}
+                        <a href="http://127.0.0.1:8000/huntflow/accounts/{{ account_id }}/applicants/{{ hr_screening.candidate_id }}/edit/" target="_blank" class="btn btn-primary">
+                            <i class="fas fa-edit"></i> Редактировать кандидата
+                        </a>
+                    {% endif %}
+                    <a href="{% url 'google_oauth:hr_screening_delete' hr_screening.pk %}" class="btn btn-outline-danger">
+                        <i class="fas fa-trash"></i> Удалить
+                    </a>
+                </div>
+            </div>
+
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <div class="row">
+                <!-- Основная информация -->
+                <div class="col-lg-8">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-user"></i> Информация о кандидате
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <strong>Имя:</strong> {{ hr_screening.candidate_name|default:"Не указано" }}<br>
+                                    <strong>Уровень:</strong> {{ hr_screening.candidate_grade|default:"Не указано" }}<br>
+                                    <strong>ID кандидата:</strong> {{ hr_screening.candidate_id|default:"Не указано" }}
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Вакансия:</strong> {{ hr_screening.vacancy_title|default:"Не указано" }}<br>
+                                    <strong>ID вакансии:</strong> {{ hr_screening.vacancy_id|default:"Не указано" }}<br>
+                                    <strong>Анализ:</strong> 
+                                    {% if hr_screening.gemini_analysis %}
+                                        <span class="badge bg-success">Есть анализ</span>
+                                    {% else %}
+                                        <span class="badge bg-warning">Нет анализа</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            {% if hr_screening.candidate_url %}
+                                <div class="mt-3">
+                                    <strong>Ссылки:</strong><br>
+                                    <div class="d-flex flex-column gap-2">
+                                        <a href="{{ hr_screening.candidate_url }}" target="_blank" class="text-break">
+                                            <i class="fas fa-external-link-alt"></i> Huntflow: {{ hr_screening.candidate_url }}
+                                        </a>
+                                        {% if hr_screening.candidate_id %}
+                                            <a href="http://127.0.0.1:8000/huntflow/accounts/{{ account_id }}/applicants/{{ hr_screening.candidate_id }}/" target="_blank" class="text-break">
+                                                <i class="fas fa-user"></i> Наша система: http://127.0.0.1:8000/huntflow/accounts/{{ account_id }}/applicants/{{ hr_screening.candidate_id }}/
+                                            </a>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Извлеченная информация о зарплате и грейде -->
+                    {% if hr_screening.extracted_salary or hr_screening.determined_grade %}
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="fas fa-chart-line"></i> Анализ зарплаты и грейда
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    {% if hr_screening.extracted_salary %}
+                                        <div class="col-md-6">
+                                            <div class="d-flex align-items-center mb-3">
+                                                <i class="fas fa-dollar-sign text-success me-2"></i>
+                                                <div>
+                                                    <strong>Извлеченная зарплата:</strong><br>
+                                                    <span class="h5 text-success">{{ hr_screening.extracted_salary }} {{ hr_screening.salary_currency }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    {% if hr_screening.determined_grade %}
+                                        <div class="col-md-6">
+                                            <div class="d-flex align-items-center mb-3">
+                                                <i class="fas fa-star text-warning me-2"></i>
+                                                <div>
+                                                    <strong>Определенный грейд:</strong><br>
+                                                    <span class="h5 text-warning">{{ hr_screening.determined_grade }}</span>
+                                                    {% if hr_screening.huntflow_grade_id %}
+                                                        <br><small class="text-muted">ID уровня в Huntflow: {{ hr_screening.huntflow_grade_id }}</small>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                {% if hr_screening.extracted_salary and hr_screening.determined_grade %}
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-info-circle"></i>
+                                        <strong>Автоматический анализ:</strong> На основе зарплаты {{ hr_screening.extracted_salary }} {{ hr_screening.salary_currency }} 
+                                        определен грейд "{{ hr_screening.determined_grade }}". 
+                                        {% if hr_screening.huntflow_grade_id %}
+                                            Уровень кандидата обновлен в Huntflow.
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    <!-- Исходные данные -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-file-text"></i> Исходные данные
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <pre class="bg-light p-3 rounded">{{ hr_screening.input_data }}</pre>
+                        </div>
+                    </div>
+
+                    <!-- Анализ от Gemini AI -->
+                    {% if hr_screening.gemini_analysis %}
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="fas fa-robot"></i> Анализ от Gemini AI
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                {% if parsed_analysis %}
+                                    <div class="row">
+                                        <!-- Извлеченная зарплата (если есть) -->
+                                        {% if hr_screening.extracted_salary %}
+                                            <div class="col-md-6 mb-3">
+                                                <strong>{{ money_field_info.field_title|default:"Извлеченная зарплата" }}:</strong><br>
+                                                {% if money_field_info %}
+                                                    <small class="text-muted">
+                                                        <i class="fas fa-key"></i> Huntflow: {{ money_field_info.field_key }}
+                                                    </small><br>
+                                                {% endif %}
+                                                <span class="badge bg-success fs-6">{{ hr_screening.extracted_salary|floatformat:0 }} {{ hr_screening.salary_currency }}</span>
+                                            </div>
+                                        {% endif %}
+                                        
+                                        <!-- Определенный грейд (если есть) -->
+                                        {% if hr_screening.determined_grade %}
+                                            <div class="col-md-6 mb-3">
+                                                <strong>{{ level_field_info.field_title|default:"Определенный грейд" }}:</strong><br>
+                                                {% if level_field_info %}
+                                                    <small class="text-muted">
+                                                        <i class="fas fa-key"></i> Huntflow: {{ level_field_info.field_key }}
+                                                    </small><br>
+                                                    {% if level_field_info.selected_value %}
+                                                        <small class="text-muted">
+                                                            <i class="fas fa-check-circle"></i> Выбрано: {{ level_field_info.selected_value }}
+                                                            {% if level_field_info.selected_index is not None %}
+                                                                (индекс: {{ level_field_info.selected_index }})
+                                                            {% endif %}
+                                                        </small><br>
+                                                    {% endif %}
+                                                {% endif %}
+                                                <span class="badge bg-warning fs-6">{{ hr_screening.determined_grade }}</span>
+                                                {% if hr_screening.huntflow_grade_id %}
+                                                    <br><small class="text-muted">ID уровня: {{ hr_screening.huntflow_grade_id }}</small>
+                                                {% endif %}
+                                                {% if level_field_info.available_values %}
+                                                    <br><small class="text-muted">
+                                                        <i class="fas fa-list"></i> Доступные варианты: {{ level_field_info.available_values|join:", " }}
+                                                    </small>
+                                                {% endif %}
+                                            </div>
+                                        {% endif %}
+                                        
+                                        <!-- Основные поля с новой структурой -->
+                                        {% for field_name, field_data in parsed_analysis.items %}
+                                            {% if field_name != 'comment' and field_name != 'additional_fields' %}
+                                                <div class="col-md-6 mb-3">
+                                                    <strong>{{ field_data.field_title|default:field_name }}:</strong><br>
+                                                    
+                                                    <!-- Информация о поле Huntflow -->
+                                                    {% if field_data.field_key %}
+                                                        <small class="text-muted">
+                                                            <i class="fas fa-key"></i> Huntflow: {{ field_data.field_key }}
+                                                        </small><br>
+                                                    {% endif %}
+                                                    
+                                                    {% if field_data.value is not None %}
+                                                        {% if field_data.value == "да" %}
+                                                            <span class="badge bg-success">Да</span>
+                                                            {% if field_data.quote %}
+                                                                <small class="text-muted">({{ field_data.quote }})</small>
+                                                            {% endif %}
+                                                        {% elif field_data.value == "нет" %}
+                                                            <span class="badge bg-danger">Нет</span>
+                                                            {% if field_data.quote %}
+                                                                <small class="text-muted">({{ field_data.quote }})</small>
+                                                            {% endif %}
+                                                        {% else %}
+                                                            <span class="text-success">{{ field_data.value }}</span>
+                                                            {% if field_data.quote %}
+                                                                <small class="text-muted">({{ field_data.quote }})</small>
+                                                            {% endif %}
+                                                        {% endif %}
+                                                    {% else %}
+                                                        <span class="text-muted">Не указано</span>
+                                                    {% endif %}
+                                                </div>
+                                            {% endif %}
+                                        {% endfor %}
+                                        
+                                        <!-- Комментарии -->
+                                        {% if parsed_analysis.comment %}
+                                            <div class="col-12 mb-3">
+                                                <strong>Дополнительная информация:</strong><br>
+                                                <div class="bg-light p-3 rounded">{{ parsed_analysis.comment }}</div>
+                                            </div>
+                                        {% endif %}
+                                        
+                                        <!-- Дополнительные поля (старая структура) -->
+                                        {% if parsed_analysis.additional_fields %}
+                                            <div class="col-12">
+                                                <strong>Дополнительные поля:</strong><br>
+                                                <div class="table-responsive">
+                                                    <table class="table table-sm">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>Поле</th>
+                                                                <th>Значение</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {% for field, value in parsed_analysis.additional_fields.items %}
+                                                                <tr>
+                                                                    <td><code>{{ field }}</code></td>
+                                                                    <td>{{ value }}</td>
+                                                                </tr>
+                                                            {% endfor %}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                {% else %}
+                                    <div class="alert alert-warning">
+                                        <i class="fas fa-exclamation-triangle"></i>
+                                        Не удалось распарсить анализ от Gemini AI. Возможно, формат ответа некорректный.
+                                    </div>
+                                    <details>
+                                        <summary>Сырой ответ от Gemini AI</summary>
+                                        <pre class="bg-light p-3 rounded mt-2">{{ hr_screening.gemini_analysis }}</pre>
+                                    </details>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="fas fa-clock"></i> Нет анализа
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    Анализ еще не был выполнен.
+                                </div>
+                                <button type="button" class="btn btn-warning retry-analysis-btn" data-pk="{{ hr_screening.pk }}">
+                                    <i class="fas fa-redo"></i> Выполнить анализ
+                                </button>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Метаданные -->
+                <div class="col-lg-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-info"></i> Метаданные
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <p><strong>Создано:</strong><br>
+                                {{ hr_screening.created_at|date:"d.m.Y H:i:s" }}</p>
+                            
+                            <p><strong>Обновлено:</strong><br>
+                                {{ hr_screening.updated_at|date:"d.m.Y H:i:s" }}</p>
+                            
+                            <p><strong>Пользователь:</strong><br>
+                                {{ hr_screening.user.username }}</p>
+                        </div>
+                    </div>
+
+                    <!-- Действия -->
+                    <div class="card mt-3">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-cogs"></i> Действия
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-grid gap-2">
+                                <a href="{% url 'google_oauth:hr_screening_list' %}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-list"></i> К списку
+                                </a>
+                                
+                                {% if not hr_screening.gemini_analysis %}
+                                    <button type="button" class="btn btn-warning retry-analysis-btn" data-pk="{{ hr_screening.pk }}">
+                                        <i class="fas fa-redo"></i> Выполнить анализ
+                                    </button>
+                                {% endif %}
+                                
+                                <a href="{% url 'google_oauth:hr_screening_delete' hr_screening.pk %}" class="btn btn-outline-danger">
+                                    <i class="fas fa-trash"></i> Удалить
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Обработка повторного анализа
+    document.querySelectorAll('.retry-analysis-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const pk = this.dataset.pk;
+            const originalText = this.innerHTML;
+            
+            // Показываем индикатор загрузки
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Анализируем...';
+            this.disabled = true;
+            
+            fetch(`/google-oauth/hr-screening/${pk}/retry-analysis/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('meta[name=csrf-token]').getAttribute('content'),
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Обновляем страницу для отображения нового анализа
+                    location.reload();
+                } else {
+                    alert('Ошибка: ' + data.error);
+                    // Восстанавливаем кнопку
+                    this.innerHTML = originalText;
+                    this.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Произошла ошибка при повторном анализе');
+                // Восстанавливаем кнопку
+                this.innerHTML = originalText;
+                this.disabled = false;
+            });
+        });
+    });
+});
+</script>
+{% endblock %}

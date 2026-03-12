@@ -1,0 +1,568 @@
+{% extends 'profile/base.html' %}
+{% load static %}
+
+{% block profile_title %}Интеграции - HR Helper{% endblock %}
+{% block profile_page_title %}Управление интеграциями{% endblock %}
+
+{% block profile_content %}
+<div class="card profile-card">
+    <div class="card-header">
+        <h5 class="card-title mb-0">
+            <i class="fas fa-plug me-2"></i>
+            Статус интеграций
+        </h5>
+    </div>
+    <div class="card-body">
+        {% if integrations %}
+        <div class="row">
+            {% for key, integration in integrations.items %}
+            <div class="col-md-4 mb-4">
+                <div class="integration-card card h-100">
+                    <!-- Верхняя часть: иконка, название и статус -->
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center flex-grow-1">
+                            {% if key == 'huntflow' %}
+                                <div class="integration-logo me-2">
+                                    <img src="{% static 'images/integrations/huntflow-official.ico' %}" 
+                                         alt="Huntflow" 
+                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+                                    <i class="fas fa-briefcase fa-2x text-primary" style="display: none;"></i>
+                                </div>
+                            {% elif key == 'gemini' %}
+                                <div class="integration-logo me-2">
+                                    <img src="https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" 
+                                         alt="Gemini AI" 
+                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+                                    <i class="fas fa-robot fa-2x text-primary" style="display: none;"></i>
+                                </div>
+                            {% elif key == 'clickup' %}
+                                <div class="integration-logo me-2">
+                                    <img src="{% static 'images/integrations/clickup-official.svg' %}" 
+                                         alt="ClickUp" 
+                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+                                    <i class="fas fa-tasks fa-2x text-primary" style="display: none;"></i>
+                                </div>
+                            {% elif key == 'telegram' %}
+                                <div class="integration-logo me-2">
+                                    <img src="https://telegram.org/img/t_logo.png" 
+                                         alt="Telegram" 
+                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+                                    <i class="fab fa-telegram fa-2x text-primary" style="display: none;"></i>
+                                </div>
+                            {% elif key == 'notion' %}
+                                <div class="integration-logo me-2">
+                                    <img src="https://www.notion.so/images/logo-ios.png" 
+                                         alt="Notion" 
+                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+                                    <i class="fas fa-file-alt fa-2x text-primary" style="display: none;"></i>
+                                </div>
+                            {% elif key == 'google_oauth' %}
+                                <div class="integration-logo me-2">
+                                    <img src="https://developers.google.com/identity/images/g-logo.png" 
+                                         alt="Google" 
+                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+                                    <i class="fab fa-google fa-2x text-primary" style="display: none;"></i>
+                                </div>
+                            {% elif key == 'hhru' %}
+                                <div class="integration-logo me-2">
+                                    <img src="https://hh.ru/favicon.ico" 
+                                         alt="HeadHunter.ru" 
+                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+                                    <i class="fas fa-briefcase fa-2x text-primary" style="display: none;"></i>
+                                </div>
+                            {% endif %}
+                            <h5 class="card-title mb-0 integration-title">{{ integration.name }}</h5>
+                        </div>
+                        <div class="ms-2">
+                            {% if integration.configured or integration.connected %}
+                                <div class="status-icon connected" title="Подключено">
+                                    <i class="fas fa-check-double"></i>
+                                </div>
+                            {% else %}
+                                <div class="status-icon disconnected" title="Не подключено">
+                                    <i class="fas fa-times"></i>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Основной контент -->
+                    <div class="card-body text-center">
+                        
+                        <!-- Информация по интеграции -->
+                        <div class="integration-info mb-3">
+                        {% if key == 'huntflow' %}
+                                {% if integration.token_configured %}
+                                    <div class="small">
+                                        <pre class="mb-0"><code>Текущая система: {{ integration.active_system }}
+Access Token: {% if integration.token_valid %}✅ Валидный{% else %}❌ Истек{% endif %}
+Refresh Token: {% if integration.refresh_valid %}✅ Валидный{% else %}❌ Истек{% endif %}{% if integration.sandbox_configured or integration.prod_configured %}
+{% if integration.sandbox_configured %}API Песочницы: ✅ Настроен{% endif %}{% if integration.prod_configured %}
+API Прода: ✅ Настроен{% endif %}{% endif %}</code></pre>
+                                    </div>
+                                {% elif integration.api_configured %}
+                                    <div class="small">
+                                        <pre class="mb-0"><code>API ключи: ⚠️ Устаревший
+Песочница: {% if integration.sandbox_configured %}✅ Настроен{% else %}❌ Не настроен{% endif %}
+Прод: {% if integration.prod_configured %}✅ Настроен{% else %}❌ Не настроен{% endif %}
+Активная система: {{ integration.active_system }}</code></pre>
+                                    </div>
+                                {% else %}
+                                    <div class="text-muted">Не настроено</div>
+                                {% endif %}
+                        {% elif key == 'gemini' %}
+                                <div class="small">
+                                    <pre class="mb-0"><code>API ключ: {% if integration.configured %}✅ Настроен{% else %}❌ Не настроен{% endif %}</code></pre>
+                                </div>
+                        {% elif key == 'clickup' %}
+                                <div class="small">
+                                    <pre class="mb-0"><code>API ключ: {% if integration.configured %}✅ Настроен{% else %}❌ Не настроен{% endif %}</code></pre>
+                                </div>
+                        {% elif key == 'telegram' %}
+                                <div class="small">
+                                    <pre class="mb-0"><code>Username: {% if integration.configured %}✅ {{ integration.username }}{% else %}❌ Не настроен{% endif %}</code></pre>
+                                </div>
+                        {% elif key == 'notion' %}
+                                <div class="small">
+                                    <pre class="mb-0"><code>Integration Token: {% if integration.configured %}✅ Настроен{% else %}❌ Не настроен{% endif %}</code></pre>
+                                </div>
+                            {% elif key == 'google_oauth' %}
+                                <div class="small">
+                                    <pre class="mb-0"><code>OAuth: {% if integration.connected %}✅ Подключен{% else %}❌ Не подключен{% endif %}{% if integration.connected %}
+Токен: {% if integration.token_valid %}✅ Валидный{% else %}❌ Истек{% endif %}{% endif %}</code></pre>
+                                </div>
+                            {% elif key == 'hhru' %}
+                                <div class="small">
+                                    <pre class="mb-0"><code>OAuth: {% if integration.connected %}✅ Подключен{% else %}❌ Не подключен{% endif %}{% if integration.connected %}
+Токен: {% if integration.token_valid %}✅ Валидный{% else %}❌ Истек{% endif %}{% endif %}</code></pre>
+                                </div>
+                        {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Футер с кнопкой настройки -->
+                    {% if key == 'hhru' %}
+                    <a href="{% url 'hhru:dashboard' %}" class="">
+                        <div class="card-footer btn btn-outline-primary w-100 border-0 rounded-0 p-0">
+                            <i class="fas fa-external-link-alt me-1"></i> HeadHunter.ru
+                        </div>
+                    </a>
+                    {% else %}
+                    <a href="{% url 'accounts:api_keys' %}" class="">
+                        <div class="card-footer btn btn-outline-primary w-100 border-0 rounded-0 p-0">
+                            <i class="fas fa-cog me-1"></i> Настроить API ключи
+                        </div>
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                Интеграции не найдены. Обратитесь к администратору.
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Расширение Chrome "HR Helper" -->
+<div class="card profile-card mt-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0">
+            <i class="fab fa-chrome me-2"></i>
+            Расширение Chrome "HR Helper"
+        </h5>
+        <span class="badge bg-success">
+            <i class="fas fa-check-circle me-1"></i>Включено
+        </span>
+    </div>
+    <div class="card-body">
+        <p class="text-muted small mb-2">Токен для доступа расширения к API (в поле скрыт символами; кнопка «Копировать» копирует реальный токен в буфер):</p>
+        <div class="input-group" id="extension-token-group">
+            <span class="input-group-text bg-light text-muted">
+                <i class="fas fa-key"></i>
+            </span>
+            <input type="text"
+                   class="form-control font-monospace"
+                   value="Загрузка…"
+                   readonly
+                   id="extension-token-input"
+                   aria-label="Токен расширения">
+            <button type="button"
+                    class="btn btn-outline-primary"
+                    id="extension-token-copy-btn"
+                    title="Скопировать токен в буфер обмена">
+                <i class="fas fa-copy me-1"></i>Копировать
+            </button>
+        </div>
+        <p class="mt-2 mb-0 small">
+            <i class="fas fa-link me-1"></i>
+            Токен по запросу: <a href="{{ extension_token_url }}" target="_blank" rel="noopener">{{ extension_token_url }}</a>
+        </p>
+    </div>
+</div>
+<script>
+(function() {
+    var tokenUrl = '{{ extension_token_url|escapejs }}';
+    var input = document.getElementById('extension-token-input');
+    var btn = document.getElementById('extension-token-copy-btn');
+    if (!input || !btn || !tokenUrl) return;
+
+    var storedToken = null;
+
+    function maskedValue(token) {
+        if (!token || token.length <= 9) return token || '********************************';
+        return token.slice(0, 4) + '*'.repeat(token.length - 9) + token.slice(-5);
+    }
+
+    function loadToken() {
+        fetch(tokenUrl, { method: 'GET', credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var token = data && data.data && data.data.token;
+                if (token) {
+                    storedToken = token;
+                    input.value = maskedValue(token);
+                } else {
+                    input.value = '********************************';
+                }
+            })
+            .catch(function() {
+                input.value = '********************************';
+            });
+    }
+
+    loadToken();
+
+    btn.addEventListener('click', function() {
+        var token = storedToken;
+        if (!token) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Загрузка...';
+            fetch(tokenUrl, { method: 'GET', credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    token = data && data.data && data.data.token;
+                    if (token) storedToken = token;
+                    return token;
+                })
+                .then(function(t) {
+                    if (!t) throw new Error('Токен не получен');
+                    if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(t);
+                    var ta = document.createElement('textarea');
+                    ta.value = t;
+                    ta.style.position = 'fixed';
+                    ta.style.opacity = '0';
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(ta);
+                    return Promise.resolve();
+                })
+                .then(function() {
+                    btn.innerHTML = '<i class="fas fa-check me-1"></i>Скопировано';
+                    setTimeout(function() { btn.disabled = false; btn.innerHTML = '<i class="fas fa-copy me-1"></i>Копировать'; }, 2000);
+                })
+                .catch(function() {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-copy me-1"></i>Копировать';
+                    alert('Ошибка при получении или копировании токена');
+                });
+            return;
+        }
+        var origHtml = btn.innerHTML;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(token).then(function() {
+                btn.innerHTML = '<i class="fas fa-check me-1"></i>Скопировано';
+                setTimeout(function() { btn.innerHTML = origHtml; }, 2000);
+            }).catch(function() {
+                alert('Не удалось скопировать');
+            });
+        } else {
+            var ta = document.createElement('textarea');
+            ta.value = token;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            btn.innerHTML = '<i class="fas fa-check me-1"></i>Скопировано';
+            setTimeout(function() { btn.innerHTML = origHtml; }, 2000);
+        }
+    });
+})();
+</script>
+
+<!-- Подробные инструкции по настройке -->
+<div class="card profile-card mt-4">
+    <div class="card-header">
+        <h5 class="card-title mb-0">
+            <i class="fas fa-book me-2"></i>
+            Подробные инструкции по получению API ключей
+        </h5>
+    </div>
+    <div class="card-body">
+        
+        <div class="accordion" id="integrationAccordion">
+            <!-- Gemini AI -->
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="geminiHeading">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#geminiCollapse">
+                        <div class="integration-logo me-2">
+                            <img src="https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" 
+                                 alt="Gemini AI" 
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+                            <i class="fas fa-robot fa-2x text-primary" style="display: none;"></i>
+                        </div>
+                        <strong>Gemini AI API</strong>
+                        <span class="badge bg-primary ms-2">Google AI</span>
+                    </button>
+                </h2>
+                <div id="geminiCollapse" class="accordion-collapse collapse" data-bs-parent="#integrationAccordion">
+                    <div class="accordion-body">
+                        <div class="mb-3">
+                            <h6><i class="fas fa-link me-2"></i>Ссылка для начала:</h6>
+                            <a href="https://ai.google.dev/" target="_blank" class="btn btn-outline-primary btn-sm">
+                                <i class="fas fa-external-link-alt me-1"></i>
+                                https://ai.google.dev/
+                            </a>
+                        </div>
+                        
+                        <h6><i class="fas fa-list-ol me-2"></i>Пошаговая инструкция:</h6>
+                        <ol class="mb-3">
+                            <li><strong>Войти в Google аккаунт</strong> - используйте ваш Google аккаунт</li>
+                            <li><strong>Перейти в Google AI Studio</strong> - нажмите на ссылку выше</li>
+                            <li><strong>Кликнуть "Get API Key"</strong> - найдите кнопку на главной странице</li>
+                            <li><strong>Кликнуть "Create API key"</strong> - создайте новый ключ</li>
+                            <li><strong>Выбрать проект или создать новый</strong> - выберите существующий проект Google Cloud или создайте новый</li>
+                            <li><strong>Кликнуть "Create API key in existing project"</strong> - подтвердите создание</li>
+                            <li><strong>Скопировать ключ и сохранить</strong> - скопируйте полученный API ключ и вставьте в настройки профиля</li>
+                        </ol>
+                        
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Важно:</strong> Сохраните API ключ в безопасном месте. Он больше не будет показан после закрытия страницы.
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Huntflow -->
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="huntflowHeading">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#huntflowCollapse">
+                        <div class="integration-logo me-2">
+                            <img src="{% static 'images/integrations/huntflow-official.ico' %}" 
+                                 alt="Huntflow" 
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+                            <i class="fas fa-briefcase fa-2x text-primary" style="display: none;"></i>
+                        </div>
+                        <strong>Huntflow API</strong>
+                        <span class="badge bg-success ms-2">ATS</span>
+                    </button>
+                </h2>
+                <div id="huntflowCollapse" class="accordion-collapse collapse" data-bs-parent="#integrationAccordion">
+                    <div class="accordion-body">
+                        <div class="mb-3">
+                            <h6><i class="fas fa-map-marker-alt me-2"></i>Где искать в интерфейсе:</h6>
+                            <ul>
+                                <li>Правый верхний угол → <strong>Settings</strong> (шестеренка)</li>
+                                <li>Вкладка <strong>"Companies"</strong></li>
+                                <li>Левое меню → <strong>"API"</strong></li>
+                            </ul>
+                        </div>
+                        
+                        <div class="alert alert-success mb-3">
+                            <i class="fas fa-star me-2"></i>
+                            <strong>Рекомендуется:</strong> Используйте новую токенную систему для более безопасной и надежной интеграции.
+                        </div>
+                        
+                        <h6><i class="fas fa-list-ol me-2"></i>Пошаговая инструкция (Токенная система):</h6>
+                        <ol class="mb-3">
+                            <li><strong>Кликнуть "+Add token"</strong> - найдите кнопку в разделе API</li>
+                            <li><strong>Ввести название токена</strong> - например, "HR Helper Integration"</li>
+                            <li><strong>Кликнуть "Generate the key"</strong> - создайте новый токен</li>
+                            <li><strong>Перейти по полученной ссылке в новой вкладке</strong> - откроется страница авторизации</li>
+                            <li><strong>Кликнуть "Receive token"</strong> - подтвердите получение токена</li>
+                            <li><strong>Скопировать оба токена:</strong>
+                                <ul>
+                                    <li><strong>Access token</strong> - для API запросов (действует 7 дней)</li>
+                                    <li><strong>Refresh token</strong> - для обновления (действует 14 дней)</li>
+                                </ul>
+                            </li>
+                            <li><strong>Перейти в HR Helper → Интеграции → Huntflow → Управление токенами</strong></li>
+                            <li><strong>Вставить оба токена и сохранить</strong></li>
+                        </ol>
+                        
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Преимущества токенной системы:</strong> Автоматическое обновление токенов, повышенная безопасность, надежная работа без перерывов.
+                        </div>
+                        
+                        <details class="mt-3">
+                            <summary class="btn btn-outline-secondary btn-sm">
+                                <i class="fas fa-history me-1"></i>
+                                Старая система API ключей (не рекомендуется)
+                            </summary>
+                            <div class="mt-2 p-3 bg-light rounded">
+                                <p class="small mb-2">Если вы используете старую систему API ключей, перейдите в <strong>Настройки профиля → API ключи</strong> для настройки.</p>
+                                <div class="alert alert-warning small">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>
+                                    <strong>Внимание:</strong> API ключи устарели и могут быть отключены в будущем. Рекомендуется перейти на токенную систему.
+                                </div>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ClickUp -->
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="clickupHeading">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#clickupCollapse">
+                        <div class="integration-logo me-2">
+                            <img src="{% static 'images/integrations/clickup-official.svg' %}" 
+                                 alt="ClickUp" 
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+                            <i class="fas fa-tasks fa-2x text-primary" style="display: none;"></i>
+                        </div>
+                        <strong>ClickUp API</strong>
+                        <span class="badge bg-warning ms-2">Task Management</span>
+                    </button>
+                </h2>
+                <div id="clickupCollapse" class="accordion-collapse collapse" data-bs-parent="#integrationAccordion">
+                    <div class="accordion-body">
+                        <div class="mb-3">
+                            <h6><i class="fas fa-map-marker-alt me-2"></i>Где искать в интерфейсе:</h6>
+                            <ul>
+                                <li>Правый верхний угол → <strong>аватар пользователя</strong></li>
+                                <li><strong>"Settings"</strong></li>
+                                <li>Левый сайдбар → <strong>"Apps"</strong> или <strong>"ClickUp API"</strong></li>
+                            </ul>
+                        </div>
+                        
+                        <h6><i class="fas fa-list-ol me-2"></i>Пошаговая инструкция:</h6>
+                        <ol class="mb-3">
+                            <li><strong>Кликнуть "+ Create new App"</strong> или <strong>"Generate API Token"</strong> - найдите соответствующую кнопку</li>
+                            <li><strong>Ввести название приложения</strong> - например, "HR Helper"</li>
+                            <li><strong>Указать redirect URL (если нужен OAuth)</strong> - обычно не требуется для простой интеграции</li>
+                            <li><strong>Кликнуть "Create App"</strong> - создайте приложение</li>
+                            <li><strong>Скопировать Client ID, Client Secret или API Token</strong> - скопируйте полученный API токен и вставьте в настройки профиля</li>
+                        </ol>
+                        
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Примечание:</strong> API ключ ClickUp позволяет интегрироваться с системой управления задачами для автоматизации процессов.
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Telegram -->
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="telegramHeading">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#telegramCollapse">
+                        <div class="integration-logo me-2">
+                            <img src="https://telegram.org/img/t_logo.png" 
+                                 alt="Telegram" 
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+                            <i class="fab fa-telegram fa-2x text-primary" style="display: none;"></i>
+                        </div>
+                        <strong>Telegram Username</strong>
+                        <span class="badge telegram-badge ms-2">Messaging</span>
+                    </button>
+                </h2>
+                <div id="telegramCollapse" class="accordion-collapse collapse" data-bs-parent="#integrationAccordion">
+                    <div class="accordion-body">
+                        <div class="mb-3">
+                            <h6><i class="fas fa-map-marker-alt me-2"></i>Где начать:</h6>
+                            <p>Telegram приложение (мобильное или десктопное)</p>
+                        </div>
+                        
+                        <h6><i class="fas fa-list-ol me-2"></i>Пошаговая инструкция:</h6>
+                        <ol class="mb-3">
+                            <li><strong>Открыть Telegram</strong> - запустите приложение Telegram</li>
+                            <li><strong>Перейти в настройки профиля</strong> - нажмите на аватар в левом верхнем углу</li>
+                            <li><strong>Нажать "Edit" или "Редактировать"</strong> - откройте редактирование профиля</li>
+                            <li><strong>Найти поле "Username"</strong> - найдите поле для имени пользователя</li>
+                            <li><strong>Ввести желаемое имя пользователя</strong> - например, "your_username" (без @)</li>
+                            <li><strong>Нажать "Save" или "Сохранить"</strong> - сохраните изменения</li>
+                            <li><strong>Скопировать имя пользователя</strong> - скопируйте установленное имя и вставьте в настройки профиля</li>
+                        </ol>
+                        
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Примечание:</strong> Username должен быть уникальным и может содержать только латинские буквы, цифры и подчеркивания. Не забудьте убрать символ @ при вводе в настройки.
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Notion -->
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="notionHeading">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#notionCollapse">
+                        <div class="integration-logo me-2">
+                            <img src="https://www.notion.so/images/logo-ios.png" 
+                                 alt="Notion" 
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+                            <i class="fas fa-file-alt fa-2x text-primary" style="display: none;"></i>
+                        </div>
+                        <strong>Notion API</strong>
+                        <span class="badge bg-secondary ms-2">Documentation</span>
+                    </button>
+                </h2>
+                <div id="notionCollapse" class="accordion-collapse collapse" data-bs-parent="#integrationAccordion">
+                    <div class="accordion-body">
+                        <div class="mb-3">
+                            <h6><i class="fas fa-link me-2"></i>Ссылка для начала:</h6>
+                            <a href="https://www.notion.so/my-integrations" target="_blank" class="btn btn-outline-primary btn-sm">
+                                <i class="fas fa-external-link-alt me-1"></i>
+                                https://www.notion.so/my-integrations
+                            </a>
+                        </div>
+                        
+                        <h6><i class="fas fa-list-ol me-2"></i>Пошаговая инструкция:</h6>
+                        <ol class="mb-3">
+                            <li><strong>Войти в Notion аккаунт</strong> - используйте ваш аккаунт Notion</li>
+                            <li><strong>Кликнуть "+ New integration"</strong> - создайте новую интеграцию</li>
+                            <li><strong>Заполнить форму:</strong>
+                                <ul>
+                                    <li>Название интеграции (например, "HR Helper")</li>
+                                    <li>Выбрать рабочее пространство</li>
+                                    <li>Выбрать тип "Internal"</li>
+                                </ul>
+                            </li>
+                            <li><strong>Настроить права доступа</strong> - выберите чтение/запись для нужных баз данных</li>
+                            <li><strong>Кликнуть "Submit"</strong> - создайте интеграцию</li>
+                            <li><strong>Скопировать "Internal Integration Token"</strong> - сохраните токен и вставьте в настройки профиля</li>
+                        </ol>
+                        
+                        <h6><i class="fas fa-share-alt me-2"></i>Дополнительно - предоставить доступ к страницам:</h6>
+                        <ol class="mb-3">
+                            <li><strong>Открыть нужную страницу в Notion</strong> - перейдите к странице, которую хотите синхронизировать</li>
+                            <li><strong>Кликнуть "..." (три точки)</strong> - найдите меню страницы</li>
+                            <li><strong>"Add connections"</strong> - добавьте подключения</li>
+                            <li><strong>Выбрать созданную интеграцию</strong> - выберите "HR Helper" или название вашей интеграции</li>
+                            <li><strong>"Confirm"</strong> - подтвердите подключение</li>
+                        </ol>
+                        
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Примечание:</strong> Integration Token позволяет интегрироваться с Notion для синхронизации страниц и баз данных. Не забудьте предоставить доступ к нужным страницам.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-4 p-3 bg-light rounded">
+            <h6><i class="fas fa-question-circle me-2"></i>Нужна помощь?</h6>
+            <p class="mb-0">Если у вас возникли проблемы с настройкой интеграций, обратитесь к администратору системы или проверьте документацию соответствующих сервисов.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

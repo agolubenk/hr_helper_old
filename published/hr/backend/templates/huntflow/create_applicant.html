@@ -1,0 +1,368 @@
+{% extends 'common/base.html' %}
+{% load huntflow_filters %}
+
+{% block title %}Создание кандидата{% endblock %}
+{% block page_title %}Создание кандидата{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <!-- Хлебные крошки -->
+        {% include 'huntflow/breadcrumbs.html' with account_id=account_id account_name=account_name %}
+        
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-user-plus me-2"></i>
+                    Создание нового кандидата
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+                
+                <form method="post" id="createApplicantForm" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    
+                    <!-- Основная информация -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="text-primary mb-3">
+                                <i class="fas fa-user me-2"></i>
+                                Основная информация
+                            </h6>
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.first_name.id_for_label }}" class="form-label">
+                                {{ form.first_name.label }}
+                                <span class="text-danger">*</span>
+                            </label>
+                            {{ form.first_name }}
+                            {% if form.first_name.errors %}
+                                <div class="text-danger small">{{ form.first_name.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.last_name.id_for_label }}" class="form-label">
+                                {{ form.last_name.label }}
+                                <span class="text-danger">*</span>
+                            </label>
+                            {{ form.last_name }}
+                            {% if form.last_name.errors %}
+                                <div class="text-danger small">{{ form.last_name.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.middle_name.id_for_label }}" class="form-label">
+                                {{ form.middle_name.label }}
+                            </label>
+                            {{ form.middle_name }}
+                            {% if form.middle_name.errors %}
+                                <div class="text-danger small">{{ form.middle_name.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Контактная информация -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="text-primary mb-3">
+                                <i class="fas fa-address-book me-2"></i>
+                                Контактная информация
+                            </h6>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.email.id_for_label }}" class="form-label">
+                                {{ form.email.label }}
+                            </label>
+                            {{ form.email }}
+                            {% if form.email.errors %}
+                                <div class="text-danger small">{{ form.email.errors }}</div>
+                            {% endif %}
+                            <small class="form-text text-muted">Укажите email или телефон</small>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.phone.id_for_label }}" class="form-label">
+                                {{ form.phone.label }}
+                            </label>
+                            {{ form.phone }}
+                            {% if form.phone.errors %}
+                                <div class="text-danger small">{{ form.phone.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Профессиональная информация -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="text-primary mb-3">
+                                <i class="fas fa-briefcase me-2"></i>
+                                Профессиональная информация
+                            </h6>
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.position.id_for_label }}" class="form-label">
+                                {{ form.position.label }}
+                            </label>
+                            {{ form.position }}
+                            {% if form.position.errors %}
+                                <div class="text-danger small">{{ form.position.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.company.id_for_label }}" class="form-label">
+                                {{ form.company.label }}
+                            </label>
+                            {{ form.company }}
+                            {% if form.company.errors %}
+                                <div class="text-danger small">{{ form.company.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.salary.id_for_label }}" class="form-label">
+                                {{ form.salary.label }}
+                            </label>
+                            {{ form.salary }}
+                            {% if form.salary.errors %}
+                                <div class="text-danger small">{{ form.salary.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Резюме -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="text-primary mb-3">
+                                <i class="fas fa-file-alt me-2"></i>
+                                Резюме
+                            </h6>
+                        </div>
+                        
+                        <div class="col-12 mb-3">
+                            <label for="{{ form.resume_file.id_for_label }}" class="form-label">
+                                {{ form.resume_file.label }}
+                            </label>
+                            {{ form.resume_file }}
+                            {% if form.resume_file.errors %}
+                                <div class="text-danger small">{{ form.resume_file.errors }}</div>
+                            {% endif %}
+                            {% if form.resume_file.help_text %}
+                                <small class="form-text text-muted">{{ form.resume_file.help_text }}</small>
+                            {% endif %}
+                            <div id="file-parse-status" class="mt-2" style="display: none;">
+                                <div class="alert alert-info">
+                                    <i class="fas fa-spinner fa-spin me-2"></i>
+                                    <span id="file-parse-message">Обработка файла...</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-12 mb-3">
+                            <label for="{{ form.resume_text.id_for_label }}" class="form-label">
+                                {{ form.resume_text.label }}
+                            </label>
+                            {{ form.resume_text }}
+                            {% if form.resume_text.errors %}
+                                <div class="text-danger small">{{ form.resume_text.errors }}</div>
+                            {% endif %}
+                            <small class="form-text text-muted">Вставьте текст резюме или дополнительную информацию о кандидате. Текст будет автоматически заполнен при загрузке файла.</small>
+                        </div>
+                    </div>
+                    
+                    <!-- Вакансия -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="text-primary mb-3">
+                                <i class="fas fa-briefcase me-2"></i>
+                                Привязка к вакансии
+                            </h6>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.vacancy.id_for_label }}" class="form-label">
+                                {{ form.vacancy.label }}
+                                <span class="text-danger">*</span>
+                            </label>
+                            {{ form.vacancy }}
+                            {% if form.vacancy.errors %}
+                                <div class="text-danger small">{{ form.vacancy.errors }}</div>
+                            {% endif %}
+                            {% if form.vacancy.help_text %}
+                                <small class="form-text text-muted">{{ form.vacancy.help_text }}</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Общие ошибки формы -->
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {{ form.non_field_errors }}
+                        </div>
+                    {% endif %}
+                    
+                    <!-- Кнопки -->
+                    <div class="row">
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>
+                                Создать кандидата
+                            </button>
+                            <a href="{% url 'huntflow:dashboard' %}" class="btn btn-secondary">
+                                <i class="fas fa-times me-2"></i>
+                                Отмена
+                            </a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Обработка загрузки файла резюме с автоматическим парсингом
+document.getElementById('{{ form.resume_file.id_for_label }}').addEventListener('change', function(e) {
+    const fileInput = e.target;
+    const file = fileInput.files[0];
+    const statusDiv = document.getElementById('file-parse-status');
+    const messageSpan = document.getElementById('file-parse-message');
+    
+    if (!file) {
+        statusDiv.style.display = 'none';
+        return;
+    }
+    
+    // Проверяем тип файла
+    const allowedTypes = ['application/pdf', 'application/msword', 
+                         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                         'text/plain'];
+    if (!allowedTypes.includes(file.type) && !file.name.match(/\.(pdf|doc|docx|txt)$/i)) {
+        alert('Поддерживаются только файлы PDF, DOC, DOCX и TXT');
+        fileInput.value = '';
+        return;
+    }
+    
+    // Показываем статус обработки
+    statusDiv.style.display = 'block';
+    messageSpan.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Обработка файла через парсер Huntflow...';
+    statusDiv.querySelector('.alert').className = 'alert alert-info';
+    
+    // Создаем FormData для отправки файла
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    // Отправляем файл на парсинг
+    fetch('{% url "huntflow:parse_resume_file_ajax" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.data) {
+            // Автозаполняем форму данными из парсера
+            const parsedData = data.data;
+            
+            // Заполняем поля только если они пустые
+            const firstNameField = document.getElementById('{{ form.first_name.id_for_label }}');
+            if (!firstNameField.value && parsedData.first_name) {
+                firstNameField.value = parsedData.first_name;
+            }
+            
+            const lastNameField = document.getElementById('{{ form.last_name.id_for_label }}');
+            if (!lastNameField.value && parsedData.last_name) {
+                lastNameField.value = parsedData.last_name;
+            }
+            
+            const middleNameField = document.getElementById('{{ form.middle_name.id_for_label }}');
+            if (!middleNameField.value && parsedData.middle_name) {
+                middleNameField.value = parsedData.middle_name;
+            }
+            
+            const emailField = document.getElementById('{{ form.email.id_for_label }}');
+            if (!emailField.value && parsedData.email) {
+                emailField.value = parsedData.email;
+            }
+            
+            const phoneField = document.getElementById('{{ form.phone.id_for_label }}');
+            if (!phoneField.value && parsedData.phone) {
+                phoneField.value = parsedData.phone;
+            }
+            
+            const positionField = document.getElementById('{{ form.position.id_for_label }}');
+            if (!positionField.value && parsedData.position) {
+                positionField.value = parsedData.position;
+            }
+            
+            const salaryField = document.getElementById('{{ form.salary.id_for_label }}');
+            if (!salaryField.value && parsedData.salary) {
+                salaryField.value = parsedData.salary;
+            }
+            
+            const resumeTextField = document.getElementById('{{ form.resume_text.id_for_label }}');
+            if (!resumeTextField.value && parsedData.resume_text) {
+                resumeTextField.value = parsedData.resume_text;
+            }
+            
+            // Показываем успешное сообщение
+            messageSpan.innerHTML = '<i class="fas fa-check-circle me-2"></i>Файл успешно обработан! Данные автоматически заполнены.';
+            statusDiv.querySelector('.alert').className = 'alert alert-success';
+            
+            // Сохраняем ID файла для использования при создании кандидата
+            if (parsedData.file_id) {
+                // Добавляем скрытое поле с ID файла
+                let fileIdInput = document.getElementById('parsed_file_id');
+                if (!fileIdInput) {
+                    fileIdInput = document.createElement('input');
+                    fileIdInput.type = 'hidden';
+                    fileIdInput.id = 'parsed_file_id';
+                    fileIdInput.name = 'parsed_file_id';
+                    document.getElementById('createApplicantForm').appendChild(fileIdInput);
+                }
+                fileIdInput.value = parsedData.file_id;
+            }
+        } else {
+            // Ошибка парсинга
+            messageSpan.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>' + (data.message || 'Не удалось обработать файл');
+            statusDiv.querySelector('.alert').className = 'alert alert-warning';
+        }
+    })
+    .catch(error => {
+        console.error('Ошибка при парсинге файла:', error);
+        messageSpan.innerHTML = '<i class="fas fa-times-circle me-2"></i>Ошибка при обработке файла: ' + error.message;
+        statusDiv.querySelector('.alert').className = 'alert alert-danger';
+    });
+});
+
+// Валидация формы на клиенте
+document.getElementById('createApplicantForm').addEventListener('submit', function(e) {
+    const email = document.getElementById('{{ form.email.id_for_label }}').value.trim();
+    const phone = document.getElementById('{{ form.phone.id_for_label }}').value.trim();
+    
+    if (!email && !phone) {
+        e.preventDefault();
+        alert('Необходимо указать хотя бы email или телефон');
+        return false;
+    }
+    
+    return true;
+});
+</script>
+{% endblock %}
+

@@ -1,0 +1,177 @@
+{% extends 'common/base.html' %}
+
+{% block title %}Тест OAuth - Google автоматизация - HR Helper{% endblock %}
+{% block page_title %}Тест OAuth{% endblock %}
+
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-bug me-2"></i>
+                    Тестирование OAuth Flow
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Эта страница предназначена для тестирования OAuth flow и отладки проблем.
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Текущие настройки:</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>Client ID:</strong> {{ client_id|truncatechars:20 }}...</li>
+                            <li><strong>Redirect URI:</strong> {{ redirect_uri }}</li>
+                            <li><strong>Scopes:</strong> {{ scopes|length }} областей доступа</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h6>Статус интеграции:</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>Подключено:</strong> 
+                                {% if is_connected %}
+                                    <span class="text-success">✅ Да</span>
+                                {% else %}
+                                    <span class="text-danger">❌ Нет</span>
+                                {% endif %}
+                            </li>
+                            <li><strong>Access Token:</strong> 
+                                {% if has_access_token %}
+                                    <span class="text-success">✅ Есть</span>
+                                {% else %}
+                                    <span class="text-danger">❌ Нет</span>
+                                {% endif %}
+                            </li>
+                            <li><strong>Refresh Token:</strong> 
+                                {% if has_refresh_token %}
+                                    <span class="text-success">✅ Есть</span>
+                                {% else %}
+                                    <span class="text-danger">❌ Нет</span>
+                                {% endif %}
+                            </li>
+                        </ul>
+                        
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="d-flex gap-2 flex-wrap">
+                    <a href="{% url 'google_oauth:oauth_start' %}" class="btn btn-primary">
+                        <i class="fas fa-google me-2"></i>
+                        Google OAuth Flow
+                    </a>
+                    
+                    <button type="button" class="btn btn-info" onclick="testOAuthUrl()">
+                        <i class="fas fa-link me-2"></i>
+                        Тест OAuth URL
+                    </button>
+                    
+                    <button type="button" class="btn btn-warning" onclick="checkIntegration()">
+                        <i class="fas fa-search me-2"></i>
+                        Проверить интеграцию
+                    </button>
+                    
+                    <a href="{% url 'google_oauth:dashboard' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>
+                        Назад к подключению
+                    </a>
+                </div>
+                
+                <div id="test-results" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function testOAuthUrl() {
+    const resultsDiv = document.getElementById('test-results');
+    resultsDiv.innerHTML = '<div class="alert alert-info"><i class="fas fa-spinner fa-spin me-2"></i>Тестирование OAuth URL...</div>';
+    
+    fetch('{% url "google_oauth:test_oauth_url" %}', {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            resultsDiv.innerHTML = `
+                <div class="alert alert-success">
+                    <h6>✅ OAuth URL создан успешно!</h6>
+                    <p><strong>URL:</strong> <a href="${data.auth_url}" target="_blank">${data.auth_url}</a></p>
+                    <p><strong>State:</strong> ${data.state}</p>
+                </div>
+            `;
+        } else {
+            resultsDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <h6>❌ Ошибка создания OAuth URL</h6>
+                    <p>${data.message}</p>
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        resultsDiv.innerHTML = `
+            <div class="alert alert-danger">
+                <h6>❌ Ошибка запроса</h6>
+                <p>${error.message}</p>
+            </div>
+        `;
+    });
+}
+
+function checkIntegration() {
+    const resultsDiv = document.getElementById('test-results');
+    resultsDiv.innerHTML = '<div class="alert alert-info"><i class="fas fa-spinner fa-spin me-2"></i>Проверка интеграции...</div>';
+    
+    fetch('{% url "google_oauth:check_integration" %}', {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            resultsDiv.innerHTML = `
+                <div class="alert alert-success">
+                    <h6>✅ Интеграция найдена</h6>
+                    <ul>
+                        <li><strong>Access Token:</strong> ${data.has_access_token ? '✅ Есть' : '❌ Нет'}</li>
+                        <li><strong>Refresh Token:</strong> ${data.has_refresh_token ? '✅ Есть' : '❌ Нет'}</li>
+                        <li><strong>Scopes:</strong> ${data.scopes.length} областей</li>
+                        <li><strong>Token Valid:</strong> ${data.is_token_valid ? '✅ Да' : '❌ Нет'}</li>
+                    </ul>
+                </div>
+            `;
+        } else {
+            resultsDiv.innerHTML = `
+                <div class="alert alert-warning">
+                    <h6>⚠️ Интеграция не найдена</h6>
+                    <p>${data.message}</p>
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        resultsDiv.innerHTML = `
+            <div class="alert alert-danger">
+                <h6>❌ Ошибка запроса</h6>
+                <p>${error.message}</p>
+            </div>
+        `;
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,345 @@
+{% extends 'common/base.html' %}
+{% load static %}
+{% load reporting_filters %}
+
+{% block title %}Отчет по вакансии - HR Helper{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="mb-0">
+                    <i class="fas fa-briefcase me-2"></i>
+                    Отчет по вакансии: {{ vacancy.name }}
+                </h2>
+                <a href="{% url 'reporting:export_vacancy_report_excel' vacancy.id %}?period={{ period }}&start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}{% if request.GET.recruiter_id %}&recruiter_id={{ request.GET.recruiter_id }}{% endif %}" class="btn btn-success">
+                    <i class="fas fa-file-excel me-2"></i>
+                    Экспорт в Excel
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Фильтры -->
+    <div class="row mb-4">
+        <div class="col-12 reporting-section">
+            <div class="card">
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-3">
+                            <label for="period" class="form-label">Период</label>
+                            <select name="period" id="period" class="form-select">
+                                <option value="daily" {% if period == 'daily' %}selected{% endif %}>Ежедневная</option>
+                                <option value="weekly" {% if period == 'weekly' %}selected{% endif %}>Понедельная</option>
+                                <option value="monthly" {% if period == 'monthly' %}selected{% endif %}>Помесячная</option>
+                                <option value="quarterly" {% if period == 'quarterly' %}selected{% endif %}>Поквартальная</option>
+                                <option value="yearly" {% if period == 'yearly' %}selected{% endif %}>Годовая</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="start_date" class="form-label">Дата начала</label>
+                            <input type="date" name="start_date" id="start_date" class="form-control" value="{{ start_date|date:'Y-m-d' }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="end_date" class="form-label">Дата окончания</label>
+                            <input type="date" name="end_date" id="end_date" class="form-control" value="{{ end_date|date:'Y-m-d' }}">
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-filter me-2"></i>
+                                Применить фильтры
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Статистика -->
+    <div class="row mb-4">
+        <div class="col-md-3 reporting-section">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h3 class="text-primary">{{ report_data.total_screenings }}</h3>
+                    <p class="mb-0">Всего скринингов</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h3 class="text-success">{{ report_data.total_interviews }}</h3>
+                    <p class="mb-0">Всего интервью</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h3 class="text-warning">
+                        {% if report_data.conversion_rate is not None %}
+                            {{ report_data.conversion_rate }}%
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </h3>
+                    <p class="mb-0">Конверсия (скрининги → интервью)</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h3 class="text-info">{{ report_data.total_time_minutes|format_duration_minutes }}</h3>
+                    <p class="mb-0">Суммарное время</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- График -->
+    <div class="row mb-4">
+        <div class="col-12 reporting-section">
+            <div class="card">
+                <div class="card-header">
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <h5 class="mb-0">График</h5>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="row g-2">
+                                <div class="col-md-4">
+                                    <select id="chartPeriod" class="form-select form-select-sm">
+                                        <option value="daily">Дни</option>
+                                        <option value="weekly">Недели</option>
+                                        <option value="monthly" selected>Месяцы</option>
+                                        <option value="quarterly">Кварталы</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <select id="chartDataType" class="form-select form-select-sm">
+                                        <option value="time">Часы</option>
+                                        <option value="interviews">Интервью</option>
+                                        <option value="screenings">Скрининги</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <select id="chartFilter" class="form-select form-select-sm">
+                                        <option value="">Все рекрутеры</option>
+                                        {% for recruiter in recruiters %}
+                                        <option value="{{ recruiter.id }}">{{ recruiter.get_full_name|default:recruiter.username }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <canvas id="reportChart" style="max-height: 400px;"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Детализация по периодам -->
+    <div class="row">
+        <div class="col-12 reporting-section">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Детализация по периодам</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Период</th>
+                                    <th>Скрининги</th>
+                                    <th>Интервью</th>
+                                    <th>Всего</th>
+                                    <th>Время</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for period_key, period_data in report_data.grouped_data.items %}
+                                <tr>
+                                    <td>{{ period_key }}</td>
+                                    <td>{{ period_data.screenings }}</td>
+                                    <td>{{ period_data.interviews }}</td>
+                                    <td><strong>{{ period_data.screenings|add:period_data.interviews }}</strong></td>
+                                    <td>{{ period_data.total_time_minutes|format_duration_minutes }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center">Нет данных за выбранный период</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const canvas = document.getElementById('reportChart');
+    if (!canvas) {
+        console.error('Canvas элемент не найден!');
+        return;
+    }
+    
+    // Ждем загрузки Chart.js
+    function waitForChart(callback) {
+        if (typeof Chart !== 'undefined') {
+            callback();
+        } else {
+            setTimeout(function() {
+                waitForChart(callback);
+            }, 100);
+        }
+    }
+    
+    waitForChart(function() {
+        console.log('Chart.js загружен, инициализируем график');
+        const ctx = canvas.getContext('2d');
+        
+        let chart = null;
+        const reportType = 'vacancy';
+        const vacancyId = {{ vacancy.id }};
+        const startDate = '{{ start_date|date:"Y-m-d" }}';
+        const endDate = '{{ end_date|date:"Y-m-d" }}';
+        
+        function loadChartData() {
+        const chartPeriod = document.getElementById('chartPeriod').value;
+        const chartDataType = document.getElementById('chartDataType').value;
+        const chartFilter = document.getElementById('chartFilter').value;
+        
+        let url = `{% url 'reporting:api_report_data' %}?report_type=${reportType}&vacancy_id=${vacancyId}&period=${chartPeriod}&start_date=${startDate}&end_date=${endDate}`;
+        if (chartFilter) {
+            url += `&recruiter_id=${chartFilter}`;
+        }
+        
+        fetch(url)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Данные графика получены:', data);
+                updateChart(data, chartPeriod, chartDataType, chartFilter);
+            })
+            .catch(error => {
+                console.error('Ошибка загрузки данных графика:', error);
+                if (chart) {
+                    chart.destroy();
+                    chart = null;
+                }
+            });
+    }
+    
+    function updateChart(data, period, dataType, filter) {
+        const groupedData = data.grouped_data || {};
+        const labels = Object.keys(groupedData).sort();
+        
+        // Проверяем, что есть данные
+        if (labels.length === 0) {
+            console.warn('Нет данных для отображения графика');
+            if (chart) {
+                chart.destroy();
+                chart = null;
+            }
+            return;
+        }
+        
+        let datasetData = [];
+        let label = '';
+        let backgroundColor = '';
+        
+        switch(dataType) {
+            case 'time':
+                datasetData = labels.map(key => {
+                    const minutes = groupedData[key].total_time_minutes || 0;
+                    return parseFloat((minutes / 60).toFixed(2)); // Преобразуем в часы и возвращаем число
+                });
+                label = 'Время (часы)';
+                backgroundColor = 'rgba(54, 162, 235, 0.5)';
+                break;
+            case 'interviews':
+                datasetData = labels.map(key => groupedData[key].interviews || 0);
+                label = 'Интервью';
+                backgroundColor = 'rgba(75, 192, 192, 0.5)';
+                break;
+            case 'screenings':
+                datasetData = labels.map(key => groupedData[key].screenings || 0);
+                label = 'Скрининги';
+                backgroundColor = 'rgba(255, 159, 64, 0.5)';
+                break;
+        }
+        
+        if (chart) {
+            chart.destroy();
+        }
+        
+        try {
+            chart = new Chart(canvas, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: label,
+                        data: datasetData,
+                        borderColor: backgroundColor.replace('0.5', '1'),
+                        backgroundColor: backgroundColor,
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    aspectRatio: 2,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+            });
+            console.log('График создан успешно');
+        } catch (error) {
+            console.error('Ошибка создания графика:', error);
+        }
+    }
+    
+        document.getElementById('chartPeriod').addEventListener('change', loadChartData);
+        document.getElementById('chartDataType').addEventListener('change', loadChartData);
+        document.getElementById('chartFilter').addEventListener('change', loadChartData);
+        
+        loadChartData();
+    });
+});
+</script>
+{% endblock %}
+

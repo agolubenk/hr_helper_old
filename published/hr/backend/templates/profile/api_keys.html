@@ -1,0 +1,533 @@
+{% extends 'profile/base.html' %}
+{% load static %}
+
+{% block profile_title %}API ключи - HR Helper{% endblock %}
+{% block profile_page_title %}Управление API ключами{% endblock %}
+
+{% block extra_css %}
+    <style>
+        /* Стили для кнопок показа/скрытия пароля */
+        .password-toggle-btn {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--color-text-muted);
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 4px;
+            transition: color 0.2s ease;
+            z-index: 10;
+        }
+        
+        .password-toggle-btn:hover {
+            color: var(--color-primary);
+        }
+        
+        .password-input-group {
+            position: relative;
+        }
+        
+        .password-input-group .form-control {
+            padding-right: 45px;
+            border-radius: 0.375rem 0 0 0.375rem !important;
+        }
+        
+        .password-input-group:first-child .form-control {
+            border-top-right-radius: 0 !important;
+            border-bottom-right-radius: 0 !important;
+        }
+        
+        [data-theme="dark"] .password-toggle-btn {
+            color: var(--color-text-muted);
+        }
+        
+        [data-theme="dark"] .password-toggle-btn:hover {
+            color: var(--color-primary);
+        }
+        
+        /* Стили для цветового кодирования токенов */
+        .form-text.text-success {
+            color: #28a745 !important;
+        }
+        
+        .form-text.text-warning {
+            color: #ffc107 !important;
+        }
+        
+        .form-text.text-danger {
+            color: #dc3545 !important;
+        }
+        
+        [data-theme="dark"] .form-text.text-success {
+            color: #28a745 !important;
+        }
+        
+        [data-theme="dark"] .form-text.text-warning {
+            color: #ffc107 !important;
+        }
+        
+        [data-theme="dark"] .form-text.text-danger {
+            color: #dc3545 !important;
+        }
+    </style>
+{% endblock %}
+
+{% block extra_js %}
+    <script>
+        // Функция для переключения видимости пароля
+        function togglePasswordVisibility(fieldId) {
+            const field = document.getElementById(fieldId);
+            const toggleBtn = document.querySelector(`[onclick="togglePasswordVisibility('${fieldId}')"]`);
+            
+            if (field.type === 'password') {
+                field.type = 'text';
+                toggleBtn.innerHTML = '<i class="fas fa-eye-slash"></i>';
+                toggleBtn.title = 'Скрыть';
+            } else {
+                field.type = 'password';
+                toggleBtn.innerHTML = '<i class="fas fa-eye"></i>';
+                toggleBtn.title = 'Показать';
+            }
+        }
+        
+        function testApiKey(provider, system = null) {
+    // Определяем правильное имя поля в зависимости от провайдера
+    let fieldName;
+    if (provider === 'notion') {
+        fieldName = 'notion_integration_token';
+    } else if (provider === 'huntflow' && system) {
+        fieldName = `huntflow_${system}_api_key`;
+    } else {
+        fieldName = `${provider}_api_key`;
+    }
+    
+    const apiKeyField = document.getElementById(fieldName);
+    const apiUrlField = system ? document.getElementById(`${provider}_${system}_url`) : null;
+    const testButton = document.getElementById(`test_${provider}${system ? '_' + system : ''}`);
+    const resultDiv = document.getElementById(`result_${provider}${system ? '_' + system : ''}`);
+    
+    if (!apiKeyField.value.trim()) {
+        resultDiv.innerHTML = '<div class="alert alert-warning">Введите API ключ</div>';
+        return;
+    }
+    
+    testButton.disabled = true;
+    testButton.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Тестирование...';
+    resultDiv.innerHTML = '';
+    
+    const data = {
+        'api_key': apiKeyField.value
+    };
+    if (apiUrlField) {
+        data['api_url'] = apiUrlField.value;
+    }
+    if (system) {
+        data['system'] = system;
+    }
+    
+    fetch(`/accounts/test-${provider}/`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            resultDiv.innerHTML = '<div class="alert alert-success">✅ ' + data.message + '</div>';
+        } else {
+            resultDiv.innerHTML = '<div class="alert alert-danger">❌ ' + data.message + '</div>';
+        }
+    })
+    .catch(error => {
+        resultDiv.innerHTML = '<div class="alert alert-danger">❌ Ошибка: ' + error.message + '</div>';
+    })
+    .finally(() => {
+        testButton.disabled = false;
+        testButton.innerHTML = '<i class="fas fa-check me-1"></i>Тестировать';
+    });
+}
+
+// Функции для работы с токенами Huntflow
+function loadHuntflowTokenStatus() {
+    fetch('{% url "huntflow:huntflow_tokens" %}')
+        .then(response => response.json())
+        .then(data => {
+            const statusDiv = document.getElementById('huntflow-token-status');
+            if (data.success) {
+                const status = data.status;
+                let html = '';
+                
+                // Показываем только предупреждения, если токены не валидны
+                if (!status.valid) {
+                    html += '<div class="alert alert-warning"><i class="fas fa-exclamation-triangle me-2"></i>⚠️ Требуется обновление токенов</div>';
+                    if (status.issues.length > 0) {
+                        html += '<ul class="mb-0">';
+                        status.issues.forEach(issue => {
+                            html += `<li>${issue}</li>`;
+                        });
+                        html += '</ul>';
+                    }
+                }
+                
+                // Обновляем информацию под полями токенов
+                const accessTokenInfo = document.getElementById('access_token_info');
+                const refreshTokenInfo = document.getElementById('refresh_token_info');
+                
+                // Функция для определения цвета по оставшемуся времени
+                function getExpirationColor(expiresAt) {
+                    if (!expiresAt) return '';
+                    
+                    const now = new Date();
+                    const expirationDate = new Date(expiresAt);
+                    const daysLeft = Math.ceil((expirationDate - now) / (1000 * 60 * 60 * 24));
+                    
+                    if (daysLeft > 4) {
+                        return 'text-success'; // Зеленый - более 4 дней
+                    } else if (daysLeft >= 2) {
+                        return 'text-warning'; // Желтый - 2-4 дня
+                    } else {
+                        return 'text-danger'; // Красный - менее 2 дней
+                    }
+                }
+                
+                if (accessTokenInfo) {
+                    let accessText = 'Access token для API запросов (действует 7 дней';
+                    let colorClass = '';
+                    
+                    if (status.access_expires_at) {
+                        const expirationDate = new Date(status.access_expires_at);
+                        accessText += `, истекает: ${expirationDate.toLocaleString()}`;
+                        colorClass = getExpirationColor(status.access_expires_at);
+                    }
+                    accessText += ')';
+                    
+                    accessTokenInfo.textContent = accessText;
+                    accessTokenInfo.className = `form-text ${colorClass}`;
+                }
+                
+                if (refreshTokenInfo) {
+                    let refreshText = 'Refresh token для обновления access token (действует 14 дней';
+                    let colorClass = '';
+                    
+                    if (status.refresh_expires_at) {
+                        const expirationDate = new Date(status.refresh_expires_at);
+                        refreshText += `, истекает: ${expirationDate.toLocaleString()}`;
+                        colorClass = getExpirationColor(status.refresh_expires_at);
+                    }
+                    refreshText += ')';
+                    
+                    refreshTokenInfo.textContent = refreshText;
+                    refreshTokenInfo.className = `form-text ${colorClass}`;
+                }
+                
+                statusDiv.innerHTML = html;
+            }
+        })
+        .catch(error => {
+            console.error('Ошибка загрузки статуса:', error);
+        });
+}
+
+
+function refreshHuntflowToken() {
+    fetch('{% url "huntflow:huntflow_refresh_token" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Токен успешно обновлен');
+            loadHuntflowTokenStatus();
+        } else {
+            alert('Ошибка обновления токена: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Ошибка:', error);
+        alert('Произошла ошибка при обновлении токена');
+    });
+}
+
+function testHuntflowConnection() {
+    const testButton = document.querySelector('button[onclick="testHuntflowConnection()"]');
+    const statusDiv = document.getElementById('huntflow-token-status');
+    
+    testButton.disabled = true;
+    testButton.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Тестирование...';
+    
+    fetch('{% url "huntflow:huntflow_test_connection" %}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Показываем уведомление о валидности токенов с данными пользователя
+                const userInfo = data.user_info;
+                let html = '<div class="alert alert-success"><i class="fas fa-check-circle me-2"></i>✅ Токены валидны</div>';
+                
+                if (userInfo && userInfo.name && userInfo.email) {
+                    html += `<div class="alert alert-info">
+                        <strong>Данные пользователя:</strong><br>
+                        <strong>Имя:</strong> ${userInfo.name}<br>
+                        <strong>Email:</strong> ${userInfo.email}
+                    </div>`;
+                }
+                
+                statusDiv.innerHTML = html;
+            } else {
+                statusDiv.innerHTML = `<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>❌ Ошибка подключения: ${data.error}</div>`;
+            }
+        })
+        .catch(error => {
+            console.error('Ошибка:', error);
+            statusDiv.innerHTML = '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>❌ Произошла ошибка при тестировании подключения</div>';
+        })
+        .finally(() => {
+            testButton.disabled = false;
+            testButton.innerHTML = '<i class="fas fa-plug me-1"></i>Тест подключения';
+        });
+}
+
+// Загружаем статус токенов при загрузке страницы
+document.addEventListener('DOMContentLoaded', function() {
+    loadHuntflowTokenStatus();
+});
+</script>
+{% endblock %}
+
+
+{% block profile_content %}
+<form method="post">
+    {% csrf_token %}
+    
+    <!-- Gemini AI -->
+    <div class="card profile-card mb-3">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <div class="integration-logo me-2" style="display: inline-flex; align-items: center;">
+                    <img src="https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" 
+                         alt="Gemini AI" 
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';"
+                         style="width: 24px; height: 24px;">
+                    <i class="fas fa-robot" style="display: none;"></i>
+                </div>
+                Gemini AI
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label for="gemini_api_key" class="form-label">API ключ Gemini</label>
+                <div class="input-group">
+                    <div class="password-input-group position-relative flex-grow-1">
+                        <input type="password" class="form-control" id="gemini_api_key" name="gemini_api_key" 
+                               value="{{ user.gemini_api_key }}" placeholder="Введите API ключ Gemini">
+                        <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('gemini_api_key')" title="Показать">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                    <button type="button" class="btn btn-outline-secondary" onclick="testApiKey('gemini')" id="test_gemini">
+                        <i class="fas fa-check me-1"></i>Тестировать
+                    </button>
+                </div>
+                <div id="result_gemini"></div>
+                <div class="form-text">
+                    Получите API ключ в <a href="https://makersuite.google.com/app/apikey" target="_blank">Google AI Studio</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ClickUp -->
+    <div class="card profile-card mb-3">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <div class="integration-logo me-2" style="display: inline-flex; align-items: center;">
+                    <img src="{% static 'images/integrations/clickup-official.svg' %}" 
+                         alt="ClickUp" 
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';"
+                         style="width: 24px; height: 24px;">
+                    <i class="fas fa-tasks" style="display: none;"></i>
+                </div>
+                ClickUp
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label for="clickup_api_key" class="form-label">API ключ ClickUp</label>
+                <div class="input-group">
+                    <div class="password-input-group position-relative flex-grow-1">
+                        <input type="password" class="form-control" id="clickup_api_key" name="clickup_api_key" 
+                               value="{{ user.clickup_api_key }}" placeholder="Введите API ключ ClickUp">
+                        <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('clickup_api_key')" title="Показать">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                    <button type="button" class="btn btn-outline-secondary" onclick="testApiKey('clickup')" id="test_clickup">
+                        <i class="fas fa-check me-1"></i>Тестировать
+                    </button>
+                </div>
+                <div id="result_clickup"></div>
+                <div class="form-text">
+                    Получите API ключ в <a href="https://app.clickup.com/settings/apps" target="_blank">настройках ClickUp</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Notion -->
+    <div class="card profile-card mb-3">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <div class="integration-logo me-2" style="display: inline-flex; align-items: center;">
+                    <img src="https://www.notion.so/images/logo-ios.png" 
+                         alt="Notion" 
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';"
+                         style="width: 24px; height: 24px;">
+                    <i class="fas fa-file-alt" style="display: none;"></i>
+                </div>
+                Notion
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label for="notion_integration_token" class="form-label">Integration Token Notion</label>
+                <div class="input-group">
+                    <div class="password-input-group position-relative flex-grow-1">
+                        <input type="password" class="form-control" id="notion_integration_token" name="notion_integration_token" 
+                               value="{{ user.notion_integration_token }}" placeholder="Введите Integration Token Notion">
+                        <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('notion_integration_token')" title="Показать">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                    <button type="button" class="btn btn-outline-secondary" onclick="testApiKey('notion')" id="test_notion">
+                        <i class="fas fa-check me-1"></i>Тестировать
+                    </button>
+                </div>
+                <div id="result_notion"></div>
+                <div class="form-text">
+                    Получите Integration Token в <a href="https://notion.so/my-integrations" target="_blank">настройках Notion</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Huntflow -->
+    <div class="card profile-card mb-3">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <div class="integration-logo me-2" style="display: inline-flex; align-items: center;">
+                    <img src="{% static 'images/integrations/huntflow-official.ico' %}" 
+                         alt="Huntflow" 
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';"
+                         style="width: 24px; height: 24px;">
+                    <i class="fas fa-briefcase" style="display: none;"></i>
+                </div>
+                Huntflow
+            </h5>
+        </div>
+        <div class="card-body">
+            <!-- Песочница -->
+            <div class="mb-3">
+                <h6 class="text-muted">Песочница (Sandbox)</h6>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="huntflow_sandbox_url" class="form-label">URL</label>
+                            <input type="url" class="form-control" id="huntflow_sandbox_url" name="huntflow_sandbox_url" 
+                                   value="{{ user.huntflow_sandbox_url }}" placeholder="https://sandbox-api.huntflow.dev">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="huntflow_sandbox_api_key" class="form-label">API ключ</label>
+                            <div class="input-group">
+                                <div class="password-input-group position-relative flex-grow-1">
+                                    <input type="password" class="form-control" id="huntflow_sandbox_api_key" name="huntflow_sandbox_api_key" 
+                                           value="{{ user.huntflow_sandbox_api_key }}" placeholder="API ключ песочницы">
+                                    <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('huntflow_sandbox_api_key')" title="Показать">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                                <button type="button" class="btn btn-outline-secondary" onclick="testApiKey('huntflow', 'sandbox')" id="test_huntflow_sandbox">
+                                    <i class="fas fa-check me-1"></i>Тестировать
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="result_huntflow_sandbox"></div>
+            </div>
+            
+            <!-- Активная система -->
+            <div class="mb-3">
+                <label for="active_system" class="form-label">Активная система</label>
+                <select class="form-select" id="active_system" name="active_system">
+                    <option value="sandbox" {% if user.active_system == 'sandbox' %}selected{% endif %}>Песочница</option>
+                    <option value="prod" {% if user.active_system == 'prod' %}selected{% endif %}>Продакшн</option>
+                </select>
+                <div class="form-text">Выберите, какую систему использовать по умолчанию</div>
+            </div>
+            
+            
+            <!-- Статус токенов -->
+            <div id="huntflow-token-status" class="mb-3"></div>
+            
+            <!-- Форма для токенов -->
+            <div class="mb-3">
+                <label for="huntflow_access_token" class="form-label">Access Token</label>
+                <div class="password-input-group">
+                    <input type="password" class="form-control" id="huntflow_access_token" name="huntflow_access_token" 
+                           value="{{ user.huntflow_access_token }}" placeholder="Вставьте access_token полученный из Huntflow">
+                    <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('huntflow_access_token')" title="Показать">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+                <div class="form-text" id="access_token_info">Access token для API запросов (действует 7 дней)</div>
+            </div>
+            
+            <div class="mb-3">
+                <label for="huntflow_refresh_token" class="form-label">Refresh Token</label>
+                <div class="password-input-group">
+                    <input type="password" class="form-control" id="huntflow_refresh_token" name="huntflow_refresh_token"
+                           value="{{ user.huntflow_refresh_token }}" placeholder="Вставьте refresh_token полученный из Huntflow">
+                    <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('huntflow_refresh_token')" title="Показать">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+                <div class="form-text" id="refresh_token_info">Refresh token для обновления access token (действует 14 дней)</div>
+            </div>
+            
+            <div class="d-flex gap-2 mb-3">
+                <button type="button" class="btn btn-outline-secondary" onclick="refreshHuntflowToken()">
+                    <i class="fas fa-sync me-1"></i>
+                    Обновить токен
+                </button>
+                <button type="button" class="btn btn-outline-info" onclick="testHuntflowConnection()">
+                    <i class="fas fa-plug me-1"></i>
+                    Тест подключения
+                </button>
+            </div>
+            
+        </div>
+    </div>
+    
+    <!-- Кнопки -->
+    <div class="d-flex justify-content-between">
+        <a href="{% url 'accounts:profile' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>
+            Отмена
+        </a>
+        <button type="submit" class="btn btn-primary">
+            <i class="fas fa-save me-2"></i>
+            Сохранить API ключи
+        </button>
+    </div>
+</form>
+{% endblock %}

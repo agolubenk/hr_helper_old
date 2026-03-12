@@ -1,0 +1,274 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Дашборд метрик и KPI - HR Helper{% endblock %}
+{% block page_title %}📊 Дашборд метрик и KPI{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    
+    <!-- Фильтр по периоду -->
+    <div class="row mb-3">
+        <div class="col-12 reporting-section">
+            <div class="card">
+                <div class="card-body">
+                    <form method="get" class="row g-3 align-items-end">
+                        <div class="col-md-6">
+                            <label for="period" class="form-label">Период расчета</label>
+                            <select name="period" id="period" class="form-select" onchange="this.form.submit()">
+                                {% for value, label in period_choices %}
+                                    <option value="{{ value }}" {% if current_period == value %}selected{% endif %}>
+                                        {{ label }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="alert alert-info mb-0">
+                                <i class="fas fa-calendar-alt me-2"></i>
+                                <strong>{{ period_info.full_description }}</strong>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    
+    <!-- KPI Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3 reporting-section">
+            <div class="card text-white bg-primary">
+                <div class="card-body text-center">
+                    <h5><i class="fas fa-clock me-2"></i>Time-to-Offer</h5>
+                    <h2>{{ kpi_cards.avg_time_to_offer }} дней</h2>
+                    <small>Среднее время закрытия</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-success">
+                <div class="card-body text-center">
+                    <h5><i class="fas fa-tachometer-alt me-2"></i>Hiring Velocity</h5>
+                    <h2>{{ kpi_cards.hiring_velocity }} /week</h2>
+                    <small>Скорость найма</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-info">
+                <div class="card-body text-center">
+                    <h5><i class="fas fa-check-circle me-2"></i>SLA Compliance</h5>
+                    <h2>{{ kpi_cards.sla_compliance }}%</h2>
+                    <small>Соответствие SLA</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-warning">
+                <div class="card-body text-center">
+                    <h5><i class="fas fa-exclamation-triangle me-2"></i>Days Behind</h5>
+                    <h2>{{ kpi_cards.days_behind_schedule }} дней</h2>
+                    <small>Отставание от графика</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Детальные метрики -->
+    <div class="row mb-4">
+        <div class="col-12 reporting-section">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>
+                        Детальные метрики за {{ period_info.description }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h4 class="text-primary">{{ metrics.active_requests }}</h4>
+                                <small class="text-muted">Активно за период</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h4 class="text-success">{{ metrics.hires_count }}</h4>
+                                <small class="text-muted">Закрытые за период</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h4 class="text-warning">{{ metrics.critical_requests_count }}</h4>
+                                <small class="text-muted">Критические</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h4 class="text-danger">{{ metrics.overdue_requests_count }}</h4>
+                                <small class="text-muted">Просрочено</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Команда рекрутеров и прогнозы -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-users me-2"></i>
+                        Мощность команды рекрутеров за {{ period_info.description }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <div class="text-center">
+                                <h5 class="text-primary">{{ team_capacity.total_recruiters }}</h5>
+                                <small class="text-muted">Всего рекрутеров</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-center">
+                                <h5 class="text-danger">{{ team_capacity.overloaded_count }}</h5>
+                                <small class="text-muted">Перегружено</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-center">
+                                <h5 class="text-info">{{ team_capacity.avg_capacity_utilization }}%</h5>
+                                <small class="text-muted">Средняя загрузка</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Рекрутер</th>
+                                    <th>Загрузка</th>
+                                    <th>Активных</th>
+                                    <th>Статус</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in team_capacity.recruiters %}
+                                <tr>
+                                    <td>
+                                        {% if item.recruiter %}
+                                            {{ item.recruiter.get_full_name|default:item.recruiter.username }}
+                                        {% else %}
+                                            Неизвестный пользователь
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="progress" style="height: 20px;">
+                                            <div class="progress-bar {% if item.capacity.is_overloaded %}bg-danger{% else %}bg-success{% endif %}" 
+                                                 style="width: {{ item.capacity.capacity_utilization }}%">
+                                                {{ item.capacity.capacity_utilization }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>{{ item.capacity.active_requests_count }}</td>
+                                    <td>
+                                        {% if item.capacity.is_overloaded %}
+                                            <span class="badge bg-danger">Перегружен</span>
+                                        {% else %}
+                                            <span class="badge bg-success">ОК</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted">Нет данных о рекрутерах</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-crystal-ball me-2"></i>
+                        Прогноз потребности (следующий период)
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Вакансия</th>
+                                    <th>Прогноз</th>
+                                    <th>Уверенность</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for forecast in forecasts %}
+                                <tr>
+                                    <td>{{ forecast.vacancy.name }}</td>
+                                    <td>
+                                        <span class="badge bg-primary">{{ forecast.forecasted_demand }} чел.</span>
+                                    </td>
+                                    <td>
+                                        <div class="progress" style="height: 15px;">
+                                            <div class="progress-bar {% if forecast.confidence_level >= 70 %}bg-success{% elif forecast.confidence_level >= 50 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                                 style="width: {{ forecast.confidence_level }}%">
+                                                {{ forecast.confidence_level }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="3" class="text-center text-muted">Нет прогнозов</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Навигация -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h6 class="card-title">Дополнительные отчеты</h6>
+                    <div class="btn-group" role="group">
+                        <a href="{% url 'hiring_plan:metrics_list' %}" class="btn btn-outline-primary">
+                            <i class="fas fa-list me-2"></i>Все метрики
+                        </a>
+                        <a href="{% url 'hiring_plan:forecasts_list' %}" class="btn btn-outline-info">
+                            <i class="fas fa-crystal-ball me-2"></i>Прогнозы
+                        </a>
+                        <a href="{% url 'hiring_plan:recruiter_capacity_list' %}" class="btn btn-outline-warning">
+                            <i class="fas fa-users me-2"></i>Мощность рекрутеров
+                        </a>
+                        <a href="{% url 'hiring_plan:hiring_requests_list' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>К заявкам
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

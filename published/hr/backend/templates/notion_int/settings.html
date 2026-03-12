@@ -1,0 +1,685 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Настройки Notion{% endblock %}
+
+{% block extra_css %}
+<style>
+    .settings-card {
+        background: white;
+        border-radius: 15px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        border: 1px solid #e9ecef;
+    }
+    
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-label {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 0.5rem;
+    }
+    
+    .form-control {
+        border-radius: 10px;
+        border: 2px solid #e9ecef;
+        padding: 0.75rem 1rem;
+        transition: all 0.3s ease;
+    }
+    
+    .form-control:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
+    
+    .btn-save {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        color: white;
+        padding: 0.75rem 2rem;
+        border-radius: 25px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-save:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        color: white;
+    }
+    
+    .btn-test {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        border: none;
+        color: white;
+        padding: 0.75rem 2rem;
+        border-radius: 25px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-test:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4);
+        color: white;
+    }
+    
+    .help-text {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+    }
+    
+    .status-indicator {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+    
+    .status-connected {
+        background: #d4edda;
+        color: #155724;
+    }
+    
+    .status-disconnected {
+        background: #f8d7da;
+        color: #721c24;
+    }
+    
+    .api-token-info {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .step-number {
+        width: 30px;
+        height: 30px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        margin-right: 1rem;
+    }
+    
+    .step-content {
+        flex: 1;
+    }
+    
+    .step {
+        display: flex;
+        align-items: flex-start;
+        margin-bottom: 1.5rem;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 10px;
+    }
+</style>
+{% endblock %}
+
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Заголовок -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">Настройки Notion</h1>
+                    <p class="text-muted mb-0">Настройка интеграции с Notion API</p>
+                </div>
+                <div>
+                    <a href="{% url 'notion_int:dashboard' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Назад к дашборду
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Основные настройки -->
+            <div class="settings-card">
+                <h4 class="mb-4">
+                    <i class="fas fa-cog"></i> Основные настройки
+                </h4>
+                
+                <!-- Статус подключения -->
+                <div class="form-group">
+                    <label class="form-label">Статус подключения</label>
+                    <div>
+                        {% if user.notion_integration_token %}
+                            <span class="status-indicator status-connected">
+                                <i class="fas fa-check-circle me-2"></i>
+                                API токен настроен
+                            </span>
+                        {% else %}
+                            <span class="status-indicator status-disconnected">
+                                <i class="fas fa-times-circle me-2"></i>
+                                API токен не настроен
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- API токен -->
+                <div class="api-token-info">
+                    <h6 class="mb-2">
+                        <i class="fas fa-key"></i> API токен Notion
+                    </h6>
+                    {% if user.notion_integration_token %}
+                        <p class="mb-2 text-success">
+                            <i class="fas fa-check"></i> Токен настроен
+                        </p>
+                        <p class="mb-0 small text-muted">
+                            Токен: {{ user.notion_integration_token|slice:":10" }}...
+                        </p>
+                    {% else %}
+                        <p class="mb-2 text-danger">
+                            <i class="fas fa-times"></i> Токен не настроен
+                        </p>
+                        <p class="mb-0 small text-muted">
+                            Перейдите в <a href="{% url 'accounts:profile' %}">профиль</a> для настройки API токена
+                        </p>
+                    {% endif %}
+                </div>
+
+                <form method="post" id="settingsForm">
+                    {% csrf_token %}
+                    
+                    <!-- ID базы данных -->
+                    <div class="form-group">
+                        <label for="{{ form.database_id.id_for_label }}" class="form-label">
+                            {{ form.database_id.label }}
+                        </label>
+                        {{ form.database_id }}
+                        {% if form.database_id.help_text %}
+                            <div class="help-text">{{ form.database_id.help_text }}</div>
+                        {% endif %}
+                        {% if form.database_id.errors %}
+                            <div class="text-danger small mt-1">
+                                {% for error in form.database_id.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Автосинхронизация -->
+                    <div class="form-group">
+                        <div class="form-check">
+                            {{ form.auto_sync }}
+                            <label class="form-check-label" for="{{ form.auto_sync.id_for_label }}">
+                                {{ form.auto_sync.label }}
+                            </label>
+                        </div>
+                        {% if form.auto_sync.help_text %}
+                            <div class="help-text">{{ form.auto_sync.help_text }}</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Интервал синхронизации -->
+                    <div class="form-group">
+                        <label for="{{ form.sync_interval.id_for_label }}" class="form-label">
+                            {{ form.sync_interval.label }}
+                        </label>
+                        {{ form.sync_interval }}
+                        {% if form.sync_interval.help_text %}
+                            <div class="help-text">{{ form.sync_interval.help_text }}</div>
+                        {% endif %}
+                        {% if form.sync_interval.errors %}
+                            <div class="text-danger small mt-1">
+                                {% for error in form.sync_interval.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Кнопки -->
+                    <div class="d-flex gap-3">
+                        <button type="submit" class="btn btn-save">
+                            <i class="fas fa-save"></i> Сохранить настройки
+                        </button>
+                        <button type="button" class="btn btn-test" onclick="testConnection()">
+                            <i class="fas fa-plug"></i> Тестировать подключение
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <!-- Инструкция -->
+            <div class="settings-card">
+                <h5 class="mb-4">
+                    <i class="fas fa-info-circle"></i> Инструкция по настройке
+                </h5>
+                
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h6>Создайте интеграцию в Notion</h6>
+                        <p class="small text-muted mb-0">
+                            Перейдите в <a href="https://www.notion.so/my-integrations" target="_blank">Notion Integrations</a> 
+                            и создайте новую интеграцию
+                        </p>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h6>Скопируйте API токен</h6>
+                        <p class="small text-muted mb-0">
+                            Скопируйте Internal Integration Token и вставьте в 
+                            <a href="{% url 'accounts:profile' %}">профиль пользователя</a>
+                        </p>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h6>Добавьте интеграцию к базе данных</h6>
+                        <p class="small text-muted mb-0">
+                            В Notion откройте нужную базу данных, нажмите "Share" 
+                            и добавьте вашу интеграцию
+                        </p>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <h6>Скопируйте ID базы данных</h6>
+                        <p class="small text-muted mb-0">
+                            Из URL базы данных скопируйте ID (32-символьная строка) 
+                            и вставьте в поле выше
+                        </p>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">5</div>
+                    <div class="step-content">
+                        <h6>Протестируйте подключение</h6>
+                        <p class="small text-muted mb-0">
+                            Нажмите "Тестировать подключение" для проверки настроек
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Дополнительная информация -->
+            <div class="settings-card">
+                <h6 class="mb-3">
+                    <i class="fas fa-lightbulb"></i> Полезная информация
+                </h6>
+                
+                <div class="small text-muted">
+                    <p><strong>ID базы данных:</strong> Находится в URL страницы базы данных Notion</p>
+                    <p><strong>Пример:</strong> https://notion.so/your-workspace/32-символьный-id?v=...</p>
+                    <p><strong>Права доступа:</strong> Интеграция должна иметь доступ к чтению базы данных</p>
+                </div>
+            </div>
+
+            <!-- Связки Notion-Huntflow -->
+            <div class="settings-card">
+                <h5 class="mb-4">
+                    <i class="fas fa-link"></i> Связки Notion ↔ Huntflow
+                </h5>
+
+                <!-- Language → Вакансия -->
+                <div class="mb-5">
+                    <h6 class="mb-3">Language → Вакансия</h6>
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Language (Notion)</th>
+                                    <th>Вакансия (Huntflow)</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody id="language-mappings-body">
+                                {% for mapping in language_mappings %}
+                                <tr data-mapping-id="{{ mapping.id }}">
+                                    <td>{{ mapping.notion_value }}</td>
+                                    <td>
+                                        {% for vacancy in huntflow_vacancies %}
+                                            {% if vacancy.id|stringformat:"s" == mapping.huntflow_value %}
+                                                {{ vacancy.name }}
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-danger" onclick="deleteMapping({{ mapping.id }})">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-md-5">
+                            <select class="form-select" id="language-notion-select">
+                                <option value="">-- Выберите Language --</option>
+                                {% for lang in notion_languages %}
+                                <option value="{{ lang }}">{{ lang }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-5">
+                            <select class="form-select" id="language-vacancy-select">
+                                <option value="">-- Выберите вакансию --</option>
+                                {% for vacancy in huntflow_vacancies %}
+                                <option value="{{ vacancy.id }}">{{ vacancy.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button class="btn btn-primary w-100" onclick="saveMapping('language_vacancy', 'language-notion-select', 'language-vacancy-select')">
+                                <i class="fas fa-plus"></i> Добавить
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Нюансы → Поля кандидата -->
+                <div class="mb-5">
+                    <h6 class="mb-3">Нюансы → Поля кандидата</h6>
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Нюансы (Notion)</th>
+                                    <th>Поле кандидата (Huntflow)</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody id="nuances-mappings-body">
+                                {% for mapping in nuances_mappings %}
+                                <tr data-mapping-id="{{ mapping.id }}">
+                                    <td>{{ mapping.notion_value }}</td>
+                                    <td>
+                                        {% for field in huntflow_fields %}
+                                            {% if field.id|stringformat:"s" == mapping.huntflow_value %}
+                                                {{ field.name }}
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-danger" onclick="deleteMapping({{ mapping.id }})">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-md-5">
+                            <select class="form-select" id="nuances-notion-select">
+                                <option value="">-- Выберите Нюансы --</option>
+                                {% for nuance in notion_nuances %}
+                                <option value="{{ nuance }}">{{ nuance }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-5">
+                            <select class="form-select" id="nuances-field-select">
+                                <option value="">-- Выберите поле --</option>
+                                {% for field in huntflow_fields %}
+                                <option value="{{ field.id }}">{{ field.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button class="btn btn-primary w-100" onclick="saveMapping('nuances_field', 'nuances-notion-select', 'nuances-field-select')">
+                                <i class="fas fa-plus"></i> Добавить
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Status Notion → Status Huntflow -->
+                <div class="mb-5">
+                    <h6 class="mb-3">Status Notion → Status Huntflow</h6>
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Status (Notion)</th>
+                                    <th>Status (Huntflow)</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody id="status-mappings-body">
+                                {% for mapping in status_mappings %}
+                                <tr data-mapping-id="{{ mapping.id }}">
+                                    <td>{{ mapping.notion_value }}</td>
+                                    <td>
+                                        {% for status in huntflow_statuses %}
+                                            {% if status.id|stringformat:"s" == mapping.huntflow_value %}
+                                                {{ status.name }}
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-danger" onclick="deleteMapping({{ mapping.id }})">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-md-5">
+                            <select class="form-select" id="status-notion-select">
+                                <option value="">-- Выберите Status Notion --</option>
+                                {% for status in notion_statuses %}
+                                <option value="{{ status }}">{{ status }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-5">
+                            <select class="form-select" id="status-huntflow-select">
+                                <option value="">-- Выберите Status Huntflow --</option>
+                                {% for status in huntflow_statuses %}
+                                <option value="{{ status.id }}">{{ status.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button class="btn btn-primary w-100" onclick="saveMapping('status_status', 'status-notion-select', 'status-huntflow-select')">
+                                <i class="fas fa-plus"></i> Добавить
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('settingsForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохранение...';
+    submitBtn.disabled = true;
+    
+    fetch('{% url "notion_int:save_settings" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('success', data.message);
+        } else {
+            showAlert('error', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showAlert('error', 'Ошибка сохранения настроек');
+    })
+    .finally(() => {
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    });
+});
+
+function testConnection() {
+    const btn = event.target;
+    const originalText = btn.innerHTML;
+    
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Тестирование...';
+    btn.disabled = true;
+    
+    fetch('{% url "notion_int:test_connection" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('success', data.message);
+        } else {
+            showAlert('error', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showAlert('error', 'Ошибка тестирования подключения');
+    })
+    .finally(() => {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    });
+}
+
+function showAlert(type, message) {
+    const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+    const alertHtml = `
+        <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    
+    // Вставляем алерт в начало контейнера
+    const container = document.querySelector('.container-fluid');
+    container.insertAdjacentHTML('afterbegin', alertHtml);
+    
+    // Автоматически скрываем через 5 секунд
+    setTimeout(() => {
+        const alert = container.querySelector('.alert');
+        if (alert) {
+            alert.remove();
+        }
+    }, 5000);
+}
+
+function saveMapping(mappingType, notionSelectId, huntflowSelectId) {
+    const notionSelect = document.getElementById(notionSelectId);
+    const huntflowSelect = document.getElementById(huntflowSelectId);
+    
+    const notionValue = notionSelect.value;
+    const huntflowValue = huntflowSelect.value;
+    
+    if (!notionValue || !huntflowValue) {
+        showAlert('error', 'Пожалуйста, выберите значения из обоих списков');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('mapping_type', mappingType);
+    formData.append('notion_value', notionValue);
+    formData.append('huntflow_value', huntflowValue);
+    formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+    
+    fetch('{% url "notion_int:save_mapping" %}', {
+        method: 'POST',
+        body: formData,
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('success', data.message);
+            // Перезагружаем страницу для обновления таблицы
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            showAlert('error', data.error || 'Ошибка сохранения связки');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showAlert('error', 'Ошибка сохранения связки');
+    });
+}
+
+function deleteMapping(mappingId) {
+    if (!confirm('Вы уверены, что хотите удалить эту связку?')) {
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+    
+    fetch(`/notion/settings/mapping/${mappingId}/delete/`, {
+        method: 'POST',
+        body: formData,
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('success', data.message);
+            // Удаляем строку из таблицы
+            const row = document.querySelector(`tr[data-mapping-id="${mappingId}"]`);
+            if (row) {
+                row.remove();
+            }
+        } else {
+            showAlert('error', data.error || 'Ошибка удаления связки');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showAlert('error', 'Ошибка удаления связки');
+    });
+}
+</script>
+{% endblock %}

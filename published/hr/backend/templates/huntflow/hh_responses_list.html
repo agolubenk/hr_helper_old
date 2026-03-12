@@ -1,0 +1,726 @@
+{% extends 'common/base.html' %}
+
+{% block title %}Отклики HH.ru - {{ vacancy.position|default:"Вакансия" }}{% endblock %}
+{% block page_title %}Отклики из HH.ru{% endblock %}
+
+{% block content %}
+<!-- Информация о вакансии -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="card-title mb-1">
+                            {{ vacancy.position|default:"Вакансия" }}
+                            {% if vacancy.company %}
+                            <small class="text-muted">— {{ vacancy.company }}</small>
+                            {% endif %}
+                        </h5>
+                        <p class="text-muted mb-0">
+                            <i class="fas fa-hashtag me-1"></i>ID вакансии: {{ vacancy_id }}
+                            {% if hh_vacancy_id %}
+                            <br><i class="fab fa-hh me-1"></i>ID на HH.ru: {{ hh_vacancy_id }}
+                            {% else %}
+                            <br><span class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>ID вакансии на HH.ru не указан</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div>
+                        <a href="{% url 'huntflow:hh_vacancy_select' account_id %}" class="btn btn-sm btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-1"></i>
+                            Назад к списку вакансий
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Статистика -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body text-center">
+                <h3 class="mb-0">{{ total_responses }}</h3>
+                <p class="text-muted mb-0">Всего откликов</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-success">
+            <div class="card-body text-center">
+                <h3 class="mb-0 text-success">{{ imported_count|default:0 }}</h3>
+                <p class="text-muted mb-0">Обработано</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-info">
+            <div class="card-body text-center">
+                <h3 class="mb-0 text-info">{{ not_imported_count|default:0 }}</h3>
+                <p class="text-muted mb-0">Новых</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-primary">
+            <div class="card-body text-center">
+                <h3 class="mb-0 text-primary">{{ passed_hh_filters|default:0 }}</h3>
+                <p class="text-muted mb-0">Прошли фильтры</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Фильтры HH.ru -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-filter me-2"></i>
+                    Фильтры HH.ru
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="get" class="row g-3">
+                    <div class="col-md-2">
+                        <label for="min_age" class="form-label">Мин. возраст</label>
+                        <input type="number" class="form-control" id="min_age" name="min_age" 
+                               value="{{ current_filters.min_age|default:18 }}" min="18" max="100">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="max_age" class="form-label">Макс. возраст</label>
+                        <input type="number" class="form-control" id="max_age" name="max_age" 
+                               value="{{ current_filters.max_age|default:65 }}" min="18" max="100">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="min_experience_years" class="form-label">Мин. опыт (лет)</label>
+                        <input type="number" class="form-control" id="min_experience_years" name="min_experience_years" 
+                               value="{{ current_filters.min_experience_years|default:1 }}" min="0" max="50" step="0.5">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="max_experience_years" class="form-label">Макс. опыт (лет)</label>
+                        <input type="number" class="form-control" id="max_experience_years" name="max_experience_years" 
+                               value="{{ current_filters.max_experience_years|default:50 }}" min="0" max="50" step="0.5">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="allowed_locations" class="form-label">ID городов (через запятую)</label>
+                        <input type="text" class="form-control" id="allowed_locations" name="allowed_locations" 
+                               value="{{ current_filters.allowed_locations }}" 
+                               placeholder="1,2,3">
+                        <small class="form-text text-muted">
+                            1=Москва, 2=СПб, 3=Екатеринбург
+                        </small>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="allowed_genders" class="form-label">Пол</label>
+                        <select class="form-select" id="allowed_genders" name="allowed_genders">
+                            <option value="any" {% if current_filters.allowed_genders == 'any' %}selected{% endif %}>Любой</option>
+                            <option value="male" {% if current_filters.allowed_genders == 'male' %}selected{% endif %}>Мужской</option>
+                            <option value="female" {% if current_filters.allowed_genders == 'female' %}selected{% endif %}>Женский</option>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-filter me-1"></i>
+                            Применить фильтры
+                        </button>
+                        <a href="{% url 'huntflow:hh_responses_list' account_id vacancy_id %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times me-1"></i>
+                            Сбросить фильтры
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Импорт откликов (опционально) -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <a class="text-decoration-none text-dark" data-bs-toggle="collapse" href="#importCollapse" role="button">
+                        <i class="fas fa-download me-2"></i>
+                        Импорт новых откликов из HH.ru
+                        <i class="fas fa-chevron-down float-end"></i>
+                    </a>
+                </h5>
+            </div>
+            <div class="collapse" id="importCollapse">
+                <div class="card-body">
+                    <form id="importForm" class="row g-3">
+                        {% csrf_token %}
+                        <div class="col-md-4">
+                            <label for="hh_vacancy_id" class="form-label">ID вакансии на HH.ru (опционально)</label>
+                            <input type="text" class="form-control" id="hh_vacancy_id" 
+                                   placeholder="Например: 87654321">
+                            <small class="form-text text-muted">
+                                Укажите ID вакансии из URL на сайте hh.ru для импорта новых откликов
+                            </small>
+                        </div>
+                    <div class="col-md-8">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Примечание:</strong> Для импорта новых откликов из HH.ru укажите ID вакансии на HH.ru. 
+                            Фильтры будут применены автоматически из настроек выше.
+                        </div>
+                        <div class="form-check mt-2">
+                            <input class="form-check-input" type="checkbox" id="check_existing" checked>
+                            <label class="form-check-label" for="check_existing">
+                                Проверять дубликаты при импорте
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-primary" id="importBtn">
+                            <i class="fas fa-download me-1"></i>
+                            Импортировать отклики из HH.ru
+                        </button>
+                        <div id="importProgress" class="mt-2" style="display: none;">
+                            <div class="progress">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                     role="progressbar" style="width: 100%"></div>
+                            </div>
+                            <small class="text-muted">Импорт в процессе...</small>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Дополнительные фильтры для отображения -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <form method="get" class="row g-3">
+                    <!-- Сохраняем фильтры HH.ru в скрытых полях -->
+                    {% if current_filters.min_age %}
+                    <input type="hidden" name="min_age" value="{{ current_filters.min_age }}">
+                    {% endif %}
+                    {% if current_filters.max_age %}
+                    <input type="hidden" name="max_age" value="{{ current_filters.max_age }}">
+                    {% endif %}
+                    {% if current_filters.min_experience_years %}
+                    <input type="hidden" name="min_experience_years" value="{{ current_filters.min_experience_years }}">
+                    {% endif %}
+                    {% if current_filters.max_experience_years %}
+                    <input type="hidden" name="max_experience_years" value="{{ current_filters.max_experience_years }}">
+                    {% endif %}
+                    {% if current_filters.allowed_locations %}
+                    <input type="hidden" name="allowed_locations" value="{{ current_filters.allowed_locations }}">
+                    {% endif %}
+                    {% if current_filters.allowed_genders %}
+                    <input type="hidden" name="allowed_genders" value="{{ current_filters.allowed_genders }}">
+                    {% endif %}
+                    
+                    <div class="col-md-3">
+                        <label for="source" class="form-label">Статус обработки</label>
+                        <select class="form-select" id="source" name="source">
+                            <option value="">Все</option>
+                            <option value="processed" {% if current_filters.source == 'processed' %}selected{% endif %}>Обработанные</option>
+                            <option value="new" {% if current_filters.source == 'new' %}selected{% endif %}>Новые</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="filter_status" class="form-label">Статус фильтрации</label>
+                        <select class="form-select" id="filter_status" name="filter_status">
+                            <option value="">Все</option>
+                            <option value="passed" {% if current_filters.filter_status == 'passed' %}selected{% endif %}>Прошли фильтры HH.ru</option>
+                            <option value="rejected" {% if current_filters.filter_status == 'rejected' %}selected{% endif %}>Не прошли фильтры</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="count" class="form-label">На странице</label>
+                        <select class="form-select" id="count" name="count">
+                            <option value="10" {% if request.GET.count == '10' %}selected{% endif %}>10</option>
+                            <option value="20" {% if request.GET.count == '20' %}selected{% endif %}>20</option>
+                            <option value="30" {% if request.GET.count == '30' or not request.GET.count %}selected{% endif %}>30</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">&nbsp;</label>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-filter me-1"></i>
+                                Применить
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Список откликов из HH.ru -->
+{% if responses %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-list me-2"></i>
+                    Список откликов из HH.ru
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Кандидат</th>
+                                <th>Контакты</th>
+                                <th>Локация</th>
+                                <th>Статус отклика</th>
+                                <th>Фильтры HH.ru</th>
+                                <th>Дата отклика</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in responses %}
+                            {% with applicant=item.applicant resume=item.resume %}
+                            <tr>
+                                <td>
+                                    <strong>{{ applicant.first_name|default:"" }} {{ applicant.last_name|default:"" }}</strong>
+                                    {% if applicant.middle_name %}
+                                    <br><small class="text-muted">{{ applicant.middle_name }}</small>
+                                    {% endif %}
+                                    {% if item.is_processed %}
+                                    <br><span class="badge bg-success mt-1">
+                                        <i class="fas fa-check-circle me-1"></i>Обработан
+                                    </span>
+                                    {% else %}
+                                    <br><span class="badge bg-warning mt-1">
+                                        <i class="fas fa-clock me-1"></i>Новый
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if applicant.email %}
+                                        <i class="fas fa-envelope me-1"></i>{{ applicant.email }}<br>
+                                    {% elif resume and resume.contacts %}
+                                        {% for contact in resume.contacts %}
+                                            {% if contact.type.id == 'email' %}
+                                                <i class="fas fa-envelope me-1"></i>{{ contact.value }}<br>
+                                            {% endif %}
+                                        {% endfor %}
+                                    {% endif %}
+                                    {% if applicant.phone %}
+                                        <i class="fas fa-phone me-1"></i>{{ applicant.phone }}
+                                    {% elif resume and resume.contacts %}
+                                        {% for contact in resume.contacts %}
+                                            {% if contact.type.id == 'phone' %}
+                                                <i class="fas fa-phone me-1"></i>{{ contact.value }}
+                                            {% endif %}
+                                        {% endfor %}
+                                    {% endif %}
+                                    {% if not applicant.email and not applicant.phone and not resume.contacts %}
+                                        <span class="text-muted">Не указано</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if resume and resume.area %}
+                                        <i class="fas fa-map-marker-alt me-1"></i>
+                                        {% if resume.area.name %}
+                                            {{ resume.area.name }}
+                                        {% elif resume.area %}
+                                            {{ resume.area }}
+                                        {% endif %}
+                                        {% if resume.area.id %}
+                                        <br><small class="text-muted">ID: {{ resume.area.id }}</small>
+                                        {% endif %}
+                                    {% elif applicant and applicant.area %}
+                                        <i class="fas fa-map-marker-alt me-1"></i>
+                                        {% if applicant.area.name %}
+                                            {{ applicant.area.name }}
+                                        {% elif applicant.area %}
+                                            {{ applicant.area }}
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted">Не указано</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">Отклик</span>
+                                    {% if item.response_id %}
+                                    <br><small class="text-muted">ID: {{ item.response_id }}</small>
+                                    {% endif %}
+                                    {% if item.response_foreign %}
+                                    <br><small class="text-muted">HH.ru ID: {{ item.response_foreign }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if item.passes_hh_filters %}
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-check-circle me-1"></i>Прошел
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-warning">
+                                            <i class="fas fa-times-circle me-1"></i>Не прошел
+                                        </span>
+                                        {% if item.filter_reasons %}
+                                        <br><small class="text-muted">
+                                            {% for reason in item.filter_reasons %}
+                                            {{ reason }}{% if not forloop.last %}, {% endif %}
+                                            {% endfor %}
+                                        </small>
+                                        {% endif %}
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if item.created_at %}
+                                        <small>{{ item.created_at|date:"d.m.Y H:i" }}</small>
+                                    {% else %}
+                                        <small class="text-muted">—</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        {% if applicant.id %}
+                                        <a href="{% url 'huntflow:applicant_detail' account_id applicant.id %}" 
+                                           class="btn btn-outline-primary" title="Просмотр кандидата">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        {% endif %}
+                                        {% if item.response_id %}
+                                        <a href="https://huntflow.ru/my/softnetix#/vacancy/{{ vacancy_id }}/filter/response/id/response-{{ item.response_id }}" 
+                                           target="_blank" 
+                                           class="btn btn-outline-info" title="Открыть отклик в Huntflow">
+                                            <i class="fas fa-external-link-alt"></i>
+                                        </a>
+                                        {% endif %}
+                                        {% if resume and resume.url %}
+                                        <a href="{{ resume.url }}" target="_blank" 
+                                           class="btn btn-outline-success" title="Открыть резюме на HH.ru">
+                                            <i class="fab fa-hh"></i>
+                                        </a>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endwith %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Пагинация -->
+                {% if pagination.total_pages > 1 %}
+                <nav aria-label="Навигация по страницам">
+                    <ul class="pagination justify-content-center">
+                        {% if pagination.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ pagination.previous_page }}{% if hh_vacancy_id %}&hh_vacancy_id={{ hh_vacancy_id }}{% endif %}{% if current_filters.source %}&source={{ current_filters.source }}{% endif %}{% if current_filters.filter_status %}&filter_status={{ current_filters.filter_status }}{% endif %}{% if current_filters.min_age %}&min_age={{ current_filters.min_age }}{% endif %}{% if current_filters.max_age %}&max_age={{ current_filters.max_age }}{% endif %}{% if current_filters.min_experience_years %}&min_experience_years={{ current_filters.min_experience_years }}{% endif %}{% if current_filters.max_experience_years %}&max_experience_years={{ current_filters.max_experience_years }}{% endif %}{% if current_filters.allowed_locations %}&allowed_locations={{ current_filters.allowed_locations }}{% endif %}{% if current_filters.allowed_genders %}&allowed_genders={{ current_filters.allowed_genders }}{% endif %}{% if request.GET.count %}&count={{ request.GET.count }}{% endif %}">
+                                <i class="fas fa-chevron-left"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                        
+                        <li class="page-item active">
+                            <span class="page-link">
+                                Страница {{ pagination.current_page }} из {{ pagination.total_pages }}
+                            </span>
+                        </li>
+                        
+                        {% if pagination.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ pagination.next_page }}{% if hh_vacancy_id %}&hh_vacancy_id={{ hh_vacancy_id }}{% endif %}{% if current_filters.source %}&source={{ current_filters.source }}{% endif %}{% if current_filters.filter_status %}&filter_status={{ current_filters.filter_status }}{% endif %}{% if current_filters.min_age %}&min_age={{ current_filters.min_age }}{% endif %}{% if current_filters.max_age %}&max_age={{ current_filters.max_age }}{% endif %}{% if current_filters.min_experience_years %}&min_experience_years={{ current_filters.min_experience_years }}{% endif %}{% if current_filters.max_experience_years %}&max_experience_years={{ current_filters.max_experience_years }}{% endif %}{% if current_filters.allowed_locations %}&allowed_locations={{ current_filters.allowed_locations }}{% endif %}{% if current_filters.allowed_genders %}&allowed_genders={{ current_filters.allowed_genders }}{% endif %}{% if request.GET.count %}&count={{ request.GET.count }}{% endif %}">
+                                <i class="fas fa-chevron-right"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="fas fa-info-circle fa-3x text-info mb-3"></i>
+                <h4>Отклики не найдены</h4>
+                {% if not hh_vacancy_id %}
+                <p class="text-muted">
+                    Не указан ID вакансии на HH.ru. Укажите его для получения откликов.
+                </p>
+                {% else %}
+                <p class="text-muted">
+                    Для данной вакансии на HH.ru пока нет откликов.
+                </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if error %}
+<div class="row">
+    <div class="col-12">
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>Ошибка:</strong> {{ error }}
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Обработка формы импорта
+    $('#importForm').on('submit', function(e) {
+        e.preventDefault();
+        
+        const btn = $('#importBtn');
+        const progress = $('#importProgress');
+        const originalText = btn.html();
+        
+        // Получаем значения фильтров из URL параметров или используем значения по умолчанию
+        const urlParams = new URLSearchParams(window.location.search);
+        const filters = {
+            min_age: parseInt(urlParams.get('min_age')) || parseInt($('input[name="min_age"]').val()) || 18,
+            max_age: parseInt(urlParams.get('max_age')) || parseInt($('input[name="max_age"]').val()) || 65,
+            min_experience_years: parseFloat(urlParams.get('min_experience_years')) || parseFloat($('input[name="min_experience_years"]').val()) || 1,
+            max_experience_years: parseFloat(urlParams.get('max_experience_years')) || parseFloat($('input[name="max_experience_years"]').val()) || 50,
+            allowed_genders: [urlParams.get('allowed_genders') || $('select[name="allowed_genders"]').val() || 'any'],
+            check_existing: $('#check_existing').is(':checked')
+        };
+        
+        // Обрабатываем локации
+        const locationsInput = urlParams.get('allowed_locations') || $('input[name="allowed_locations"]').val();
+        if (locationsInput) {
+            filters.allowed_locations = locationsInput.split(',').map(l => l.trim()).filter(l => l);
+        } else {
+            filters.allowed_locations = ['1', '2', '3']; // По умолчанию
+        }
+        
+        const hh_vacancy_id = $('#hh_vacancy_id').val();
+        if (!hh_vacancy_id) {
+            showAlert('warning', 'ID вакансии на HH.ru не указан. Импорт будет выполнен только для уже существующих откликов в системе.');
+            // Можно продолжить без hh_vacancy_id, но это не имеет смысла для импорта
+            return;
+        }
+        
+        // Показываем прогресс
+        btn.prop('disabled', true);
+        btn.html('<i class="fas fa-spinner fa-spin me-1"></i>Импорт...');
+        progress.show();
+        
+        // Отправляем запрос
+        $.ajax({
+            url: '{% url "huntflow:hh_import_responses_ajax" account_id vacancy_id %}',
+            method: 'POST',
+            data: {
+                'hh_vacancy_id': hh_vacancy_id,
+                'filters': JSON.stringify(filters),
+                'csrfmiddlewaretoken': $('[name=csrfmiddlewaretoken]').val()
+            },
+            success: function(response) {
+                if (response.success) {
+                    showAlert('success', 
+                        `Импорт завершен! Импортировано: ${response.imported}, ` +
+                        `Отфильтровано: ${response.filtered_out}, Ошибок: ${response.errors}`
+                    );
+                    // Перезагружаем страницу через 2 секунды
+                    setTimeout(() => {
+                        location.reload();
+                    }, 2000);
+                } else {
+                    showAlert('danger', 'Ошибка импорта: ' + (response.message || 'Неизвестная ошибка'));
+                }
+            },
+            error: function(xhr) {
+                let errorMsg = 'Ошибка при импорте откликов';
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    errorMsg += ': ' + xhr.responseJSON.message;
+                }
+                showAlert('danger', errorMsg);
+            },
+            complete: function() {
+                btn.prop('disabled', false);
+                btn.html(originalText);
+                progress.hide();
+            }
+        });
+    });
+    
+    // Функция для импорта отклика
+    window.importResponse = function(negotiationId, hhVacancyId) {
+        if (!confirm('Импортировать этот отклик в Huntflow?')) {
+            return;
+        }
+        
+        const btn = event.target.closest('button');
+        const originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        
+        $.ajax({
+            url: '{% url "huntflow:hh_import_responses_ajax" account_id vacancy_id %}',
+            method: 'POST',
+            data: {
+                'hh_vacancy_id': hhVacancyId,
+                'negotiation_id': negotiationId,
+                'csrfmiddlewaretoken': $('[name=csrfmiddlewaretoken]').val()
+            },
+            success: function(response) {
+                if (response.success) {
+                    showAlert('success', 'Отклик успешно импортирован в Huntflow');
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1500);
+                } else {
+                    showAlert('danger', 'Ошибка импорта: ' + (response.message || 'Неизвестная ошибка'));
+                    btn.disabled = false;
+                    btn.innerHTML = originalHtml;
+                }
+            },
+            error: function(xhr) {
+                let errorMsg = 'Ошибка при импорте отклика';
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    errorMsg += ': ' + xhr.responseJSON.message;
+                }
+                showAlert('danger', errorMsg);
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
+        });
+    };
+    
+    // Функция для отклонения отклика
+    window.rejectResponse = function(negotiationId, hhVacancyId) {
+        const message = prompt('Введите сообщение об отказе (необязательно):');
+        if (message === null) {
+            return; // Пользователь отменил
+        }
+        
+        const btn = event.target.closest('button');
+        const originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        
+        $.ajax({
+            url: '{% url "huntflow:hh_reject_response_ajax" account_id vacancy_id %}',
+            method: 'POST',
+            data: {
+                'negotiation_id': negotiationId,
+                'hh_vacancy_id': hhVacancyId,
+                'message': message || '',
+                'csrfmiddlewaretoken': $('[name=csrfmiddlewaretoken]').val()
+            },
+            success: function(response) {
+                if (response.success) {
+                    showAlert('success', 'Отклик отклонен');
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1500);
+                } else {
+                    showAlert('danger', 'Ошибка отклонения: ' + (response.message || 'Неизвестная ошибка'));
+                    btn.disabled = false;
+                    btn.innerHTML = originalHtml;
+                }
+            },
+            error: function(xhr) {
+                let errorMsg = 'Ошибка при отклонении отклика';
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    errorMsg += ': ' + xhr.responseJSON.message;
+                }
+                showAlert('danger', errorMsg);
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
+        });
+    };
+    
+    // Функция для архивирования отклика
+    window.archiveResponse = function(negotiationId) {
+        if (!confirm('Архивировать этот отклик?')) {
+            return;
+        }
+        
+        const btn = event.target.closest('button');
+        const originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        
+        $.ajax({
+            url: '{% url "huntflow:hh_archive_response_ajax" account_id vacancy_id %}',
+            method: 'POST',
+            data: {
+                'negotiation_id': negotiationId,
+                'csrfmiddlewaretoken': $('[name=csrfmiddlewaretoken]').val()
+            },
+            success: function(response) {
+                if (response.success) {
+                    showAlert('success', 'Отклик архивирован');
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1500);
+                } else {
+                    showAlert('danger', 'Ошибка архивирования: ' + (response.message || 'Неизвестная ошибка'));
+                    btn.disabled = false;
+                    btn.innerHTML = originalHtml;
+                }
+            },
+            error: function(xhr) {
+                let errorMsg = 'Ошибка при архивировании отклика';
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    errorMsg += ': ' + xhr.responseJSON.message;
+                }
+                showAlert('danger', errorMsg);
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
+        });
+    };
+    
+    // Функция для показа уведомлений
+    function showAlert(type, message) {
+        const alertHtml = `
+            <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        `;
+        $('body').prepend(alertHtml);
+        setTimeout(() => {
+            $('.alert').fadeOut(() => $(this).remove());
+        }, 5000);
+    }
+});
+
+function showAlert(type, message) {
+    const alertHtml = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    
+    // Добавляем в начало контента
+    $('.content').prepend(alertHtml);
+    
+    // Автоматически скрыть через 5 секунд
+    setTimeout(() => {
+        $('.alert').fadeOut();
+    }, 5000);
+}
+</script>
+{% endblock %}
+

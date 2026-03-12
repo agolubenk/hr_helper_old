@@ -1,0 +1,71 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Вход - HR Helper{% endblock %}
+{% block page_title %}Вход в систему{% endblock %}
+
+{% block content %}
+<div class="login-page-container">
+    <div class="login-form-card">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-sign-in-alt me-2"></i>
+                    Вход в систему
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+
+                <form method="post">
+                    {% csrf_token %}
+                    {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Имя пользователя</label>
+                        <input type="text" class="form-control" id="username" name="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Пароль</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-sign-in-alt me-2"></i>
+                            Войти
+                        </button>
+                    </div>
+                </form>
+
+                <div class="divider-with-text my-4">
+                    <hr class="divider-line">
+                    <span class="divider-text">или</span>
+                    <hr class="divider-line">
+                </div>
+                
+                <div class="text-center">
+                    <a href="/auth/google/login/" class="btn btn-primary btn-google">
+                        <i class="fab fa-google me-2"></i>
+                        Войти через Google
+                    </a>
+                </div>
+            </div>
+            <div class="card-footer text-center">
+                <small class="text-muted">
+                    Нет аккаунта? Обратитесь к администратору.
+                </small>
+                <br>
+                <small class="text-muted">
+                    <a href="/privacy/">Политика конфиденциальности</a>
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

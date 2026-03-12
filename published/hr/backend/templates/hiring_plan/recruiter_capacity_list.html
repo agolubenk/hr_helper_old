@@ -1,0 +1,122 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Мощность рекрутеров - HR Helper{% endblock %}
+{% block page_title %}👥 Мощность команды рекрутеров{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-users me-2"></i>
+                        Мощность рекрутеров
+                    </h5>
+                    <a href="{% url 'hiring_plan:metrics_dashboard' %}" class="btn btn-primary">
+                        <i class="fas fa-tachometer-alt me-2"></i>Дашборд
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped">
+                        <thead>
+                            <tr>
+                                <th>Рекрутер</th>
+                                <th>Период</th>
+                                <th>Загрузка</th>
+                                <th>Активных заявок</th>
+                                <th>Макс. мощность</th>
+                                <th>Доступно</th>
+                                <th>Среднее время</th>
+                                <th>Успешность</th>
+                                <th>Статус</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for capacity in capacities %}
+                            <tr>
+                                <td>
+                                    <strong>
+                                        {% if capacity.recruiter %}
+                                            {{ capacity.recruiter.get_full_name|default:capacity.recruiter.username }}
+                                        {% else %}
+                                            Неизвестный пользователь
+                                        {% endif %}
+                                    </strong>
+                                </td>
+                                <td>
+                                    {{ capacity.period_start|date:"d.m.Y" }} - {{ capacity.period_end|date:"d.m.Y" }}
+                                </td>
+                                <td>
+                                    <div class="progress" style="height: 25px;">
+                                        <div class="progress-bar {% if capacity.is_overloaded %}bg-danger{% elif capacity.capacity_utilization >= 70 %}bg-warning{% else %}bg-success{% endif %}" 
+                                             style="width: {{ capacity.capacity_utilization }}%">
+                                            {{ capacity.capacity_utilization }}%
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-primary">{{ capacity.active_requests_count }}</span>
+                                </td>
+                                <td>{{ capacity.max_capacity }}</td>
+                                <td>
+                                    <span class="badge bg-success">{{ capacity.available_capacity }}</span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">{{ capacity.avg_time_per_request }} дней</span>
+                                </td>
+                                <td>
+                                    {% if capacity.success_rate >= 80 %}
+                                        <span class="badge bg-success">{{ capacity.success_rate }}%</span>
+                                    {% elif capacity.success_rate >= 60 %}
+                                        <span class="badge bg-warning">{{ capacity.success_rate }}%</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">{{ capacity.success_rate }}%</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if capacity.is_overloaded %}
+                                        <span class="badge bg-danger">
+                                            <i class="fas fa-exclamation-triangle me-1"></i>Перегружен
+                                        </span>
+                                    {% elif capacity.capacity_utilization >= 70 %}
+                                        <span class="badge bg-warning">
+                                            <i class="fas fa-exclamation-circle me-1"></i>Высокая загрузка
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-check-circle me-1"></i>ОК
+                                        </span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="9" class="text-center">Данные о мощности рекрутеров не найдены.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                {% if is_paginated %}
+                    <nav aria-label="Page navigation">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Предыдущая</a></li>
+                            {% endif %}
+                            <li class="page-item disabled"><span class="page-link">Страница {{ page_obj.number }} из {{ page_obj.num_pages }}</span></li>
+                            {% if page_obj.has_next %}
+                                <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Следующая</a></li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,894 @@
+{% extends 'common/base.html' %}
+{% load static %}
+{% load hiring_plan_extras %}
+
+{% block title %}План найма '{{ year|slice:"2:" }}{% endblock %}
+{% block page_title %}План найма '{{ year|slice:"2:" }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .yearly-table {
+        font-size: 0.9rem;
+    }
+    
+    .yearly-table th {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        padding: 8px;
+        text-align: center;
+        font-weight: 600;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    
+    .yearly-table td {
+        border: 1px solid #dee2e6;
+        padding: 6px;
+        text-align: center;
+        vertical-align: middle;
+    }
+    
+    /* Темная тема */
+    [data-bs-theme="dark"] .yearly-table th {
+        background-color: #343a40;
+        border-color: #495057;
+        color: #ffffff;
+    }
+    
+    /* Темная тема для thead */
+    [data-bs-theme="dark"] .yearly-table thead {
+        background-color: #343a40;
+    }
+    
+    [data-bs-theme="dark"] .yearly-table thead th {
+        background-color: #343a40 !important;
+        border-color: #495057 !important;
+        color: #ffffff !important;
+        font-weight: 600;
+    }
+    
+    [data-bs-theme="dark"] .yearly-table td {
+        border-color: #495057;
+        color: #ffffff;
+    }
+    
+    [data-bs-theme="dark"] .yearly-table {
+        background-color: #212529;
+    }
+    
+    .yearly-table .vacancy-info {
+        text-align: left;
+        max-width: 210px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        position: relative;
+    }
+    
+    .yearly-table .vacancy-info a {
+        color: inherit;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+    }
+    
+    .yearly-table .vacancy-info a:hover {
+        color: #007bff;
+        text-decoration: underline;
+    }
+    
+    /* Темная тема для ссылок */
+    [data-bs-theme="dark"] .yearly-table .vacancy-info a {
+        color: #ffffff;
+    }
+    
+    [data-bs-theme="dark"] .yearly-table .vacancy-info a:hover {
+        color: #66b3ff;
+    }
+    
+    .yearly-table .vacancy-info .vacancy-name {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        margin-right: 5px;
+    }
+    
+    .yearly-table .vacancy-info .external-icon {
+        flex-shrink: 0;
+        opacity: 0.6;
+        font-size: 0.8em;
+    }
+    
+    .yearly-table .vacancy-info a:hover .external-icon {
+        opacity: 1;
+    }
+    
+    .yearly-table .month-cell {
+        width: 45px;
+        min-width: 45px;
+        max-width: 45px;
+        height: 30px;
+        min-height: 30px;
+        position: relative;
+        padding: 2px;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+    
+    /* Цвета для статусов */
+    .cell-green {
+        background-color: #d4edda !important;
+        color: #155724;
+    }
+    
+    .cell-red {
+        background-color: #f8d7da !important;
+        color: #721c24;
+    }
+    
+    .cell-blue {
+        background-color: #cce5ff !important;
+        color: #004085;
+    }
+    
+    .cell-lightblue {
+        background-color: #e3f2fd !important;
+        color: #01579b;
+    }
+    
+    .cell-yellow {
+        background-color: #fff3cd !important;
+        color: #856404;
+    }
+    
+    /* Темная тема для цветов ячеек */
+    [data-bs-theme="dark"] .cell-green {
+        background-color: #0f5132 !important;
+        color: #d1e7dd;
+    }
+    
+    [data-bs-theme="dark"] .cell-red {
+        background-color: #842029 !important;
+        color: #f8d7da;
+    }
+    
+    [data-bs-theme="dark"] .cell-blue {
+        background-color: #084298 !important;
+        color: #cce5ff;
+    }
+    
+    [data-bs-theme="dark"] .cell-lightblue {
+        background-color: #055160 !important;
+        color: #b3e5fc;
+    }
+    
+    [data-bs-theme="dark"] .cell-yellow {
+        background-color: #664d03 !important;
+        color: #fff3cd;
+    }
+    
+    .cell-gray {
+        background-color: #e9ecef !important;
+        color: #495057;
+    }
+    
+    /* Темная тема для серых ячеек */
+    [data-bs-theme="dark"] .cell-gray {
+        background-color: #495057 !important;
+        color: #adb5bd;
+    }
+    
+    .cell-lightgray {
+        background-color: #f8f9fa !important;
+        color: #6c757d;
+    }
+    
+    /* Темная тема для светло-серых ячеек */
+    [data-bs-theme="dark"] .cell-lightgray {
+        background-color: #343a40 !important;
+        color: #adb5bd;
+    }
+    
+    .cell-transparent {
+        background-color: transparent !important;
+    }
+    
+    .yearly-table tbody tr:hover td {
+        background-color: #f8f9fa !important;
+    }
+    
+    /* Темная тема для hover эффектов */
+    [data-bs-theme="dark"] .yearly-table tbody tr:hover td {
+        background-color: #495057 !important;
+    }
+    
+    .yearly-table tbody tr:hover td.cell-green {
+        background-color: #d4edda !important;
+    }
+    
+    .yearly-table tbody tr:hover td.cell-red {
+        background-color: #f8d7da !important;
+    }
+    
+    .yearly-table tbody tr:hover td.cell-blue {
+        background-color: #cce5ff !important;
+    }
+    
+    .yearly-table tbody tr:hover td.cell-yellow {
+        background-color: #fff3cd !important;
+    }
+    
+    .yearly-table tbody tr:hover td.cell-lightblue {
+        background-color: #e3f2fd !important;
+    }
+    
+    .yearly-table tbody tr:hover td.cell-gray {
+        background-color: #d3d3d3 !important;
+    }
+    
+    .yearly-table tbody tr:hover td.cell-lightgray {
+        background-color: #e9ecef !important;
+    }
+    
+    /* Темная тема для hover эффектов цветных ячеек */
+    [data-bs-theme="dark"] .yearly-table tbody tr:hover td.cell-green {
+        background-color: #0f5132 !important;
+    }
+    
+    [data-bs-theme="dark"] .yearly-table tbody tr:hover td.cell-red {
+        background-color: #842029 !important;
+    }
+    
+    [data-bs-theme="dark"] .yearly-table tbody tr:hover td.cell-blue {
+        background-color: #084298 !important;
+    }
+    
+    [data-bs-theme="dark"] .yearly-table tbody tr:hover td.cell-yellow {
+        background-color: #664d03 !important;
+    }
+    
+    [data-bs-theme="dark"] .yearly-table tbody tr:hover td.cell-lightblue {
+        background-color: #055160 !important;
+    }
+    
+    [data-bs-theme="dark"] .yearly-table tbody tr:hover td.cell-gray {
+        background-color: #495057 !important;
+    }
+    
+    [data-bs-theme="dark"] .yearly-table tbody tr:hover td.cell-lightgray {
+        background-color: #343a40 !important;
+    }
+    
+    .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+        margin-bottom: 20px;
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 5px;
+    }
+    
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .legend-color {
+        width: 20px;
+        height: 20px;
+        border: 1px solid #dee2e6;
+        border-radius: 3px;
+    }
+    
+    .year-selector {
+        margin-bottom: 20px;
+    }
+    
+    .table-container {
+        overflow-x: auto;
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+    
+    .status-badge {
+        font-size: 0.8rem;
+        padding: 2px 6px;
+        border-radius: 3px;
+    }
+    
+    .badge-planned {
+        background-color: #e3f2fd;
+        color: #01579b;
+    }
+    
+    .badge-in-progress {
+        background-color: #cce5ff;
+        color: #004085;
+    }
+    
+    .badge-closed {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    
+    .badge-cancelled {
+        background-color: #e9ecef;
+        color: #495057;
+    }
+    
+    /* Темная тема для бейджей статусов */
+    [data-bs-theme="dark"] .badge-planned {
+        background-color: #055160;
+        color: #b3e5fc;
+    }
+    
+    [data-bs-theme="dark"] .badge-in-progress {
+        background-color: #084298;
+        color: #cce5ff;
+    }
+    
+    [data-bs-theme="dark"] .badge-closed {
+        background-color: #0f5132;
+        color: #d1e7dd;
+    }
+    
+    [data-bs-theme="dark"] .badge-cancelled {
+        background-color: #495057;
+        color: #adb5bd;
+    }
+    
+    /* Выделение границ для строк медиан и средних */
+    .table-info {
+        border-top: 3px solid #0d6efd !important;
+        border-bottom: 3px solid #0d6efd !important;
+    }
+    
+    .table-secondary {
+        border-top: 3px solid #6c757d !important;
+        border-bottom: 3px solid #6c757d !important;
+    }
+    
+    /* Темная тема для строк медиан и средних */
+    [data-bs-theme="dark"] .table-info {
+        background-color: #0d6efd !important;
+        color: #ffffff;
+        border-top-color: #66b3ff !important;
+        border-bottom-color: #66b3ff !important;
+    }
+    
+    [data-bs-theme="dark"] .table-secondary {
+        background-color: #6c757d !important;
+        color: #ffffff;
+        border-top-color: #adb5bd !important;
+        border-bottom-color: #adb5bd !important;
+    }
+    
+    /* Стили для легенды */
+    .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+        align-items: center;
+    }
+    
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 0.9rem;
+    }
+    
+    .legend-color {
+        width: 16px;
+        height: 16px;
+        border-radius: 3px;
+        border: 1px solid #dee2e6;
+    }
+    
+    /* Темная тема для легенды */
+    [data-bs-theme="dark"] .legend {
+        background-color: #343a40;
+        padding: 15px;
+        border-radius: 8px;
+        border: 1px solid #495057;
+    }
+    
+    [data-bs-theme="dark"] .legend-item {
+        color: #ffffff;
+    }
+    
+    [data-bs-theme="dark"] .legend-color {
+        border-color: #495057;
+    }
+    
+    /* Стили для селектора года */
+    .year-selector {
+        min-width: 150px;
+    }
+    
+    /* Темная тема для селектора года */
+    [data-bs-theme="dark"] .form-select {
+        background-color: #343a40;
+        border-color: #495057;
+        color: #ffffff;
+    }
+    
+    [data-bs-theme="dark"] .form-select:focus {
+        background-color: #343a40;
+        border-color: #66b3ff;
+        color: #ffffff;
+        box-shadow: 0 0 0 0.2rem rgba(102, 179, 255, 0.25);
+    }
+    
+    /* Темная тема для контейнера и карточки */
+    [data-bs-theme="dark"] .container-fluid {
+        background-color: #212529;
+    }
+    
+    [data-bs-theme="dark"] .card {
+        background-color: #343a40;
+        border-color: #495057;
+    }
+    
+    [data-bs-theme="dark"] .card-header {
+        background-color: #495057;
+        border-bottom-color: #6c757d;
+        color: #ffffff;
+    }
+    
+    [data-bs-theme="dark"] .card-body {
+        background-color: #343a40;
+        color: #ffffff;
+    }
+    
+    /* Улучшенные стили для таблицы в темной теме */
+    [data-bs-theme="dark"] .table {
+        color: #ffffff;
+    }
+    
+    [data-bs-theme="dark"] .table-striped > tbody > tr:nth-of-type(odd) > td {
+        background-color: #2d3338;
+    }
+    
+    [data-bs-theme="dark"] .table-hover > tbody > tr:hover > td {
+        background-color: #495057;
+    }
+    
+    /* Стили для текста в темной теме */
+    [data-bs-theme="dark"] .text-muted {
+        color: #adb5bd !important;
+    }
+    
+    [data-bs-theme="dark"] .text-center {
+        color: #ffffff;
+    }
+    
+    /* Темная тема для Bootstrap бейджей */
+    [data-bs-theme="dark"] .badge {
+        color: #ffffff;
+    }
+    
+    [data-bs-theme="dark"] .badge.bg-secondary {
+        background-color: #6c757d !important;
+        color: #ffffff !important;
+    }
+    
+    [data-bs-theme="dark"] .badge.bg-primary {
+        background-color: #0d6efd !important;
+        color: #ffffff !important;
+    }
+    
+    [data-bs-theme="dark"] .badge.bg-danger {
+        background-color: #dc3545 !important;
+        color: #ffffff !important;
+    }
+    
+    [data-bs-theme="dark"] .badge.bg-success {
+        background-color: #198754 !important;
+        color: #ffffff !important;
+    }
+    
+    [data-bs-theme="dark"] .badge.bg-warning {
+        background-color: #ffc107 !important;
+        color: #000000 !important;
+    }
+    
+    [data-bs-theme="dark"] .badge.bg-info {
+        background-color: #0dcaf0 !important;
+        color: #000000 !important;
+    }
+    
+    /* Темная тема для иконок */
+    [data-bs-theme="dark"] .fas {
+        color: inherit;
+    }
+    
+    /* Темная тема для ссылок */
+    [data-bs-theme="dark"] .text-decoration-none {
+        color: #ffffff;
+    }
+    
+    [data-bs-theme="dark"] .text-decoration-none:hover {
+        color: #66b3ff;
+    }
+    
+    /* Темная тема для элементов с белым фоном */
+    [data-bs-theme="dark"] .py-4 {
+        background-color: transparent;
+    }
+    
+    [data-bs-theme="dark"] .month-cell {
+        background-color: transparent;
+    }
+    
+    [data-bs-theme="dark"] .vacancy-info {
+        background-color: transparent;
+    }
+    
+    /* Темная тема для элементов таблицы */
+    [data-bs-theme="dark"] .table > tbody > tr > td {
+        background-color: transparent;
+    }
+    
+    [data-bs-theme="dark"] .table > tbody > tr > th {
+        background-color: #343a40;
+    }
+    
+    /* Темная тема для элементов с белым текстом */
+    [data-bs-theme="dark"] .vacancy-name {
+        color: #ffffff;
+    }
+    
+    [data-bs-theme="dark"] .external-icon {
+        color: #ffffff;
+    }
+    
+    /* Темная тема для элементов с белым фоном в ячейках */
+    [data-bs-theme="dark"] .d-flex {
+        background-color: transparent;
+    }
+    
+    [data-bs-theme="dark"] .gap-1 {
+        background-color: transparent;
+    }
+    
+    [data-bs-theme="dark"] .flex-column {
+        background-color: transparent;
+    }
+    
+    /* Исправление белого текста на белом фоне */
+    [data-bs-theme="dark"] .table-info td,
+    [data-bs-theme="dark"] .table-secondary td {
+        color: #ffffff !important;
+    }
+    
+    [data-bs-theme="dark"] .table-info strong,
+    [data-bs-theme="dark"] .table-secondary strong {
+        color: #ffffff !important;
+    }
+    
+    [data-bs-theme="dark"] .table-info .text-muted,
+    [data-bs-theme="dark"] .table-secondary .text-muted {
+        color: #adb5bd !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <!-- Легенда слева -->
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-color cell-green"></div>
+                        <span>Закрыто в срок</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color cell-red"></div>
+                        <span>Закрыто с просрочкой</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color cell-blue"></div>
+                        <span>В работе</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color cell-yellow"></div>
+                        <span>Просрочено</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color cell-lightblue"></div>
+                        <span>Планируется</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color cell-gray"></div>
+                        <span>Отменено</span>
+                    </div>
+                </div>
+                
+                <!-- Селектор года справа -->
+                <div class="year-selector">
+                    <div class="d-flex gap-2 align-items-center">
+                        <a class="btn btn-outline-success btn-sm"
+                           href="{% url 'hiring_plan:yearly_hiring_plan_export_excel' %}?year={{ year }}"
+                           title="Скачать таблицу в XLSX">
+                            <i class="fas fa-file-excel me-1"></i>
+                            Excel
+                        </a>
+                        <form method="get" class="d-inline">
+                            <div class="input-group">
+                                <select name="year" class="form-select" onchange="this.form.submit()">
+                                    {% for available_year in available_years %}
+                                        <option value="{{ available_year }}" {% if available_year == year %}selected{% endif %}>
+                                            {{ available_year }} год
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Таблица -->
+            <div class="table-container">
+                <table class="table table-bordered yearly-table">
+                    <thead>
+                        <tr>
+                            <th class="vacancy-info">Вакансия</th>
+                            <th>Грейд</th>
+                            <th>Проект</th>
+                            {% for month in months %}
+                                <th class="month-cell">{{ month }}</th>
+                            {% endfor %}
+                            <th>SLA</th>
+                            <th>Факт</th>
+                            <th>T2H | SLA</th>
+                            <th>Рекрутер</th>
+                            <th>Статус</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if table_data %}
+                        {% for row in table_data %}
+                            <tr>
+                                <td class="vacancy-info" title="{{ row.vacancy }}">
+                                    <a href="{% url 'hiring_plan:hiring_request_detail' row.request_id %}" 
+                                       target="_blank" 
+                                       class="text-decoration-none">
+                                        <span class="vacancy-name">
+                                            <strong>{{ row.vacancy }}</strong>
+                                        </span>
+                                        <i class="fas fa-external-link-alt external-icon"></i>
+                                    </a>
+                                    {% if row.request.clickup_task_id %}
+                                    <a href="https://app.clickup.com/t/{{ row.request.clickup_task_id }}" 
+                                       target="_blank" rel="noopener" class="ms-1" title="Задача в ClickUp">
+                                        <i class="fas fa-tasks text-info"></i>
+                                    </a>
+                                    {% endif %}
+                                </td>
+                                <td>{{ row.grade|grade_short }}</td>
+                                <td>{{ row.project }}</td>
+                                
+                                {% for month_num, month_name in months|enumerate_list %}
+                                    {% with month_num|add:1 as month %}
+                                        {% with row.months|get_item:month as month_data %}
+                                            <td class="month-cell cell-{{ month_data.color }}">
+                                                {% if month_data.active and month_data.days > 0 %}
+                                                    <span title="Активна в {{ month_name }}">{{ month_data.days }}</span>
+                                                {% elif month_data.active %}
+                                                    <span title="Активна в {{ month_name }}"></span>
+                                                {% endif %}
+                                            </td>
+                                        {% endwith %}
+                                    {% endwith %}
+                                {% endfor %}
+                                
+                                <td>
+                                    {% if row.sla_days != '-' %}
+                                        <span class="badge bg-secondary">{{ row.sla_days }}д</span>
+                                    {% else %}
+                                        <span class="text-muted">—</span>
+                                    {% endif %}
+                                </td>
+                                
+                                <td>
+                                    {% if row.status == 'planned' %}
+                                        <span class="text-muted">—</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ row.days_in_year }}д</span>
+                                    {% endif %}
+                                </td>
+                                
+                                <td>
+                                    <div class="d-flex flex-column gap-1">
+                                        <!-- T2H бейдж -->
+                                        {% if row.time2hire %}
+                                            <span class="badge bg-primary">{{ row.time2hire }} дн.</span>
+                                        {% elif row.status == 'closed' %}
+                                            <span class="badge bg-danger">
+                                                <i class="fas fa-exclamation-triangle"></i>
+                                            </span>
+                                        {% else %}
+                                            <span class="text-muted">—</span>
+                                        {% endif %}
+                                        
+                                        <!-- SLA бейдж -->
+                                        {% if row.sla_time2hire != '-' and row.status != 'planned' %}
+                                            {% if row.status == 'closed' %}
+                                                {% if row.time2hire and row.time2hire <= row.sla_time2hire %}
+                                                    <span class="badge bg-success">{{ row.sla_time2hire }} дн.</span>
+                                                {% else %}
+                                                    <span class="badge bg-danger">{{ row.sla_time2hire }} дн.</span>
+                                                {% endif %}
+                                            {% else %}
+                                                {% if row.time2hire and row.time2hire > row.sla_time2hire %}
+                                                    <span class="badge bg-warning">{{ row.sla_time2hire }} дн.</span>
+                                                {% else %}
+                                                    <span class="badge bg-info">{{ row.sla_time2hire }} дн.</span>
+                                                {% endif %}
+                                            {% endif %}
+                                        {% elif row.status == 'planned' %}
+                                            <span class="text-muted">—</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                
+                                <td>
+                                    {% if row.recruiter %}
+                                        {{ row.recruiter|recruiter_short }}
+                                    {% else %}
+                                        <span class="text-muted">—</span>
+                                    {% endif %}
+                                </td>
+                                
+                                <td>
+                                    {% if row.status == 'planned' %}
+                                        <span class="status-badge badge-planned">Планируется</span>
+                                    {% elif row.status == 'in_progress' %}
+                                        <span class="status-badge badge-in-progress">В работе</span>
+                                    {% elif row.status == 'closed' %}
+                                        <div>
+                                            <span class="status-badge badge-closed">Закрыто</span>
+                                            {% if row.request.closed_date %}
+                                                <br><small class="text-muted">{{ row.request.closed_date|date:"d.m.Y" }}</small>
+                                            {% endif %}
+                                        </div>
+                                    {% elif row.status == 'cancelled' %}
+                                        <div>
+                                            <span class="status-badge badge-cancelled">Отменено</span>
+                                            {% if row.request.closed_date %}
+                                                <br><small class="text-muted">{{ row.request.closed_date|date:"d.m.Y" }}</small>
+                                            {% endif %}
+                                        </div>
+                                    {% else %}
+                                        <span class="status-badge">{{ row.status }}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="16" class="text-center text-muted py-4">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    Нет заявок за {{ year }} год
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        
+                <!-- Строка с медианными значениями -->
+                <tr class="table-info">
+                    <td class="vacancy-info">
+                        <strong><i class="fas fa-chart-line me-2"></i>Медианы</strong>
+                    </td>
+                    <td>
+                        <strong>{{ medians.grade|grade_short }}</strong>
+                    </td>
+                    <td>—</td>
+                    
+                    {% for month_num, month_name in months|enumerate_list %}
+                        {% with month_num|add:1 as month %}
+                            <td class="month-cell text-center">
+                                <strong>
+                                    {% if medians.monthly_days|get_item:month > 0 %}
+                                        {{ medians.monthly_days|get_item:month|floatformat:0 }}д
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </strong>
+                            </td>
+                        {% endwith %}
+                    {% endfor %}
+                    
+                    <td>
+                        <strong>{{ medians.sla }}</strong>
+                    </td>
+                    <td>
+                        <strong>{{ medians.work_days }}</strong>
+                    </td>
+                    <td>
+                        <div class="d-flex flex-column gap-1">
+                            <strong>{{ medians.time2hire }}</strong>
+                            <strong>{{ medians.sla_time2hire }}</strong>
+                        </div>
+                    </td>
+                    <td rowspan="2" class="text-center">
+                        <strong>{{ medians.closed_percentage }}</strong>
+                        <br>
+                        <small class="text-muted">закрыто</small>
+                    </td>
+                </tr>
+                
+                <!-- Строка со средними значениями -->
+                <tr class="table-secondary">
+                    <td class="vacancy-info">
+                        <strong><i class="fas fa-chart-bar me-2"></i>Средние</strong>
+                    </td>
+                    <td>
+                        <strong>{{ medians.averages.grade|grade_short }}</strong>
+                    </td>
+                    <td>—</td>
+                    
+                    {% for month_num, month_name in months|enumerate_list %}
+                        {% with month_num|add:1 as month %}
+                            <td class="month-cell text-center">
+                                <strong>
+                                    {% if medians.averages.monthly_days|get_item:month > 0 %}
+                                        {{ medians.averages.monthly_days|get_item:month|floatformat:0 }}д
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </strong>
+                            </td>
+                        {% endwith %}
+                    {% endfor %}
+                    
+                    <td>
+                        <strong>{{ medians.averages.sla }}</strong>
+                    </td>
+                    <td>
+                        <strong>{{ medians.averages.work_days }}</strong>
+                    </td>
+                    <td>
+                        <div class="d-flex flex-column gap-1">
+                            <strong>{{ medians.averages.time2hire }}</strong>
+                            <strong>{{ medians.averages.sla_time2hire }}</strong>
+                        </div>
+                    </td>
+                </tr>
+                {% endif %}
+                    </tbody>
+                </table>
+            </div>
+            
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Добавляем подсказки при наведении на ячейки
+    document.addEventListener('DOMContentLoaded', function() {
+        const cells = document.querySelectorAll('.month-cell');
+        cells.forEach(cell => {
+            if (cell.classList.contains('cell-green') || 
+                cell.classList.contains('cell-red') || 
+                cell.classList.contains('cell-blue') || 
+                cell.classList.contains('cell-lightblue') || 
+                cell.classList.contains('cell-gray')) {
+                
+                cell.style.cursor = 'pointer';
+                cell.title = 'Заявка активна в этом месяце';
+            }
+        });
+    });
+</script>
+{% endblock %}

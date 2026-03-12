@@ -1,0 +1,1109 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Импорт из HuntFlow{% endblock %}
+{% block page_title %}Импорт заявок из HuntFlow{% endblock %}
+
+{% block extra_css %}
+<style>
+    .vacancy-card {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        overflow: hidden;
+    }
+    
+    .vacancy-header {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-bottom: 1px solid #dee2e6;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .vacancy-header:hover {
+        background-color: #e9ecef;
+    }
+    
+    .vacancy-content {
+        padding: 15px;
+        display: none;
+    }
+    
+    .vacancy-content.show {
+        display: block;
+    }
+    
+    .applicant-item {
+        border: 1px solid #dee2e6;
+        border-radius: 5px;
+        padding: 15px;
+        margin-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .applicant-info {
+        flex: 1;
+    }
+    
+    .applicant-name {
+        font-weight: 600;
+        margin-bottom: 5px;
+    }
+    
+    .applicant-details {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    .import-btn {
+        background-color: #28a745;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+    
+    .import-btn:hover {
+        background-color: #218838;
+    }
+    
+    .import-btn:disabled {
+        background-color: #6c757d;
+        cursor: not-allowed;
+    }
+    
+    .status-badge {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+    
+    .status-success {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    
+    .status-error {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+    
+    .status-pending {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+    
+    .loading {
+        display: none;
+        text-align: center;
+        padding: 20px;
+    }
+    
+    .spinner {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #3498db;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 2s linear infinite;
+        margin: 0 auto 10px;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    .alert {
+        padding: 12px 16px;
+        margin-bottom: 20px;
+        border: 1px solid transparent;
+        border-radius: 4px;
+    }
+    
+    .alert-success {
+        background-color: #d4edda;
+        border-color: #c3e6cb;
+        color: #155724;
+    }
+    
+    .alert-danger {
+        background-color: #f8d7da;
+        border-color: #f5c6cb;
+        color: #721c24;
+    }
+    
+    .alert-info {
+        background-color: #d1ecf1;
+        border-color: #bee5eb;
+        color: #0c5460;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="fas fa-download me-2"></i>Импорт заявок из HuntFlow</h2>
+                <button class="btn btn-primary" onclick="refreshData()">
+                    <i class="fas fa-sync-alt me-2"></i>Обновить данные
+                </button>
+            </div>
+            
+            {% if not user.huntflow_access_token %}
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>Внимание:</strong> У вас не настроены токены HuntFlow. 
+                <a href="{% url 'admin:accounts_user_change' user.id %}" target="_blank">Настройте токены в профиле</a>.
+            </div>
+            {% elif not user.is_huntflow_token_valid %}
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>Внимание:</strong> Ваш токен HuntFlow истек. 
+                <a href="{% url 'admin:accounts_user_change' user.id %}" target="_blank">Обновите токены в профиле</a>.
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>Информация:</strong> Импортируются кандидаты со статусами 186507 и 186508. 
+                Показывается ФИО, дата открытия вакансии, дата перевода в статус Offer Accepted.
+                Грейд определяется из дополнительного поля "Уровень" кандидата.
+            </div>
+            {% endif %}
+            
+            <div id="loading" class="loading">
+                <div class="spinner"></div>
+                <p>Загрузка данных из HuntFlow...</p>
+            </div>
+            
+            <div id="alerts-container"></div>
+            
+            {% if error_message %}
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>Ошибка:</strong> {{ error_message }}
+            </div>
+            {% endif %}
+            
+            <div id="vacancies-container">
+                <!-- Данные будут загружены через AJAX -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function toggleVacancy(vacancyId) {
+        const content = document.getElementById(`content-${vacancyId}`);
+        const chevron = document.getElementById(`chevron-${vacancyId}`);
+        
+        if (content.style.display === 'none' || content.style.display === '') {
+            content.style.display = 'block';
+            chevron.style.transform = 'rotate(180deg)';
+        } else {
+            content.style.display = 'none';
+            chevron.style.transform = 'rotate(0deg)';
+        }
+    }
+    
+    function toggleEditFields(vacancyId, applicantId) {
+        const editFields = document.getElementById(`edit-fields-${vacancyId}-${applicantId}`);
+        const editBtn = document.getElementById(`edit-btn-${vacancyId}-${applicantId}`);
+        
+        if (editFields.style.display === 'none' || editFields.style.display === '') {
+            editFields.style.display = 'block';
+            editBtn.innerHTML = '<i class="fas fa-times me-1"></i>Скрыть';
+            editBtn.classList.remove('btn-outline-primary');
+            editBtn.classList.add('btn-outline-secondary');
+        } else {
+            editFields.style.display = 'none';
+            editBtn.innerHTML = '<i class="fas fa-edit me-1"></i>Редактировать';
+            editBtn.classList.remove('btn-outline-secondary');
+            editBtn.classList.add('btn-outline-primary');
+        }
+    }
+    
+    function importApplicant(vacancyId, applicantId) {
+        const button = document.getElementById(`btn-${vacancyId}-${applicantId}`);
+        const applicantDiv = document.getElementById(`applicant-${vacancyId}-${applicantId}`);
+        
+        // Собираем данные из полей редактирования
+        const grade = document.getElementById(`grade-${vacancyId}-${applicantId}`)?.value || '';
+        
+        // Валидация обязательных полей
+        if (!grade) {
+            showAlert('danger', 'Пожалуйста, выберите грейд для кандидата');
+            return;
+        }
+        
+        const importData = {
+            vacancy_id: vacancyId,
+            applicant_id: applicantId,
+            name: document.getElementById(`name-${vacancyId}-${applicantId}`)?.value || '',
+            grade: grade,
+            opening_date: document.getElementById(`opening-date-${vacancyId}-${applicantId}`)?.value || '',
+            hired_date: document.getElementById(`hired-date-${vacancyId}-${applicantId}`)?.value || '',
+            project: document.getElementById(`project-${vacancyId}-${applicantId}`)?.value || '',
+            priority: document.getElementById(`priority-${vacancyId}-${applicantId}`)?.value || '2',
+            notes: document.getElementById(`notes-${vacancyId}-${applicantId}`)?.value || ''
+        };
+        
+        // Блокируем кнопку
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Импорт...';
+        
+        // Отправляем запрос
+        fetch('{% url "hiring_plan:huntflow_import_applicant" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(importData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Успешный импорт
+                button.innerHTML = '<i class="fas fa-check me-1"></i>Импортирован';
+                button.style.backgroundColor = '#28a745';
+                
+                // Добавляем ссылку на заявку
+                if (data.hiring_request_url) {
+                    button.innerHTML = `<i class="fas fa-check me-1"></i><a href="${data.hiring_request_url}" class="text-white text-decoration-none">Импортирован</a>`;
+                }
+                
+                showAlert('success', `Кандидат успешно импортирован: ${data.message}`);
+            } else {
+                // Ошибка импорта
+                button.innerHTML = '<i class="fas fa-times me-1"></i>Ошибка';
+                button.style.backgroundColor = '#dc3545';
+                button.disabled = false;
+                
+                showAlert('danger', `Ошибка импорта: ${data.message}`);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            button.innerHTML = '<i class="fas fa-times me-1"></i>Ошибка';
+            button.style.backgroundColor = '#dc3545';
+            button.disabled = false;
+            
+            showAlert('danger', 'Произошла ошибка при импорте');
+        });
+    }
+    
+    function refreshData() {
+        loadVacancies();
+    }
+    
+    function loadVacancies() {
+        const container = document.getElementById('vacancies-container');
+        const loading = document.getElementById('loading');
+        
+        // Показываем индикатор загрузки
+        loading.style.display = 'block';
+        container.innerHTML = '';
+        
+        fetch('{% url "hiring_plan:huntflow_get_vacancies" %}')
+            .then(response => response.json())
+            .then(data => {
+                loading.style.display = 'none';
+                
+                if (data.success) {
+                    renderVacancies(data.vacancies);
+                } else {
+                    showError(data.error || 'Неизвестная ошибка');
+                }
+            })
+            .catch(error => {
+                loading.style.display = 'none';
+                showError('Ошибка при загрузке данных: ' + error.message);
+            });
+    }
+    
+    function renderVacancies(vacancies) {
+        const container = document.getElementById('vacancies-container');
+        
+        if (vacancies.length === 0) {
+            container.innerHTML = `
+                <div class="text-center text-muted py-5">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <h4>Нет вакансий с кандидатами для импорта</h4>
+                    <p>Все кандидаты со статусом 186507 уже импортированы или отсутствуют</p>
+                </div>
+            `;
+            return;
+        }
+        
+        let html = '';
+        vacancies.forEach(vacancy => {
+            html += `
+                <div class="vacancy-card">
+                    <div class="vacancy-header" onclick="toggleVacancy(${vacancy.id})">
+                        <div>
+                            <h5 class="mb-1">${vacancy.name}</h5>
+                            <small class="text-muted">ID: ${vacancy.id} | Кандидатов для импорта: ${vacancy.importable_count}</small>
+                        </div>
+                        <div>
+                            <i class="fas fa-chevron-down" id="chevron-${vacancy.id}"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="vacancy-content" id="content-${vacancy.id}" style="display: none;">
+                        ${renderApplicants(vacancy.importable_applicants, vacancy.id)}
+                    </div>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+    }
+    
+    function renderApplicants(applicants, vacancyId) {
+        if (!applicants || applicants.length === 0) {
+            return `
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Нет кандидатов для импорта
+                </div>
+            `;
+        }
+        
+        let html = '';
+        applicants.forEach(applicant => {
+            const hiredDate = new Date(applicant.hired_date).toLocaleDateString('ru-RU');
+            const openingDate = applicant.vacancy_opening_date ? 
+                new Date(applicant.vacancy_opening_date).toLocaleDateString('ru-RU') : 'Не указана';
+            const offerAcceptedDate = applicant.offer_accepted_date ? 
+                new Date(applicant.offer_accepted_date).toLocaleDateString('ru-RU') : 'Не указана';
+            const statusText = applicant.current_status === 186507 ? 'Offer Accepted' : 'Status 186508';
+            
+            // Форматируем даты для input[type="date"]
+            const openingDateInput = applicant.vacancy_opening_date ? 
+                new Date(applicant.vacancy_opening_date).toISOString().split('T')[0] : '';
+            const offerDateInput = applicant.offer_accepted_date ? 
+                new Date(applicant.offer_accepted_date).toISOString().split('T')[0] : '';
+            
+            html += `
+                <div class="applicant-item" id="applicant-${vacancyId}-${applicant.applicant_id}">
+                    <div class="applicant-info">
+                        <div class="applicant-name">${applicant.name}</div>
+                        <div class="applicant-details">
+                            <div><strong>ID:</strong> ${applicant.applicant_id}</div>
+                            <div><strong>Статус:</strong> ${statusText}</div>
+                            <div><strong>Дата открытия вакансии:</strong> ${openingDate}</div>
+                            <div><strong>Дата Offer Accepted:</strong> ${offerAcceptedDate}</div>
+                        </div>
+                        
+                        <!-- Поля для редактирования -->
+                        <div class="edit-fields mt-3" style="display: none;" id="edit-fields-${vacancyId}-${applicant.applicant_id}">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label class="form-label">ФИО кандидата:</label>
+                                    <input type="text" class="form-control" value="${applicant.name}" 
+                                           id="name-${vacancyId}-${applicant.applicant_id}">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Грейд: <span class="text-danger">*</span></label>
+                                    <select class="form-select" id="grade-${vacancyId}-${applicant.applicant_id}" required>
+                                        <option value="">Выберите грейд</option>
+                                        <option value="1" ${applicant.auto_grade_id === 1 ? 'selected' : ''}>Junior</option>
+                                        <option value="2" ${applicant.auto_grade_id === 2 ? 'selected' : ''}>Junior+</option>
+                                        <option value="3" ${applicant.auto_grade_id === 3 ? 'selected' : ''}>Middle</option>
+                                        <option value="4" ${applicant.auto_grade_id === 4 ? 'selected' : ''}>Middle+</option>
+                                        <option value="5" ${applicant.auto_grade_id === 5 ? 'selected' : ''}>Senior</option>
+                                        <option value="18" ${applicant.auto_grade_id === 18 ? 'selected' : ''}>Senior+</option>
+                                        <option value="17" ${applicant.auto_grade_id === 17 ? 'selected' : ''}>Lead</option>
+                                        <option value="20" ${applicant.auto_grade_id === 20 ? 'selected' : ''}>Head</option>
+                                    </select>
+                                    ${applicant.auto_grade_name ? `<small class="text-muted">Автоматически определен: ${applicant.auto_grade_name}</small>` : ''}
+                                </div>
+                            </div>
+                            <div class="row mt-2">
+                                <div class="col-md-6">
+                                    <label class="form-label">Дата открытия вакансии:</label>
+                                    ${renderVacancyDatesSelect(applicant.vacancy_dates, vacancyId, applicant.applicant_id, openingDateInput)}
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Дата найма:</label>
+                                    <input type="date" class="form-control" value="${offerDateInput}" 
+                                           id="hired-date-${vacancyId}-${applicant.applicant_id}">
+                                </div>
+                            </div>
+                            <div class="row mt-2">
+                                <div class="col-md-6">
+                                    <label class="form-label">Проект:</label>
+                                    <input type="text" class="form-control" placeholder="Название проекта" 
+                                           id="project-${vacancyId}-${applicant.applicant_id}">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Приоритет:</label>
+                                    <select class="form-select" id="priority-${vacancyId}-${applicant.applicant_id}">
+                                        <option value="1">Низкий</option>
+                                        <option value="2" selected>Высокий</option>
+                                        <option value="3">Критический</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="row mt-2">
+                                <div class="col-12">
+                                    <label class="form-label">Примечания:</label>
+                                    <textarea class="form-control" rows="2" placeholder="Дополнительная информация" 
+                                              id="notes-${vacancyId}-${applicant.applicant_id}">Импортировано из HuntFlow. Vacancy ID: ${vacancyId}, Applicant ID: ${applicant.applicant_id}</textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <button class="btn btn-outline-primary btn-sm me-2" 
+                                onclick="toggleEditFields(${vacancyId}, ${applicant.applicant_id})"
+                                id="edit-btn-${vacancyId}-${applicant.applicant_id}">
+                            <i class="fas fa-edit me-1"></i>Редактировать
+                        </button>
+                        <button class="import-btn" 
+                                onclick="importApplicant(${vacancyId}, ${applicant.applicant_id})"
+                                id="btn-${vacancyId}-${applicant.applicant_id}">
+                            <i class="fas fa-download me-1"></i>Импортировать
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+        
+        return html;
+    }
+    
+    function renderVacancyDatesSelect(vacancyDates, vacancyId, applicantId, defaultDate) {
+        if (!vacancyDates || vacancyDates.length === 0) {
+            return `<input type="date" class="form-control" value="${defaultDate}" 
+                           id="opening-date-${vacancyId}-${applicantId}">`;
+        }
+        
+        let html = `<select class="form-select" id="opening-date-${vacancyId}-${applicantId}">`;
+        
+        vacancyDates.forEach(dateInfo => {
+            const dateStr = new Date(dateInfo.date).toISOString().split('T')[0];
+            const isSelected = dateStr === defaultDate ? 'selected' : '';
+            html += `<option value="${dateStr}" ${isSelected}>${dateStr} - ${dateInfo.description}</option>`;
+        });
+        
+        html += '</select>';
+        return html;
+    }
+    
+    function showError(message) {
+        const container = document.getElementById('vacancies-container');
+        container.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>Ошибка:</strong> ${message}
+            </div>
+        `;
+    }
+    
+    function showAlert(type, message) {
+        const container = document.getElementById('alerts-container');
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type} alert-dismissible fade show`;
+        alert.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        container.appendChild(alert);
+        
+        // Автоматически скрываем через 5 секунд
+        setTimeout(() => {
+            alert.remove();
+        }, 5000);
+    }
+    
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    // Инициализация
+    document.addEventListener('DOMContentLoaded', function() {
+        // Автоматически загружаем данные при загрузке страницы
+        loadVacancies();
+    });
+</script>
+{% endblock %}
+
+
+{% block title %}Импорт из HuntFlow{% endblock %}
+{% block page_title %}Импорт заявок из HuntFlow{% endblock %}
+
+{% block extra_css %}
+<style>
+    .vacancy-card {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        overflow: hidden;
+    }
+    
+    .vacancy-header {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-bottom: 1px solid #dee2e6;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .vacancy-header:hover {
+        background-color: #e9ecef;
+    }
+    
+    .vacancy-content {
+        padding: 15px;
+        display: none;
+    }
+    
+    .vacancy-content.show {
+        display: block;
+    }
+    
+    .applicant-item {
+        border: 1px solid #dee2e6;
+        border-radius: 5px;
+        padding: 15px;
+        margin-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .applicant-info {
+        flex: 1;
+    }
+    
+    .applicant-name {
+        font-weight: 600;
+        margin-bottom: 5px;
+    }
+    
+    .applicant-details {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    .import-btn {
+        background-color: #28a745;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+    
+    .import-btn:hover {
+        background-color: #218838;
+    }
+    
+    .import-btn:disabled {
+        background-color: #6c757d;
+        cursor: not-allowed;
+    }
+    
+    .status-badge {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+    
+    .status-success {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    
+    .status-error {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+    
+    .status-pending {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+    
+    .loading {
+        display: none;
+        text-align: center;
+        padding: 20px;
+    }
+    
+    .spinner {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #3498db;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 2s linear infinite;
+        margin: 0 auto 10px;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    .alert {
+        padding: 12px 16px;
+        margin-bottom: 20px;
+        border: 1px solid transparent;
+        border-radius: 4px;
+    }
+    
+    .alert-success {
+        background-color: #d4edda;
+        border-color: #c3e6cb;
+        color: #155724;
+    }
+    
+    .alert-danger {
+        background-color: #f8d7da;
+        border-color: #f5c6cb;
+        color: #721c24;
+    }
+    
+    .alert-info {
+        background-color: #d1ecf1;
+        border-color: #bee5eb;
+        color: #0c5460;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="fas fa-download me-2"></i>Импорт заявок из HuntFlow</h2>
+                <button class="btn btn-primary" onclick="refreshData()">
+                    <i class="fas fa-sync-alt me-2"></i>Обновить данные
+                </button>
+            </div>
+            
+            {% if not user.huntflow_access_token %}
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>Внимание:</strong> У вас не настроены токены HuntFlow. 
+                <a href="{% url 'admin:accounts_user_change' user.id %}" target="_blank">Настройте токены в профиле</a>.
+            </div>
+            {% elif not user.is_huntflow_token_valid %}
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>Внимание:</strong> Ваш токен HuntFlow истек. 
+                <a href="{% url 'admin:accounts_user_change' user.id %}" target="_blank">Обновите токены в профиле</a>.
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>Информация:</strong> Импортируются кандидаты со статусами 186507 и 186508. 
+                Показывается ФИО, дата открытия вакансии, дата перевода в статус Offer Accepted.
+                Грейд определяется из дополнительного поля "Уровень" кандидата.
+            </div>
+            {% endif %}
+            
+            <div id="loading" class="loading">
+                <div class="spinner"></div>
+                <p>Загрузка данных из HuntFlow...</p>
+            </div>
+            
+            <div id="alerts-container"></div>
+            
+            {% if error_message %}
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>Ошибка:</strong> {{ error_message }}
+            </div>
+            {% endif %}
+            
+            <div id="vacancies-container">
+                <!-- Данные будут загружены через AJAX -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function toggleVacancy(vacancyId) {
+        const content = document.getElementById(`content-${vacancyId}`);
+        const chevron = document.getElementById(`chevron-${vacancyId}`);
+        
+        if (content.style.display === 'none' || content.style.display === '') {
+            content.style.display = 'block';
+            chevron.style.transform = 'rotate(180deg)';
+        } else {
+            content.style.display = 'none';
+            chevron.style.transform = 'rotate(0deg)';
+        }
+    }
+    
+    function toggleEditFields(vacancyId, applicantId) {
+        const editFields = document.getElementById(`edit-fields-${vacancyId}-${applicantId}`);
+        const editBtn = document.getElementById(`edit-btn-${vacancyId}-${applicantId}`);
+        
+        if (editFields.style.display === 'none' || editFields.style.display === '') {
+            editFields.style.display = 'block';
+            editBtn.innerHTML = '<i class="fas fa-times me-1"></i>Скрыть';
+            editBtn.classList.remove('btn-outline-primary');
+            editBtn.classList.add('btn-outline-secondary');
+        } else {
+            editFields.style.display = 'none';
+            editBtn.innerHTML = '<i class="fas fa-edit me-1"></i>Редактировать';
+            editBtn.classList.remove('btn-outline-secondary');
+            editBtn.classList.add('btn-outline-primary');
+        }
+    }
+    
+    function importApplicant(vacancyId, applicantId) {
+        const button = document.getElementById(`btn-${vacancyId}-${applicantId}`);
+        const applicantDiv = document.getElementById(`applicant-${vacancyId}-${applicantId}`);
+        
+        // Собираем данные из полей редактирования
+        const grade = document.getElementById(`grade-${vacancyId}-${applicantId}`)?.value || '';
+        
+        // Валидация обязательных полей
+        if (!grade) {
+            showAlert('danger', 'Пожалуйста, выберите грейд для кандидата');
+            return;
+        }
+        
+        const importData = {
+            vacancy_id: vacancyId,
+            applicant_id: applicantId,
+            name: document.getElementById(`name-${vacancyId}-${applicantId}`)?.value || '',
+            grade: grade,
+            opening_date: document.getElementById(`opening-date-${vacancyId}-${applicantId}`)?.value || '',
+            hired_date: document.getElementById(`hired-date-${vacancyId}-${applicantId}`)?.value || '',
+            project: document.getElementById(`project-${vacancyId}-${applicantId}`)?.value || '',
+            priority: document.getElementById(`priority-${vacancyId}-${applicantId}`)?.value || '2',
+            notes: document.getElementById(`notes-${vacancyId}-${applicantId}`)?.value || ''
+        };
+        
+        // Блокируем кнопку
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Импорт...';
+        
+        // Отправляем запрос
+        fetch('{% url "hiring_plan:huntflow_import_applicant" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(importData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Успешный импорт
+                button.innerHTML = '<i class="fas fa-check me-1"></i>Импортирован';
+                button.style.backgroundColor = '#28a745';
+                
+                // Добавляем ссылку на заявку
+                if (data.hiring_request_url) {
+                    button.innerHTML = `<i class="fas fa-check me-1"></i><a href="${data.hiring_request_url}" class="text-white text-decoration-none">Импортирован</a>`;
+                }
+                
+                showAlert('success', `Кандидат успешно импортирован: ${data.message}`);
+            } else {
+                // Ошибка импорта
+                button.innerHTML = '<i class="fas fa-times me-1"></i>Ошибка';
+                button.style.backgroundColor = '#dc3545';
+                button.disabled = false;
+                
+                showAlert('danger', `Ошибка импорта: ${data.message}`);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            button.innerHTML = '<i class="fas fa-times me-1"></i>Ошибка';
+            button.style.backgroundColor = '#dc3545';
+            button.disabled = false;
+            
+            showAlert('danger', 'Произошла ошибка при импорте');
+        });
+    }
+    
+    function refreshData() {
+        loadVacancies();
+    }
+    
+    function loadVacancies() {
+        const container = document.getElementById('vacancies-container');
+        const loading = document.getElementById('loading');
+        
+        // Показываем индикатор загрузки
+        loading.style.display = 'block';
+        container.innerHTML = '';
+        
+        fetch('{% url "hiring_plan:huntflow_get_vacancies" %}')
+            .then(response => response.json())
+            .then(data => {
+                loading.style.display = 'none';
+                
+                if (data.success) {
+                    renderVacancies(data.vacancies);
+                } else {
+                    showError(data.error || 'Неизвестная ошибка');
+                }
+            })
+            .catch(error => {
+                loading.style.display = 'none';
+                showError('Ошибка при загрузке данных: ' + error.message);
+            });
+    }
+    
+    function renderVacancies(vacancies) {
+        const container = document.getElementById('vacancies-container');
+        
+        if (vacancies.length === 0) {
+            container.innerHTML = `
+                <div class="text-center text-muted py-5">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <h4>Нет вакансий с кандидатами для импорта</h4>
+                    <p>Все кандидаты со статусом 186507 уже импортированы или отсутствуют</p>
+                </div>
+            `;
+            return;
+        }
+        
+        let html = '';
+        vacancies.forEach(vacancy => {
+            html += `
+                <div class="vacancy-card">
+                    <div class="vacancy-header" onclick="toggleVacancy(${vacancy.id})">
+                        <div>
+                            <h5 class="mb-1">${vacancy.name}</h5>
+                            <small class="text-muted">ID: ${vacancy.id} | Кандидатов для импорта: ${vacancy.importable_count}</small>
+                        </div>
+                        <div>
+                            <i class="fas fa-chevron-down" id="chevron-${vacancy.id}"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="vacancy-content" id="content-${vacancy.id}" style="display: none;">
+                        ${renderApplicants(vacancy.importable_applicants, vacancy.id)}
+                    </div>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+    }
+    
+    function renderApplicants(applicants, vacancyId) {
+        if (!applicants || applicants.length === 0) {
+            return `
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Нет кандидатов для импорта
+                </div>
+            `;
+        }
+        
+        let html = '';
+        applicants.forEach(applicant => {
+            const hiredDate = new Date(applicant.hired_date).toLocaleDateString('ru-RU');
+            const openingDate = applicant.vacancy_opening_date ? 
+                new Date(applicant.vacancy_opening_date).toLocaleDateString('ru-RU') : 'Не указана';
+            const offerAcceptedDate = applicant.offer_accepted_date ? 
+                new Date(applicant.offer_accepted_date).toLocaleDateString('ru-RU') : 'Не указана';
+            const statusText = applicant.current_status === 186507 ? 'Offer Accepted' : 'Status 186508';
+            
+            // Форматируем даты для input[type="date"]
+            const openingDateInput = applicant.vacancy_opening_date ? 
+                new Date(applicant.vacancy_opening_date).toISOString().split('T')[0] : '';
+            const offerDateInput = applicant.offer_accepted_date ? 
+                new Date(applicant.offer_accepted_date).toISOString().split('T')[0] : '';
+            
+            html += `
+                <div class="applicant-item" id="applicant-${vacancyId}-${applicant.applicant_id}">
+                    <div class="applicant-info">
+                        <div class="applicant-name">${applicant.name}</div>
+                        <div class="applicant-details">
+                            <div><strong>ID:</strong> ${applicant.applicant_id}</div>
+                            <div><strong>Статус:</strong> ${statusText}</div>
+                            <div><strong>Дата открытия вакансии:</strong> ${openingDate}</div>
+                            <div><strong>Дата Offer Accepted:</strong> ${offerAcceptedDate}</div>
+                        </div>
+                        
+                        <!-- Поля для редактирования -->
+                        <div class="edit-fields mt-3" style="display: none;" id="edit-fields-${vacancyId}-${applicant.applicant_id}">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label class="form-label">ФИО кандидата:</label>
+                                    <input type="text" class="form-control" value="${applicant.name}" 
+                                           id="name-${vacancyId}-${applicant.applicant_id}">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Грейд: <span class="text-danger">*</span></label>
+                                    <select class="form-select" id="grade-${vacancyId}-${applicant.applicant_id}" required>
+                                        <option value="">Выберите грейд</option>
+                                        <option value="1" ${applicant.auto_grade_id === 1 ? 'selected' : ''}>Junior</option>
+                                        <option value="2" ${applicant.auto_grade_id === 2 ? 'selected' : ''}>Junior+</option>
+                                        <option value="3" ${applicant.auto_grade_id === 3 ? 'selected' : ''}>Middle</option>
+                                        <option value="4" ${applicant.auto_grade_id === 4 ? 'selected' : ''}>Middle+</option>
+                                        <option value="5" ${applicant.auto_grade_id === 5 ? 'selected' : ''}>Senior</option>
+                                        <option value="18" ${applicant.auto_grade_id === 18 ? 'selected' : ''}>Senior+</option>
+                                        <option value="17" ${applicant.auto_grade_id === 17 ? 'selected' : ''}>Lead</option>
+                                        <option value="20" ${applicant.auto_grade_id === 20 ? 'selected' : ''}>Head</option>
+                                    </select>
+                                    ${applicant.auto_grade_name ? `<small class="text-muted">Автоматически определен: ${applicant.auto_grade_name}</small>` : ''}
+                                </div>
+                            </div>
+                            <div class="row mt-2">
+                                <div class="col-md-6">
+                                    <label class="form-label">Дата открытия вакансии:</label>
+                                    ${renderVacancyDatesSelect(applicant.vacancy_dates, vacancyId, applicant.applicant_id, openingDateInput)}
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Дата найма:</label>
+                                    <input type="date" class="form-control" value="${offerDateInput}" 
+                                           id="hired-date-${vacancyId}-${applicant.applicant_id}">
+                                </div>
+                            </div>
+                            <div class="row mt-2">
+                                <div class="col-md-6">
+                                    <label class="form-label">Проект:</label>
+                                    <input type="text" class="form-control" placeholder="Название проекта" 
+                                           id="project-${vacancyId}-${applicant.applicant_id}">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Приоритет:</label>
+                                    <select class="form-select" id="priority-${vacancyId}-${applicant.applicant_id}">
+                                        <option value="1">Низкий</option>
+                                        <option value="2" selected>Высокий</option>
+                                        <option value="3">Критический</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="row mt-2">
+                                <div class="col-12">
+                                    <label class="form-label">Примечания:</label>
+                                    <textarea class="form-control" rows="2" placeholder="Дополнительная информация" 
+                                              id="notes-${vacancyId}-${applicant.applicant_id}">Импортировано из HuntFlow. Vacancy ID: ${vacancyId}, Applicant ID: ${applicant.applicant_id}</textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <button class="btn btn-outline-primary btn-sm me-2" 
+                                onclick="toggleEditFields(${vacancyId}, ${applicant.applicant_id})"
+                                id="edit-btn-${vacancyId}-${applicant.applicant_id}">
+                            <i class="fas fa-edit me-1"></i>Редактировать
+                        </button>
+                        <button class="import-btn" 
+                                onclick="importApplicant(${vacancyId}, ${applicant.applicant_id})"
+                                id="btn-${vacancyId}-${applicant.applicant_id}">
+                            <i class="fas fa-download me-1"></i>Импортировать
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+        
+        return html;
+    }
+    
+    function renderVacancyDatesSelect(vacancyDates, vacancyId, applicantId, defaultDate) {
+        if (!vacancyDates || vacancyDates.length === 0) {
+            return `<input type="date" class="form-control" value="${defaultDate}" 
+                           id="opening-date-${vacancyId}-${applicantId}">`;
+        }
+        
+        let html = `<select class="form-select" id="opening-date-${vacancyId}-${applicantId}">`;
+        
+        vacancyDates.forEach(dateInfo => {
+            const dateStr = new Date(dateInfo.date).toISOString().split('T')[0];
+            const isSelected = dateStr === defaultDate ? 'selected' : '';
+            html += `<option value="${dateStr}" ${isSelected}>${dateStr} - ${dateInfo.description}</option>`;
+        });
+        
+        html += '</select>';
+        return html;
+    }
+    
+    function showError(message) {
+        const container = document.getElementById('vacancies-container');
+        container.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>Ошибка:</strong> ${message}
+            </div>
+        `;
+    }
+    
+    function showAlert(type, message) {
+        const container = document.getElementById('alerts-container');
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type} alert-dismissible fade show`;
+        alert.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        container.appendChild(alert);
+        
+        // Автоматически скрываем через 5 секунд
+        setTimeout(() => {
+            alert.remove();
+        }, 5000);
+    }
+    
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    // Инициализация
+    document.addEventListener('DOMContentLoaded', function() {
+        // Автоматически загружаем данные при загрузке страницы
+        loadVacancies();
+    });
+</script>
+{% endblock %}

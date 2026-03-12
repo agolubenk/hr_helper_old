@@ -1,0 +1,580 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Финансы и грейды - Дашборд{% endblock %}
+
+{% block extra_css %}
+<link href="{% static 'css/finance.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">
+                    <i class="fas fa-chart-line me-2"></i>
+                    Финансы и грейды
+                </h1>
+                <div class="btn-group">
+                    <a href="{% url 'finance:update_currency_rates' %}" class="btn btn-primary">
+                        <i class="fas fa-sync-alt me-2"></i>
+                        Обновить валюты
+                    </a>
+                    <a href="{% url 'finance:salary_ranges_list' %}" class="btn btn-success">
+                        <i class="fas fa-money-bill-wave me-2"></i>
+                        Зарплатные вилки
+                    </a>
+                    <a href="{% url 'finance:pln_taxes_dashboard' %}" class="btn btn-info">
+                        <i class="fas fa-percentage me-2"></i>
+                        Налоги PLN
+                    </a>
+                    <a href="{% url 'finance:benchmarks_dashboard' %}" class="btn btn-warning">
+                        <i class="fas fa-chart-line me-2"></i>
+                        Бенчмарки
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Статистика -->
+    <div class="row mb-4">
+        <div class="col-md-3 reporting-section">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="card-title">{{ grades|length }}</h4>
+                            <p class="card-text">Грейдов</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-star fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="card-title">{{ active_salary_ranges_count }}</h4>
+                            <p class="card-text">Зарплатных вилок</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-money-bill-wave fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="card-title">{{ pln_taxes|length }}</h4>
+                            <p class="card-text">Налогов PLN</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-percentage fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="card-title">{{ currency_rates|length }}</h4>
+                            <p class="card-text">Валют</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-coins fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Детальная информация о грейдах -->
+    {% if grades %}
+        <div class="row mt-4">
+            <div class="col-12 reporting-section">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-star me-2"></i>
+                            Грейды сотрудников
+                        </h5>
+                        <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#editGradesModal">
+                            <i class="fas fa-edit me-1"></i>
+                            Редактировать
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            {% for grade in grades %}
+                                <div class="col-md-3 col-sm-6 mb-3">
+                                    <div class="card border-primary">
+                                        <div class="card-body text-center">
+                                            <h5 class="card-title">
+                                                <i class="fas fa-star text-warning me-2"></i>
+                                                {{ grade.name }}
+                                            </h5>
+                                            <p class="card-text text-muted">
+                                                Грейд сотрудника
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Детальная информация о курсах валют -->
+    {% if currency_rates %}
+        <div class="row mt-4">
+            <div class="col-12 reporting-section">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-coins me-2"></i>
+                            Курсы валют НБРБ
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Валюта</th>
+                                        <th>Курс</th>
+                                        <th>Масштаб</th>
+                                        <th>Статус</th>
+                                        <th>Последнее обновление</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for rate in currency_rates %}
+                                        <tr>
+                                            <td>
+                                                <strong class="fs-5">{{ rate.code }}</strong>
+                                            </td>
+                                            <td>
+                                                <span class="fs-5 fw-bold text-primary">
+                                                    {{ rate.display_rate }}
+                                                </span>
+                                            </td>
+                                            <td>{{ rate.scale }}</td>
+                                            <td>
+                                                <span class="badge 
+                                                    {% if rate.status_info == 'Базовая валюта' %}bg-success
+                                                    {% elif rate.status_info == 'Сегодня' %}bg-info
+                                                    {% elif rate.status_info == 'Вчера' %}bg-warning
+                                                    {% else %}bg-danger{% endif %}">
+                                                    {{ rate.status_info }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <small class="text-muted">
+                                                    {{ rate.fetched_at|date:"d.m.Y H:i" }}
+                                                </small>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Информация о курсах валют -->
+    {% if currency_rates %}
+        <div class="row mt-4">
+            <div class="col-12 reporting-section">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Информация о курсах валют
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>Источник данных:</h6>
+                                <ul class="list-unstyled">
+                                    <li><i class="fas fa-check text-success me-2"></i>НБРБ (Национальный банк Республики Беларусь)</li>
+                                    <li><i class="fas fa-check text-success me-2"></i>Официальные курсы валют</li>
+                                    <li><i class="fas fa-check text-success me-2"></i>Автоматическое обновление</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>Поддерживаемые валюты:</h6>
+                                <ul class="list-unstyled">
+                                    <li><i class="fas fa-coins text-primary me-2"></i>BYN - Белорусский рубль (базовая валюта)</li>
+                                    <li><i class="fas fa-dollar-sign text-success me-2"></i>USD - Доллар США</li>
+                                    <li><i class="fas fa-coins text-warning me-2"></i>PLN - Польский злотый</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <div class="alert alert-info">
+                                <i class="fas fa-sync-alt me-2"></i>
+                                <strong>Автоматическое обновление:</strong> Курсы валют обновляются автоматически из НБРБ. 
+                                При недоступности НБРБ используются fallback значения.
+                            </div>
+                        </div>
+                        <div class="row">
+                            {% for rate in currency_rates %}
+                                {% if rate.code != 'BYN' %}
+                                    <div class="col-md-4">
+                                        <small class="text-muted">
+                                            <strong>{{ rate.code }}:</strong> 
+                                            Последнее обновление: {{ rate.fetched_at|date:"d.m.Y H:i" }}
+                                        </small>
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Зарплатные вилки -->
+    {% if salary_ranges %}
+        <div class="row mt-4">
+            <div class="col-12 reporting-section">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-money-bill-wave me-2"></i>
+                            Зарплатные вилки
+                        </h5>
+                        <a href="{% url 'finance:salary_ranges_list' %}" class="btn btn-outline-success btn-sm">
+                            <i class="fas fa-list me-1"></i>
+                            Все вилки
+                        </a>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Вакансия</th>
+                                        <th>Грейд</th>
+                                        <th>USD</th>
+                                        <th>BYN</th>
+                                        <th>PLN</th>
+                                        <th>Статус</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for salary_range in salary_ranges|slice:":5" %}
+                                        <tr>
+                                            <td>
+                                                <strong>{{ salary_range.vacancy.name }}</strong>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-primary">{{ salary_range.grade.name }}</span>
+                                            </td>
+                                            <td>
+                                                <span class="fw-bold text-success salary-usd">{{ salary_range.salary_range_usd }}</span>
+                                            </td>
+                                            <td>
+                                                <span class="text-info salary-byn">{{ salary_range.salary_range_byn }}</span>
+                                            </td>
+                                            <td>
+                                                <span class="text-warning salary-pln">{{ salary_range.salary_range_pln }}</span>
+                                            </td>
+                                            <td>
+                                                <span class="badge {% if salary_range.is_active %}bg-success{% else %}bg-secondary{% endif %}">
+                                                    {% if salary_range.is_active %}Активна{% else %}Неактивна{% endif %}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% if salary_ranges|length > 5 %}
+                            <div class="text-center mt-3">
+                                <a href="{% url 'finance:salary_ranges_list' %}" class="btn btn-outline-primary">
+                                    Показать все {{ salary_ranges|length }} вилок
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+
+    <!-- Налоги PLN -->
+    {% if pln_taxes %}
+        <div class="row mt-4">
+            <div class="col-12 reporting-section">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-percentage me-2"></i>
+                            Налоги PLN
+                        </h5>
+                        <a href="{% url 'finance:pln_taxes_dashboard' %}" class="btn btn-outline-info btn-sm">
+                            <i class="fas fa-calculator me-1"></i>
+                            Управление
+                        </a>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="table-responsive">
+                                    <table class="table table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>Налог</th>
+                                                <th>Ставка</th>
+                                                <th>Статус</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for tax in pln_taxes %}
+                                                <tr>
+                                                    <td>
+                                                        <strong>{{ tax.name }}</strong>
+                                                    </td>
+                                                    <td>
+                                                        <span class="fw-bold text-primary tax-rate">{{ tax.rate }}%</span>
+                                                    </td>
+                                                    <td>
+                                                        <span class="badge {% if tax.is_active %}bg-success{% else %}bg-secondary{% endif %}">
+                                                            {% if tax.is_active %}Активен{% else %}Неактивен{% endif %}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h6 class="card-title">
+                                            <i class="fas fa-calculator me-2"></i>
+                                            Пример расчета
+                                        </h6>
+                                        <p class="card-text">
+                                            <strong>Net:</strong> <span class="number-value">{{ example_calculation.net_amount }}</span> PLN<br>
+                                            <strong>Gross:</strong> <span class="number-value">{{ example_calculation.breakdown.gross_amount }}</span> PLN<br>
+                                            <strong>Налоги:</strong> <span class="number-value">{{ example_calculation.breakdown.total_tax_amount }}</span> PLN
+                                        </p>
+                                        <small class="text-muted">
+                                            Активных налогов: {{ pln_taxes|length }}
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Модальное окно для редактирования грейдов -->
+<div class="modal fade" id="editGradesModal" tabindex="-1" aria-labelledby="editGradesModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editGradesModalLabel">
+                    <i class="fas fa-edit me-2"></i>
+                    Редактирование грейдов
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Форма для добавления нового грейда -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-plus me-2"></i>
+                            Добавить новый грейд
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <form id="addGradeForm">
+                            {% csrf_token %}
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <input type="text" class="form-control" id="newGradeName" placeholder="Название грейда" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <button type="submit" class="btn btn-success w-100">
+                                        <i class="fas fa-plus me-1"></i>
+                                        Добавить
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Список существующих грейдов -->
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-list me-2"></i>
+                            Существующие грейды
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="gradesList">
+                            {% for grade in grades %}
+                                <div class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded" data-grade-id="{{ grade.id }}">
+                                    <span class="grade-name">{{ grade.name }}</span>
+                                    <button type="button" class="btn btn-outline-danger btn-sm delete-grade" data-grade-id="{{ grade.id }}" data-grade-name="{{ grade.name }}">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Обработка добавления нового грейда
+    document.getElementById('addGradeForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const gradeName = document.getElementById('newGradeName').value.trim();
+        if (!gradeName) return;
+        
+        // Отправляем AJAX запрос
+        fetch('{% url "finance:add_grade" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                name: gradeName
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Добавляем новый грейд в список
+                const gradesList = document.getElementById('gradesList');
+                const newGradeDiv = document.createElement('div');
+                newGradeDiv.className = 'd-flex justify-content-between align-items-center mb-2 p-2 border rounded';
+                newGradeDiv.setAttribute('data-grade-id', data.grade.id);
+                newGradeDiv.innerHTML = `
+                    <span class="grade-name">${data.grade.name}</span>
+                    <button type="button" class="btn btn-outline-danger btn-sm delete-grade" data-grade-id="${data.grade.id}" data-grade-name="${data.grade.name}">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                `;
+                gradesList.appendChild(newGradeDiv);
+                
+                // Очищаем форму
+                document.getElementById('newGradeName').value = '';
+                
+                // Показываем сообщение об успехе
+                showAlert('success', 'Грейд успешно добавлен!');
+            } else {
+                showAlert('danger', data.message || 'Ошибка при добавлении грейда');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('danger', 'Ошибка при добавлении грейда');
+        });
+    });
+    
+    // Обработка удаления грейда
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.delete-grade')) {
+            const button = e.target.closest('.delete-grade');
+            const gradeId = button.getAttribute('data-grade-id');
+            const gradeName = button.getAttribute('data-grade-name');
+            
+            if (confirm(`Вы уверены, что хотите удалить грейд \"${gradeName}\"?`)) {
+                // Отправляем AJAX запрос
+                fetch(`{% url "finance:delete_grade" 0 %}`.replace('0', gradeId), {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Удаляем элемент из списка
+                        const gradeDiv = document.querySelector(`[data-grade-id="${gradeId}"]`);
+                        if (gradeDiv) {
+                            gradeDiv.remove();
+                        }
+                        
+                        showAlert('success', 'Грейд успешно удален!');
+                    } else {
+                        showAlert('danger', data.message || 'Ошибка при удалении грейда');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showAlert('danger', 'Ошибка при удалении грейда');
+                });
+            }
+        }
+    });
+    
+    // Функция для показа уведомлений
+    function showAlert(type, message) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        const modalBody = document.querySelector('#editGradesModal .modal-body');
+        modalBody.insertBefore(alertDiv, modalBody.firstChild);
+        
+        // Автоматически скрываем уведомление через 3 секунды
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 3000);
+    }
+});
+</script>
+{% endblock %}

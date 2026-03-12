@@ -1,0 +1,281 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Метрики плана "{{ plan.title }}" - HR Helper{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <!-- Навигация -->
+            <nav aria-label="breadcrumb" class="mb-4">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'hiring_plan:plan_list' %}">Планы найма</a>
+                    </li>
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'hiring_plan:plan_detail' plan.pk %}">{{ plan.title }}</a>
+                    </li>
+                    <li class="breadcrumb-item active" aria-current="page">Метрики</li>
+                </ol>
+            </nav>
+
+            <!-- Заголовок -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="h3 mb-0">
+                        <i class="fas fa-chart-bar text-primary me-2"></i>
+                        Метрики плана найма
+                    </h1>
+                    <p class="text-muted mb-0">Аналитика и статистика по плану "{{ plan.title }}"</p>
+                </div>
+                <a href="{% url 'hiring_plan:plan_detail' plan.pk %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Назад к плану
+                </a>
+            </div>
+
+            <!-- Общий обзор -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="mb-0">{{ dashboard_data.overview.total_positions }}</h4>
+                                    <small>Всего позиций</small>
+                                </div>
+                                <i class="fas fa-briefcase fa-2x opacity-75"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="mb-0">{{ dashboard_data.overview.total_hired }}</h4>
+                                    <small>Нанято</small>
+                                </div>
+                                <i class="fas fa-user-check fa-2x opacity-75"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-warning text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="mb-0">{{ dashboard_data.overview.total_needed }}</h4>
+                                    <small>Требуется</small>
+                                </div>
+                                <i class="fas fa-user-plus fa-2x opacity-75"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-info text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="mb-0">{{ dashboard_data.overview.completion_rate }}%</h4>
+                                    <small>Прогресс</small>
+                                </div>
+                                <i class="fas fa-chart-line fa-2x opacity-75"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Прогресс-бар -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-chart-line text-success me-2"></i>
+                        Общий прогресс выполнения
+                    </h5>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="fw-bold">Выполнение плана</span>
+                        <span class="fw-bold text-{% if dashboard_data.overview.completion_rate >= 80 %}success{% elif dashboard_data.overview.completion_rate >= 50 %}warning{% else %}danger{% endif %}">
+                            {{ dashboard_data.overview.completion_rate }}%
+                        </span>
+                    </div>
+                    <div class="progress" style="height: 25px;">
+                        <div class="progress-bar bg-{% if dashboard_data.overview.completion_rate >= 80 %}success{% elif dashboard_data.overview.completion_rate >= 50 %}warning{% else %}danger{% endif %}" 
+                             role="progressbar" 
+                             style="width: {{ dashboard_data.overview.completion_rate }}%"
+                             aria-valuenow="{{ dashboard_data.overview.completion_rate }}" 
+                             aria-valuemin="0" 
+                             aria-valuemax="100">
+                            {{ dashboard_data.overview.completion_rate }}%
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Статистика по приоритетам -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-exclamation-circle text-danger me-2"></i>
+                                Распределение по приоритетам
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-6">
+                                    <div class="text-center p-3 border rounded">
+                                        <h4 class="text-danger mb-0">{{ dashboard_data.by_priority.critical }}</h4>
+                                        <small class="text-muted">Критический</small>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="text-center p-3 border rounded">
+                                        <h4 class="text-warning mb-0">{{ dashboard_data.by_priority.high }}</h4>
+                                        <small class="text-muted">Высокий</small>
+                                    </div>
+                                </div>
+                                <div class="col-6 mt-2">
+                                    <div class="text-center p-3 border rounded">
+                                        <h4 class="text-info mb-0">{{ dashboard_data.by_priority.medium }}</h4>
+                                        <small class="text-muted">Средний</small>
+                                    </div>
+                                </div>
+                                <div class="col-6 mt-2">
+                                    <div class="text-center p-3 border rounded">
+                                        <h4 class="text-secondary mb-0">{{ dashboard_data.by_priority.low }}</h4>
+                                        <small class="text-muted">Низкий</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-tasks text-info me-2"></i>
+                                Статус позиций
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-4">
+                                    <div class="text-center p-3 border rounded">
+                                        <h4 class="text-success mb-0">{{ dashboard_data.by_status.fulfilled }}</h4>
+                                        <small class="text-muted">Закрыты</small>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="text-center p-3 border rounded">
+                                        <h4 class="text-warning mb-0">{{ dashboard_data.by_status.in_progress }}</h4>
+                                        <small class="text-muted">В процессе</small>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="text-center p-3 border rounded">
+                                        <h4 class="text-secondary mb-0">{{ dashboard_data.by_status.not_started }}</h4>
+                                        <small class="text-muted">Не начаты</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Алерты и предупреждения -->
+            {% if dashboard_data.overdue > 0 or dashboard_data.upcoming_deadlines > 0 %}
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card border-warning">
+                        <div class="card-header bg-warning text-dark">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                Внимание! Требуется внимание
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                {% if dashboard_data.overdue > 0 %}
+                                <div class="col-md-6">
+                                    <div class="alert alert-danger">
+                                        <h6 class="alert-heading">
+                                            <i class="fas fa-clock me-2"></i>
+                                            Просроченные дедлайны
+                                        </h6>
+                                        <p class="mb-0">
+                                            <strong>{{ dashboard_data.overdue }}</strong> позиций имеют просроченные дедлайны.
+                                            Требуется срочное внимание!
+                                        </p>
+                                    </div>
+                                </div>
+                                {% endif %}
+                                {% if dashboard_data.upcoming_deadlines > 0 %}
+                                <div class="col-md-6">
+                                    <div class="alert alert-warning">
+                                        <h6 class="alert-heading">
+                                            <i class="fas fa-hourglass-half me-2"></i>
+                                            Приближающиеся дедлайны
+                                        </h6>
+                                        <p class="mb-0">
+                                            <strong>{{ dashboard_data.upcoming_deadlines }}</strong> позиций имеют дедлайны в ближайшие 7 дней.
+                                        </p>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Информация о плане -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-info-circle text-info me-2"></i>
+                        Информация о плане
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Основная информация:</h6>
+                            <ul class="list-unstyled">
+                                <li><strong>Название:</strong> {{ plan.title }}</li>
+                                <li><strong>Статус:</strong> 
+                                    <span class="badge bg-{% if plan.status == 'active' %}success{% elif plan.status == 'draft' %}secondary{% elif plan.status == 'completed' %}primary{% elif plan.status == 'paused' %}warning{% else %}danger{% endif %}">
+                                        {{ plan.get_status_display }}
+                                    </span>
+                                </li>
+                                <li><strong>Дата создания:</strong> {{ plan.created_at|date:"d.m.Y H:i" }}</li>
+                                <li><strong>Последнее обновление:</strong> {{ plan.updated_at|date:"d.m.Y H:i" }}</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Временные рамки:</h6>
+                            <ul class="list-unstyled">
+                                <li><strong>Дата начала:</strong> {{ plan.start_date|date:"d.m.Y" }}</li>
+                                {% if plan.end_date %}
+                                <li><strong>Дата окончания:</strong> {{ plan.end_date|date:"d.m.Y" }}</li>
+                                {% endif %}
+                                {% if plan.responsible_recruiter %}
+                                <li><strong>Ответственный:</strong> {{ plan.responsible_recruiter.get_full_name|default:plan.responsible_recruiter.username }}</li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

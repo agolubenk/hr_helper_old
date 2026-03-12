@@ -1,0 +1,97 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Подключение аккаунта - HR Helper{% endblock %}
+{% block page_title %}Подключение аккаунта{% endblock %}
+
+{% block extra_css %}
+<link href="{% static 'css/socialaccount.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header text-center">
+                <h4 class="mb-0">
+                    <i class="fas fa-user-plus me-2"></i>
+                    Подключение аккаунта
+                </h4>
+            </div>
+            <div class="card-body">
+                {% if form.errors %}
+                    <div class="alert alert-danger">
+                        <h6>Ошибки в форме:</h6>
+                        <ul class="mb-0">
+                            {% for field, errors in form.errors.items %}
+                                {% for error in errors %}
+                                    <li>{{ error }}</li>
+                                {% endfor %}
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Информация из Google:</h6>
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                {% if sociallogin.account.extra_data %}
+                                    <p><strong>Имя:</strong> {{ sociallogin.account.extra_data.name|default:"Не указано" }}</p>
+                                    <p><strong>Email:</strong> {{ sociallogin.account.extra_data.email|default:"Не указано" }}</p>
+                                    <p><strong>Google ID:</strong> {{ sociallogin.account.uid }}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h6>Заполните недостающие данные:</h6>
+                        <form method="post">
+                            {% csrf_token %}
+                            
+                            <div class="mb-3">
+                                <label for="{{ form.email.id_for_label }}" class="form-label">Email</label>
+                                {{ form.email }}
+                                {% if form.email.errors %}
+                                    <div class="text-danger small mt-1">
+                                        {{ form.email.errors.0 }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="{{ form.first_name.id_for_label }}" class="form-label">Имя</label>
+                                {{ form.first_name }}
+                                {% if form.first_name.errors %}
+                                    <div class="text-danger small mt-1">
+                                        {{ form.first_name.errors.0 }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="{{ form.last_name.id_for_label }}" class="form-label">Фамилия</label>
+                                {{ form.last_name }}
+                                {% if form.last_name.errors %}
+                                    <div class="text-danger small mt-1">
+                                        {{ form.last_name.errors.0 }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-check me-2"></i>
+                                    Подключить аккаунт
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,460 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}
+{% if object %}Редактирование позиции{% else %}Добавление позиции в план{% endif %} - HR Helper
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <!-- Навигация -->
+            <nav aria-label="breadcrumb" class="mb-4">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'hiring_plan:plan_list' %}">Планы найма</a>
+                    </li>
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'hiring_plan:plan_detail' hiring_plan.pk %}">{{ hiring_plan.title }}</a>
+                    </li>
+                    {% if object %}
+                    <li class="breadcrumb-item active" aria-current="page">Редактирование позиции</li>
+                    {% else %}
+                    <li class="breadcrumb-item active" aria-current="page">Добавление позиции</li>
+                    {% endif %}
+                </ol>
+            </nav>
+
+            <!-- Заголовок -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="h3 mb-0">
+                        <i class="fas fa-{% if object %}edit{% else %}plus{% endif %} text-primary me-2"></i>
+                        {% if object %}Редактирование позиции{% else %}Добавление позиции в план{% endif %}
+                    </h1>
+                    <p class="text-muted mb-0">
+                        {% if object %}Внесите изменения в позицию{% else %}Добавьте новую позицию в план "{{ hiring_plan.title }}"{% endif %}
+                    </p>
+                </div>
+                <a href="{% url 'hiring_plan:plan_detail' hiring_plan.pk %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Назад к плану
+                </a>
+            </div>
+
+            <!-- Форма -->
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-briefcase text-info me-2"></i>
+                                Информация о позиции
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <form method="post">
+                                {% csrf_token %}
+                                
+                                <!-- Вакансия и Проект -->
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <div class="mb-3">
+                                            <label for="{{ form.vacancy.id_for_label }}" class="form-label">
+                                                <i class="fas fa-briefcase text-primary me-2"></i>
+                                                {{ form.vacancy.label }}
+                                            </label>
+                                            {{ form.vacancy }}
+                                            {% if form.vacancy.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.vacancy.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                            {% endif %}
+                                            <div class="form-text">
+                                                <i class="fas fa-info-circle text-info me-1"></i>
+                                                Выберите вакансию из списка. Можно добавлять любые вакансии в план.
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label for="{{ form.project.id_for_label }}" class="form-label">
+                                                <i class="fas fa-project-diagram text-success me-2"></i>
+                                                {{ form.project.label }}
+                                            </label>
+                                            {{ form.project }}
+                                            {% if form.project.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.project.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                            {% endif %}
+                                            <div class="form-text">
+                                                <i class="fas fa-lightbulb text-warning me-1"></i>
+                                                Укажите название проекта для группировки позиций
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Количество специалистов -->
+                                <div class="card mb-4">
+                                    <div class="card-header bg-light">
+                                        <h6 class="card-title mb-0">
+                                            <i class="fas fa-users text-primary me-2"></i>
+                                            Количество специалистов
+                                        </h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div class="col-md-4">
+                                                <div class="mb-3">
+                                                    <label for="{{ form.headcount_needed.id_for_label }}" class="form-label">
+                                                        <i class="fas fa-target text-danger me-2"></i>
+                                                        {{ form.headcount_needed.label }}
+                                                    </label>
+                                                    {{ form.headcount_needed }}
+                                                    {% if form.headcount_needed.errors %}
+                                                    <div class="invalid-feedback d-block">
+                                                        {% for error in form.headcount_needed.errors %}{{ error }}{% endfor %}
+                                                    </div>
+                                                    {% endif %}
+                                                    <div class="form-text">
+                                                        <i class="fas fa-info-circle text-info me-1"></i>
+                                                        Общее количество специалистов, которое нужно нанять
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <div class="mb-3">
+                                                    <label for="{{ form.headcount_hired.id_for_label }}" class="form-label">
+                                                        <i class="fas fa-check-circle text-success me-2"></i>
+                                                        {{ form.headcount_hired.label }}
+                                                    </label>
+                                                    {{ form.headcount_hired }}
+                                                    {% if form.headcount_hired.errors %}
+                                                    <div class="invalid-feedback d-block">
+                                                        {% for error in form.headcount_hired.errors %}{{ error }}{% endfor %}
+                                                    </div>
+                                                    {% endif %}
+                                                    <div class="form-text">
+                                                        <i class="fas fa-info-circle text-info me-1"></i>
+                                                        Уже нанятые специалисты
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <div class="mb-3">
+                                                    <label for="{{ form.headcount_in_progress.id_for_label }}" class="form-label">
+                                                        <i class="fas fa-clock text-warning me-2"></i>
+                                                        {{ form.headcount_in_progress.label }}
+                                                    </label>
+                                                    {{ form.headcount_in_progress }}
+                                                    {% if form.headcount_in_progress.errors %}
+                                                    <div class="invalid-feedback d-block">
+                                                        {% for error in form.headcount_in_progress.errors %}{{ error }}{% endfor %}
+                                                    </div>
+                                                    {% endif %}
+                                                    <div class="form-text">
+                                                        <i class="fas fa-info-circle text-info me-1"></i>
+                                                        Специалисты в процессе найма
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Приоритет и дедлайн -->
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="{{ form.priority.id_for_label }}" class="form-label">
+                                                <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                                                {{ form.priority.label }}
+                                            </label>
+                                            {{ form.priority }}
+                                            {% if form.priority.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.priority.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                            {% endif %}
+                                            <div class="form-text">
+                                                <i class="fas fa-info-circle text-info me-1"></i>
+                                                Определяет важность позиции в плане найма
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="{{ form.urgency_deadline.id_for_label }}" class="form-label">
+                                                <i class="fas fa-calendar-alt text-danger me-2"></i>
+                                                {{ form.urgency_deadline.label }}
+                                            </label>
+                                            {{ form.urgency_deadline }}
+                                            {% if form.urgency_deadline.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.urgency_deadline.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                            {% endif %}
+                                            <div class="form-text">
+                                                <i class="fas fa-info-circle text-info me-1"></i>
+                                                Критический дедлайн для закрытия позиции
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Грейды -->
+                                <div class="card mb-4">
+                                    <div class="card-header bg-light">
+                                        <h6 class="card-title mb-0">
+                                            <i class="fas fa-layer-group text-info me-2"></i>
+                                            {{ form.grades.label }}
+                                        </h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row">
+                                            {% for choice in form.grades %}
+                                            <div class="col-md-3 col-sm-4 col-6">
+                                                <div class="form-check">
+                                                    {{ choice.tag }}
+                                                    <label class="form-check-label" for="{{ choice.id_for_label }}">
+                                                        {{ choice.choice_label }}
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                        {% if form.grades.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.grades.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                        {% endif %}
+                                        <div class="form-text mt-2">
+                                            <i class="fas fa-info-circle text-info me-1"></i>
+                                            Выберите грейды специалистов, которые подходят для данной позиции
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Специфика позиции и Заметки -->
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="{{ form.specifics.id_for_label }}" class="form-label">
+                                                <i class="fas fa-cogs text-primary me-2"></i>
+                                                {{ form.specifics.label }}
+                                            </label>
+                                            {{ form.specifics }}
+                                            {% if form.specifics.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.specifics.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                            {% endif %}
+                                            <div class="form-text">
+                                                <i class="fas fa-info-circle text-info me-1"></i>
+                                                Особые требования и специфика позиции
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="{{ form.notes.id_for_label }}" class="form-label">
+                                                <i class="fas fa-sticky-note text-secondary me-2"></i>
+                                                {{ form.notes.label }}
+                                            </label>
+                                            {{ form.notes }}
+                                            {% if form.notes.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.notes.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                            {% endif %}
+                                            <div class="form-text">
+                                                <i class="fas fa-info-circle text-info me-1"></i>
+                                                Дополнительные заметки по позиции
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Активность -->
+                                <div class="card mb-4">
+                                    <div class="card-body">
+                                        <div class="form-check form-switch">
+                                            {{ form.is_active }}
+                                            <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                                                <i class="fas fa-toggle-on text-success me-2"></i>
+                                                {{ form.is_active.label }}
+                                            </label>
+                                        </div>
+                                        {% if form.is_active.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.is_active.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                        {% endif %}
+                                        <div class="form-text">
+                                            <i class="fas fa-info-circle text-info me-1"></i>
+                                            Активные позиции участвуют в расчете метрик плана найма
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Общие ошибки формы -->
+                                {% if form.non_field_errors %}
+                                <div class="alert alert-danger">
+                                    {% for error in form.non_field_errors %}
+                                    <div>{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+
+                                <!-- Кнопки -->
+                                <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+                                    <div>
+                                        <a href="{% url 'hiring_plan:plan_detail' hiring_plan.pk %}" class="btn btn-outline-secondary btn-lg">
+                                            <i class="fas fa-arrow-left me-2"></i>Назад к плану
+                                        </a>
+                                    </div>
+                                    <div>
+                                        <button type="submit" class="btn btn-primary btn-lg">
+                                            <i class="fas fa-{% if object %}save{% else %}plus{% endif %} me-2"></i>
+                                            {% if object %}Сохранить изменения{% else %}Добавить позицию{% endif %}
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Валидация количества
+    const neededInput = document.getElementById('{{ form.headcount_needed.id_for_label }}');
+    const hiredInput = document.getElementById('{{ form.headcount_hired.id_for_label }}');
+    const inProgressInput = document.getElementById('{{ form.headcount_in_progress.id_for_label }}');
+    
+    // Создаем индикатор прогресса
+    function createProgressIndicator() {
+        const progressContainer = document.createElement('div');
+        progressContainer.className = 'mt-2';
+        progressContainer.innerHTML = `
+            <div class="progress" style="height: 8px;">
+                <div class="progress-bar bg-success" role="progressbar" style="width: 0%"></div>
+                <div class="progress-bar bg-warning" role="progressbar" style="width: 0%"></div>
+            </div>
+            <small class="text-muted mt-1 d-block">
+                <span class="text-success">●</span> Нанято: <span id="hired-count">0</span> | 
+                <span class="text-warning">●</span> В процессе: <span id="in-progress-count">0</span> | 
+                <span class="text-danger">●</span> Осталось: <span id="remaining-count">0</span>
+            </small>
+        `;
+        return progressContainer;
+    }
+    
+    // Добавляем индикатор прогресса
+    const progressIndicator = createProgressIndicator();
+    neededInput.parentNode.appendChild(progressIndicator);
+    
+    function updateProgress() {
+        const needed = parseInt(neededInput.value) || 0;
+        const hired = parseInt(hiredInput.value) || 0;
+        const inProgress = parseInt(inProgressInput.value) || 0;
+        const remaining = Math.max(0, needed - hired - inProgress);
+        
+        // Обновляем счетчики
+        document.getElementById('hired-count').textContent = hired;
+        document.getElementById('in-progress-count').textContent = inProgress;
+        document.getElementById('remaining-count').textContent = remaining;
+        
+        // Обновляем прогресс-бар
+        const progressBars = progressIndicator.querySelectorAll('.progress-bar');
+        if (needed > 0) {
+            const hiredPercent = (hired / needed) * 100;
+            const inProgressPercent = (inProgress / needed) * 100;
+            
+            progressBars[0].style.width = hiredPercent + '%';
+            progressBars[1].style.width = inProgressPercent + '%';
+        } else {
+            progressBars[0].style.width = '0%';
+            progressBars[1].style.width = '0%';
+        }
+    }
+    
+    function validateHeadcount() {
+        const needed = parseInt(neededInput.value) || 0;
+        const hired = parseInt(hiredInput.value) || 0;
+        const inProgress = parseInt(inProgressInput.value) || 0;
+        
+        // Проверяем, что нанято не больше требуемого
+        if (hired > needed) {
+            hiredInput.setCustomValidity('Количество нанятых не может превышать требуемое');
+            hiredInput.classList.add('is-invalid');
+        } else {
+            hiredInput.setCustomValidity('');
+            hiredInput.classList.remove('is-invalid');
+        }
+        
+        // Проверяем, что в процессе не больше оставшегося
+        const remaining = needed - hired;
+        if (inProgress > remaining) {
+            inProgressInput.setCustomValidity('Количество в процессе не может превышать оставшееся');
+            inProgressInput.classList.add('is-invalid');
+        } else {
+            inProgressInput.setCustomValidity('');
+            inProgressInput.classList.remove('is-invalid');
+        }
+        
+        updateProgress();
+    }
+    
+    // Добавляем обработчики событий
+    neededInput.addEventListener('input', validateHeadcount);
+    hiredInput.addEventListener('input', validateHeadcount);
+    inProgressInput.addEventListener('input', validateHeadcount);
+    
+    // Инициализируем прогресс
+    updateProgress();
+    
+    // Улучшаем UX для поля проекта
+    const projectInput = document.getElementById('{{ form.project.id_for_label }}');
+    if (projectInput) {
+        projectInput.addEventListener('input', function() {
+            if (this.value.length > 0) {
+                this.classList.add('is-valid');
+            } else {
+                this.classList.remove('is-valid');
+            }
+        });
+    }
+    
+    // Добавляем подсказки для приоритета
+    const prioritySelect = document.getElementById('{{ form.priority.id_for_label }}');
+    if (prioritySelect) {
+        prioritySelect.addEventListener('change', function() {
+            const priority = this.value;
+            const colors = {
+                '1': 'text-danger',
+                '2': 'text-warning', 
+                '3': 'text-info',
+                '4': 'text-secondary'
+            };
+            
+            // Убираем предыдущие цвета
+            this.classList.remove('text-danger', 'text-warning', 'text-info', 'text-secondary');
+            
+            // Добавляем новый цвет
+            if (colors[priority]) {
+                this.classList.add(colors[priority]);
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

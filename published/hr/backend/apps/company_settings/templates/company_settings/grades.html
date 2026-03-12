@@ -1,0 +1,194 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Настройки компании - Настройки грейдов{% endblock %}
+
+{% block page_title %}Настройки грейдов компании{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Навигация по разделам -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <ul class="nav nav-tabs">
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'company_settings:overview' %}">
+                        <i class="fas fa-home me-2"></i>Обзор
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'company_settings:basic' %}">
+                        <i class="fas fa-cog me-2"></i>Базовые настройки
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link active" href="{% url 'company_settings:grades' %}">
+                        <i class="fas fa-layer-group me-2"></i>Настройки грейдов
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'company_settings:templates' %}">
+                        <i class="fas fa-file-alt me-2"></i>Настройки ответов
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'company_settings:vacancy_prompt' %}">
+                        <i class="fas fa-comment-dots me-2"></i>Единый промпт
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Форма редактирования грейдов -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-edit me-2"></i>
+                        Выбор активных грейдов компании
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="grades-form">
+                        {% csrf_token %}
+                        
+                        <div class="mb-4">
+                            <p class="text-muted">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Выберите грейды, которые используются в вашей компании. Эти грейды будут использоваться в связке с внешними ресурсами и системами.
+                            </p>
+                        </div>
+                        
+                        <div class="row">
+                            {% for grade in all_grades %}
+                                <div class="col-md-4 col-lg-3 mb-3">
+                                    <div class="form-check p-2 border rounded grade-checkbox" 
+                                         style="background-color: #f8f9fa; transition: all 0.2s ease;"
+                                         data-grade-id="{{ grade.id }}">
+                                        <input type="checkbox" 
+                                               class="form-check-input" 
+                                               name="active_grades" 
+                                               value="{{ grade.id }}" 
+                                               id="grade_{{ grade.id }}"
+                                               {% if grade in active_grades %}checked{% endif %}>
+                                        <label class="form-check-label ms-2" 
+                                               for="grade_{{ grade.id }}" 
+                                               style="cursor: pointer; user-select: none;">
+                                            <strong>{{ grade.name }}</strong>
+                                        </label>
+                                    </div>
+                                </div>
+                            {% empty %}
+                                <div class="col-12">
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        Нет доступных грейдов. Добавьте грейды в разделе 
+                                        <a href="{% url 'admin:finance_grade_changelist' %}" target="_blank" class="alert-link">
+                                            Админка → Финансы → Грейды
+                                        </a>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                        
+                        {% if all_grades %}
+                            <div class="mt-4">
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    Выбрано грейдов: <strong id="selected-count">{{ active_grades.count }}</strong> из {{ all_grades.count }}
+                                </div>
+                            </div>
+                        {% endif %}
+                        
+                        <div class="d-flex justify-content-between align-items-center mt-4">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>
+                                Сохранить настройки
+                            </button>
+                            <a href="{% url 'company_settings:overview' %}" class="btn btn-secondary">
+                                <i class="fas fa-times me-2"></i>
+                                Отмена
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Стили для чекбоксов грейдов */
+.grade-checkbox {
+    transition: all 0.2s ease;
+}
+
+.grade-checkbox:hover {
+    background-color: #e9ecef !important;
+    border-color: #0d6efd !important;
+}
+
+.grade-checkbox input[type="checkbox"]:checked ~ label {
+    color: #0d6efd;
+}
+
+.grade-checkbox input[type="checkbox"]:checked {
+    border-color: #0d6efd;
+    background-color: #0d6efd;
+}
+
+.grade-checkbox input[type="checkbox"]:checked + label {
+    font-weight: 600;
+}
+
+/* Подсветка выбранных грейдов */
+.grade-checkbox:has(input[type="checkbox"]:checked) {
+    background-color: #e7f3ff !important;
+    border-color: #0d6efd !important;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Подсветка выбранных чекбоксов грейдов
+    const gradeCheckboxes = document.querySelectorAll('input[name="active_grades"]');
+    const selectedCountEl = document.getElementById('selected-count');
+    
+    function updateSelectedCount() {
+        const checked = document.querySelectorAll('input[name="active_grades"]:checked');
+        if (selectedCountEl) {
+            selectedCountEl.textContent = checked.length;
+        }
+    }
+    
+    gradeCheckboxes.forEach(function(checkbox) {
+        checkbox.addEventListener('change', function() {
+            const formCheck = this.closest('.grade-checkbox');
+            if (this.checked) {
+                formCheck.style.backgroundColor = '#e7f3ff';
+                formCheck.style.borderColor = '#0d6efd';
+            } else {
+                formCheck.style.backgroundColor = '#f8f9fa';
+                formCheck.style.borderColor = '';
+            }
+            updateSelectedCount();
+        });
+        
+        // Инициализация состояния при загрузке
+        if (checkbox.checked) {
+            const formCheck = checkbox.closest('.grade-checkbox');
+            if (formCheck) {
+                formCheck.style.backgroundColor = '#e7f3ff';
+                formCheck.style.borderColor = '#0d6efd';
+            }
+        }
+    });
+    
+    updateSelectedCount();
+});
+</script>
+{% endblock %}
+
+

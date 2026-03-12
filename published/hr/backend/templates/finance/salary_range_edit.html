@@ -1,0 +1,218 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Редактирование зарплатной вилки - Финансы{% endblock %}
+
+{% block extra_css %}
+<link href="{% static 'css/finance.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">
+                    <i class="fas fa-edit me-2"></i>
+                    Редактирование зарплатной вилки
+                </h1>
+                <div class="btn-group">
+                    <a href="{% url 'finance:salary_ranges_list' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>
+                        Назад к списку
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-money-bill-wave me-2"></i>
+                        Данные зарплатной вилки
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form id="editSalaryRangeForm">
+                        {% csrf_token %}
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="vacancySelect" class="form-label">Вакансия *</label>
+                                <select class="form-select" id="vacancySelect" required>
+                                    <option value="">Выберите вакансию</option>
+                                    {% for vacancy in vacancies %}
+                                        <option value="{{ vacancy.id }}" {% if salary_range.vacancy.id == vacancy.id %}selected{% endif %}>
+                                            {{ vacancy.name }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="gradeSelect" class="form-label">Грейд *</label>
+                                <select class="form-select" id="gradeSelect" required>
+                                    <option value="">Выберите грейд</option>
+                                    {% for grade in grades %}
+                                        <option value="{{ grade.id }}" {% if salary_range.grade.id == grade.id %}selected{% endif %}>
+                                            {{ grade.name }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="salaryMinUsd" class="form-label">Минимальная зарплата (USD) *</label>
+                                <input type="number" class="form-control" id="salaryMinUsd" step="0.01" min="0" 
+                                       value="{{ salary_range.salary_min_usd }}" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="salaryMaxUsd" class="form-label">Максимальная зарплата (USD) *</label>
+                                <input type="number" class="form-control" id="salaryMaxUsd" step="0.01" min="0" 
+                                       value="{{ salary_range.salary_max_usd }}" required>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="isActive" 
+                                       {% if salary_range.is_active %}checked{% endif %}>
+                                <label class="form-check-label" for="isActive">
+                                    Активна
+                                </label>
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <button type="button" class="btn btn-secondary" onclick="window.history.back()">
+                                <i class="fas fa-times me-2"></i>
+                                Отмена
+                            </button>
+                            <button type="button" class="btn btn-primary" id="submitEditForm">
+                                <i class="fas fa-save me-2"></i>
+                                Сохранить изменения
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Текущие данные
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <strong>Вакансия:</strong><br>
+                        <span class="text-primary">{{ salary_range.vacancy.name }}</span>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Грейд:</strong><br>
+                        <span class="badge bg-primary">{{ salary_range.grade.name }}</span>
+                    </div>
+                    <div class="mb-3">
+                        <strong>USD:</strong><br>
+                        <span class="text-success">{{ salary_range.salary_range_usd }}</span>
+                    </div>
+                    <div class="mb-3">
+                        <strong>BYN:</strong><br>
+                        <span class="text-info">{{ salary_range.salary_range_byn }}</span>
+                    </div>
+                    <div class="mb-3">
+                        <strong>PLN:</strong><br>
+                        <span class="text-warning">{{ salary_range.salary_range_pln }}</span>
+                    </div>
+                    <div class="mb-3">
+                        <strong>EUR:</strong><br>
+                        <span class="text-primary">{{ salary_range.salary_range_eur }}</span>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Статус:</strong><br>
+                        <span class="badge {% if salary_range.is_active %}bg-success{% else %}bg-secondary{% endif %}">
+                            {% if salary_range.is_active %}Активна{% else %}Неактивна{% endif %}
+                        </span>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Создано:</strong><br>
+                        <small class="text-muted">{{ salary_range.created_at|date:"d.m.Y H:i" }}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Обработка сохранения изменений
+    document.getElementById('submitEditForm').addEventListener('click', function() {
+        const formData = {
+            salary_min_usd: document.getElementById('salaryMinUsd').value,
+            salary_max_usd: document.getElementById('salaryMaxUsd').value,
+            is_active: document.getElementById('isActive').checked
+        };
+        
+        if (!formData.salary_min_usd || !formData.salary_max_usd) {
+            showAlert('danger', 'Все поля обязательны для заполнения');
+            return;
+        }
+        
+        if (parseFloat(formData.salary_min_usd) > parseFloat(formData.salary_max_usd)) {
+            showAlert('danger', 'Минимальная зарплата не может быть больше максимальной');
+            return;
+        }
+        
+        // Отправляем AJAX запрос
+        fetch('{% url "finance:salary_range_update" salary_range.pk %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('success', 'Зарплатная вилка успешно обновлена!');
+                // Переходим обратно к списку
+                setTimeout(() => {
+                    window.location.href = '{% url "finance:salary_ranges_list" %}';
+                }, 1500);
+            } else {
+                showAlert('danger', data.message || 'Ошибка при обновлении зарплатной вилки');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('danger', 'Ошибка при обновлении зарплатной вилки');
+        });
+    });
+    
+    // Функция для показа уведомлений
+    function showAlert(type, message) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        const container = document.querySelector('.container-fluid');
+        container.insertBefore(alertDiv, container.firstChild);
+        
+        // Автоматически скрываем уведомление через 5 секунд
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 5000);
+    }
+});
+</script>
+{% endblock %}

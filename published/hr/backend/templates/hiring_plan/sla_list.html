@@ -1,0 +1,241 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Управление SLA - HR Helper{% endblock %}
+{% block page_title %}Управление SLA{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-clock me-2"></i>
+                        SLA для вакансий
+                    </h5>
+                    <div class="btn-group" role="group">
+                        {% if can_create_sla %}
+                            <a href="{% url 'hiring_plan:sla_create' %}" class="btn btn-primary">
+                                <i class="fas fa-plus me-2"></i>Создать SLA
+                            </a>
+                        {% else %}
+                            <button class="btn btn-secondary" disabled title="Все возможные SLA уже созданы">
+                                <i class="fas fa-check me-2"></i>Все SLA созданы
+                            </button>
+                        {% endif %}
+                        <a href="{% url 'hiring_plan:hiring_requests_list' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>К заявкам
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+
+                <!-- Информация -->
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>SLA (Service Level Agreement)</strong> определяет целевые сроки для закрытия вакансии конкретного грейда.
+                    При создании заявки SLA автоматически подтягивается по паре Вакансия + Грейд.
+                </div>
+
+                <!-- Статистика покрытия SLA -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="card border-0 bg-light">
+                            <div class="card-body text-center">
+                                <h6 class="card-title text-muted mb-2">Покрытие SLA</h6>
+                                <div class="d-flex align-items-center justify-content-center">
+                                    <div class="progress me-3" style="width: 100px; height: 20px;">
+                                        <div class="progress-bar {% if sla_coverage.percentage == 100 %}bg-success{% elif sla_coverage.percentage >= 80 %}bg-warning{% else %}bg-info{% endif %}" 
+                                             role="progressbar" 
+                                             style="width: {{ sla_coverage.percentage }}%"
+                                             aria-valuenow="{{ sla_coverage.percentage }}" 
+                                             aria-valuemin="0" 
+                                             aria-valuemax="100">
+                                        </div>
+                                    </div>
+                                    <span class="fw-bold {% if sla_coverage.percentage == 100 %}text-success{% elif sla_coverage.percentage >= 80 %}text-warning{% else %}text-info{% endif %}">
+                                        {{ sla_coverage.percentage }}%
+                                    </span>
+                                </div>
+                                <small class="text-muted">
+                                    {{ sla_coverage.existing }} из {{ sla_coverage.total }} возможных SLA
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card border-0 bg-light">
+                            <div class="card-body text-center">
+                                <h6 class="card-title text-muted mb-2">Статус системы</h6>
+                                {% if can_create_sla %}
+                                    <div class="text-warning">
+                                        <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                                        <p class="mb-0">Можно создать еще SLA</p>
+                                    </div>
+                                {% else %}
+                                    <div class="text-success">
+                                        <i class="fas fa-check-circle fa-2x mb-2"></i>
+                                        <p class="mb-0">Все SLA созданы</p>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Фильтры -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-filter me-2"></i>
+                            Фильтры
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <form method="get" class="row g-3">
+                            <div class="col-md-4">
+                                <label for="vacancy" class="form-label">Вакансия</label>
+                                <select name="vacancy" id="vacancy" class="form-select">
+                                    <option value="">Все вакансии</option>
+                                    {% for vacancy in vacancies %}
+                                        <option value="{{ vacancy.id }}" {% if current_vacancy == vacancy.id|stringformat:"s" %}selected{% endif %}>
+                                            {{ vacancy.name }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="grade" class="form-label">Грейд</label>
+                                <select name="grade" id="grade" class="form-select">
+                                    <option value="">Все грейды</option>
+                                    {% for grade in grades %}
+                                        <option value="{{ grade.id }}" {% if current_grade == grade.id|stringformat:"s" %}selected{% endif %}>
+                                            {{ grade.name }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="is_active" class="form-label">Статус</label>
+                                <select name="is_active" id="is_active" class="form-select">
+                                    <option value="">Все статусы</option>
+                                    <option value="true" {% if current_is_active == "true" %}selected{% endif %}>Активные</option>
+                                    <option value="false" {% if current_is_active == "false" %}selected{% endif %}>Неактивные</option>
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-search me-2"></i>Применить фильтры
+                                </button>
+                                <a href="{% url 'hiring_plan:sla_list' %}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-times me-2"></i>Сбросить
+                                </a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Таблица SLA -->
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Вакансия</th>
+                                <th>Грейд</th>
+                                <th>Time-to-Offer</th>
+                                <th>Time-to-Hire</th>
+                                <th>Статус</th>
+                                <th>Создано</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for sla in slas %}
+                            <tr>
+                                <td>
+                                    <strong>{{ sla.vacancy.name }}</strong>
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">{{ sla.grade.name }}</span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-primary">{{ sla.time_to_offer }} дней</span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">{{ sla.time_to_hire }} дней</span>
+                                </td>
+                                <td>
+                                    {% if sla.is_active %}
+                                        <span class="badge bg-success">Активен</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Неактивен</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ sla.created_at|date:"d.m.Y" }}</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <a href="{% url 'hiring_plan:sla_update' sla.pk %}" 
+                                           class="btn btn-outline-warning" title="Редактировать">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center text-muted py-4">
+                                    <i class="fas fa-clock fa-2x mb-2"></i><br>
+                                    SLA не найдены
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Пагинация -->
+                {% if is_paginated %}
+                <nav aria-label="Пагинация SLA">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?{% if request.GET.vacancy %}vacancy={{ request.GET.vacancy }}&{% endif %}{% if request.GET.grade %}grade={{ request.GET.grade }}&{% endif %}{% if request.GET.is_active %}is_active={{ request.GET.is_active }}&{% endif %}page=1">
+                                    <i class="fas fa-angle-double-left"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?{% if request.GET.vacancy %}vacancy={{ request.GET.vacancy }}&{% endif %}{% if request.GET.grade %}grade={{ request.GET.grade }}&{% endif %}{% if request.GET.is_active %}is_active={{ request.GET.is_active }}&{% endif %}page={{ page_obj.previous_page_number }}">
+                                    <i class="fas fa-angle-left"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+
+                        <li class="page-item active">
+                            <span class="page-link">
+                                Страница {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}
+                            </span>
+                        </li>
+
+                        {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?{% if request.GET.vacancy %}vacancy={{ request.GET.vacancy }}&{% endif %}{% if request.GET.grade %}grade={{ request.GET.grade }}&{% endif %}{% if request.GET.is_active %}is_active={{ request.GET.is_active }}&{% endif %}page={{ page_obj.next_page_number }}">
+                                    <i class="fas fa-angle-right"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?{% if request.GET.vacancy %}vacancy={{ request.GET.vacancy }}&{% endif %}{% if request.GET.grade %}grade={{ request.GET.grade }}&{% endif %}{% if request.GET.is_active %}is_active={{ request.GET.is_active }}&{% endif %}page={{ page_obj.paginator.num_pages }}">
+                                    <i class="fas fa-angle-double-right"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

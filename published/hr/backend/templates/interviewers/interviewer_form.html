@@ -1,0 +1,238 @@
+{% extends 'common/base.html' %}
+
+{% block title %}{{ title }} - HR Helper{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-user-edit me-2"></i>
+                    {{ title }}
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            <h6>Ошибки:</h6>
+                            <ul class="mb-0">
+                                {% for error in form.non_field_errors %}
+                                    <li>{{ error }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    {% endif %}
+                    
+                    <div class="row">
+                        <!-- Имя -->
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.first_name.id_for_label }}" class="form-label">
+                                {{ form.first_name.label }}
+                                <span class="text-danger">*</span>
+                            </label>
+                            {{ form.first_name }}
+                            {% if form.first_name.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.first_name.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            {% if form.first_name.help_text %}
+                                <div class="form-text">{{ form.first_name.help_text }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Фамилия -->
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.last_name.id_for_label }}" class="form-label">
+                                {{ form.last_name.label }}
+                                <span class="text-danger">*</span>
+                            </label>
+                            {{ form.last_name }}
+                            {% if form.last_name.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.last_name.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            {% if form.last_name.help_text %}
+                                <div class="form-text">{{ form.last_name.help_text }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Отчество -->
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.middle_name.id_for_label }}" class="form-label">
+                                {{ form.middle_name.label }}
+                            </label>
+                            {{ form.middle_name }}
+                            {% if form.middle_name.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.middle_name.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            {% if form.middle_name.help_text %}
+                                <div class="form-text">{{ form.middle_name.help_text }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <!-- Email -->
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.email.id_for_label }}" class="form-label">
+                                {{ form.email.label }}
+                                <span class="text-danger">*</span>
+                            </label>
+                            {{ form.email }}
+                            {% if form.email.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.email.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            {% if form.email.help_text %}
+                                <div class="form-text">{{ form.email.help_text }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Статус -->
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.is_active.id_for_label }}" class="form-label">
+                                {{ form.is_active.label }}
+                            </label>
+                            <div class="form-check">
+                                {{ form.is_active }}
+                                <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                                    Активен для проведения интервью
+                                </label>
+                            </div>
+                            {% if form.is_active.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.is_active.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            {% if form.is_active.help_text %}
+                                <div class="form-text">{{ form.is_active.help_text }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                        <!-- Ссылка на календарь -->
+                        <div class="mb-3">
+                            <label for="{{ form.calendar_link.id_for_label }}" class="form-label">
+                                {{ form.calendar_link.label }}
+                            </label>
+                            <div class="input-group">
+                                {{ form.calendar_link }}
+                                <button type="button" class="btn btn-outline-info auto-fill-calendar-form" data-email-field="{{ form.email.id_for_label }}">
+                                    <i class="fas fa-magic me-1"></i>
+                                    Автозаполнить
+                                </button>
+                            </div>
+                            {% if form.calendar_link.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.calendar_link.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            {% if form.calendar_link.help_text %}
+                                <div class="form-text">{{ form.calendar_link.help_text }}</div>
+                            {% endif %}
+                        </div>
+                    
+                    <!-- Кнопки -->
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            {% if interviewer %}
+                                <a href="{% url 'interviewers:interviewer_detail' interviewer.pk %}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-arrow-left me-2"></i>
+                                    Назад к интервьюеру
+                                </a>
+                            {% else %}
+                                <a href="{% url 'interviewers:interviewer_list' %}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-arrow-left me-2"></i>
+                                    Назад к списку
+                                </a>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>
+                                {{ submit_text }}
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Автозаполнение календаря в форме
+    document.querySelectorAll('.auto-fill-calendar-form').forEach(button => {
+        button.addEventListener('click', function() {
+            const emailFieldId = this.dataset.emailField;
+            const emailField = document.getElementById(emailFieldId);
+            const calendarField = document.getElementById('{{ form.calendar_link.id_for_label }}');
+            
+            if (!emailField.value) {
+                alert('Сначала введите email интервьюера');
+                emailField.focus();
+                return;
+            }
+            
+            // Показываем индикатор загрузки
+            const originalText = this.innerHTML;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Поиск...';
+            this.disabled = true;
+            
+            // Создаем временного интервьюера для поиска календаря
+            fetch('/interviewers/auto-fill-calendar/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                },
+                body: JSON.stringify({
+                    interviewer_email: emailField.value
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    calendarField.value = data.calendar_link;
+                    alert('Календарь найден и заполнен!');
+                } else {
+                    alert('Не удалось найти календарь для этого email: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Ошибка при поиске календаря');
+            })
+            .finally(() => {
+                // Восстанавливаем кнопку
+                this.innerHTML = originalText;
+                this.disabled = false;
+            });
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,331 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Прогресс массового импорта Notion{% endblock %}
+
+{% block extra_css %}
+<!-- Стили уже подключены в base.html -->
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Заголовок страницы -->
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-chart-line me-2"></i>
+            Прогресс массового импорта
+        </h1>
+        <div>
+            <a href="{% url 'notion_int:pages_list' %}" class="btn btn-sm btn-primary">
+                <i class="fas fa-list me-1"></i>
+                К списку страниц
+            </a>
+        </div>
+    </div>
+
+    <!-- Индикатор автообновления -->
+    <div id="autoRefreshIndicator" class="auto-refresh-indicator" style="display: none;">
+        <i class="fas fa-sync-alt spinner me-2"></i>
+        Автообновление каждые 5 сек
+    </div>
+
+    <div class="row">
+        <!-- Основная информация -->
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Информация об импорте
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>ID импорта:</strong> #{{ bulk_import.id }}</p>
+                            <p><strong>Создан:</strong> {{ bulk_import.created_at|date:"d.m.Y H:i:s" }}</p>
+                            <p><strong>Обновлен:</strong> <span id="lastUpdated">{{ bulk_import.updated_at|date:"d.m.Y H:i:s" }}</span></p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Статус:</strong> 
+                                <span id="importStatus" class="status-badge status-{{ bulk_import.status }}">
+                                    {{ bulk_import.get_status_display }}
+                                </span>
+                            </p>
+                            {% if bulk_import.completed_at %}
+                            <p><strong>Завершен:</strong> {{ bulk_import.completed_at|date:"d.m.Y H:i:s" }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Прогресс-бар -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-tasks me-2"></i>
+                        Прогресс импорта
+                    </h5>
+                    <div class="progress-card p-4 mb-3">
+                        <div class="progress-bar-custom">
+                            <div id="progressFill" class="progress-fill" style="width: {% if bulk_import.total_pages > 0 %}{% widthratio bulk_import.processed_pages bulk_import.total_pages 100 %}{% else %}0{% endif %}%">
+                                {% if bulk_import.total_pages > 0 %}{% widthratio bulk_import.processed_pages bulk_import.total_pages 100 %}{% else %}0{% endif %}%
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row text-center">
+                        <div class="col-md-4">
+                            <h4 id="totalPages">{{ bulk_import.total_pages }}</h4>
+                            <small class="text-muted">Всего страниц</small>
+                        </div>
+                        <div class="col-md-4">
+                            <h4 id="processedPages">{{ bulk_import.processed_pages }}</h4>
+                            <small class="text-muted">Обработано</small>
+                        </div>
+                        <div class="col-md-4">
+                            <h4 id="remainingPages">{% if bulk_import.total_pages > 0 %}{{ bulk_import.total_pages|add:"-"|add:bulk_import.processed_pages }}{% else %}0{% endif %}</h4>
+                            <small class="text-muted">Осталось</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Статистика -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="success-card p-4 text-center">
+                        <h3 id="successfulPages">{{ bulk_import.successful_pages }}</h3>
+                        <p class="mb-0">Успешно импортировано</p>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="error-card p-4 text-center">
+                        <h3 id="failedPages">{{ bulk_import.failed_pages }}</h3>
+                        <p class="mb-0">Неудачных импортов</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Неудачные страницы -->
+            {% if bulk_import.failed_page_ids %}
+            <div class="card mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Неудачные страницы ({{ bulk_import.failed_page_ids|length }})
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="failed-tasks-list">
+                        {% for page_id in bulk_import.failed_page_ids %}
+                        <div class="failed-task-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>ID страницы:</strong> {{ page_id }}
+                                </div>
+                                <a href="{% url 'notion_int:page_detail' page_id %}" 
+                                   class="btn btn-sm btn-outline-primary" target="_blank">
+                                    <i class="fas fa-external-link-alt me-1"></i>
+                                    Открыть
+                                </a>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Сообщение об ошибке -->
+            {% if bulk_import.error_message %}
+            <div class="card mb-4">
+                <div class="card-header py-3 bg-danger text-white">
+                    <h6 class="m-0 font-weight-bold">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        Ошибка импорта
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <pre class="text-danger">{{ bulk_import.error_message }}</pre>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Боковая панель -->
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-cog me-2"></i>
+                        Управление
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Автообновление</label>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="autoRefreshToggle" checked>
+                            <label class="form-check-label" for="autoRefreshToggle">
+                                Обновлять каждые 5 секунд
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <button id="refreshNow" class="btn btn-outline-primary btn-sm w-100">
+                            <i class="fas fa-sync-alt me-2"></i>
+                            Обновить сейчас
+                        </button>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <a href="{% url 'notion_int:pages_list' %}" class="btn btn-primary btn-sm w-100">
+                            <i class="fas fa-list me-2"></i>
+                            Просмотреть импортированные страницы
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Информация о процессе -->
+            <div class="card">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-info-circle me-2"></i>
+                        О процессе
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted">
+                        Массовый импорт выполняется с соблюдением ограничений API Notion.
+                        Данные синхронизируются из базы данных Notion в локальную базу.
+                    </p>
+                    
+                    <p class="small text-muted">
+                        Импортированные страницы содержат актуальную информацию из Notion,
+                        включая статусы, комментарии, файлы и дополнительные поля.
+                    </p>
+                    
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            <strong>Последнее обновление:</strong><br>
+                            <span id="lastRefresh">Загрузка...</span>
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Уведомления -->
+<div id="notifications-container" class="position-fixed" style="top: 20px; right: 20px; z-index: 9999;"></div>
+
+<script>
+// Функция для показа уведомлений
+function showNotification(message, type = 'info') {
+    const container = document.getElementById('notifications-container');
+    const notification = document.createElement('div');
+    
+    const alertClass = type === 'success' ? 'alert-success' : 
+                      type === 'error' ? 'alert-danger' : 
+                      type === 'warning' ? 'alert-warning' : 'alert-info';
+    
+    notification.className = `alert ${alertClass} alert-dismissible fade show`;
+    notification.style.cssText = 'min-width: 300px; margin-bottom: 10px;';
+    
+    const icon = type === 'success' ? 'check-circle' : 
+                 type === 'error' ? 'times-circle' : 
+                 type === 'warning' ? 'exclamation-triangle' : 'info-circle';
+    
+    notification.innerHTML = `
+        <i class="fas fa-${icon} me-2"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    container.appendChild(notification);
+    
+    // Автоматически удаляем через 5 секунд
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+        }
+    }, 5000);
+}
+
+// Ждем загрузки DOM
+document.addEventListener('DOMContentLoaded', function() {
+    const autoRefreshToggle = document.getElementById('autoRefreshToggle');
+    const refreshNowButton = document.getElementById('refreshNow');
+    const autoRefreshIndicator = document.getElementById('autoRefreshIndicator');
+    
+    let refreshInterval;
+    let isRefreshing = false;
+    
+    // Функция обновления данных
+    function refreshData() {
+        if (isRefreshing) return;
+        
+        isRefreshing = true;
+        refreshNowButton.disabled = true;
+        refreshNowButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Обновление...';
+        
+        // Обновляем страницу для получения актуальных данных
+        fetch(window.location.href, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.text())
+        .then(html => {
+            // Обновляем данные из ответа (упрощенная версия)
+            location.reload();
+        })
+        .catch(error => {
+            console.error('Ошибка обновления:', error);
+            showNotification(`Ошибка обновления: ${error.message}`, 'error');
+        })
+        .finally(() => {
+            isRefreshing = false;
+            refreshNowButton.disabled = false;
+            refreshNowButton.innerHTML = '<i class="fas fa-sync-alt me-2"></i>Обновить сейчас';
+            document.getElementById('lastRefresh').textContent = new Date().toLocaleTimeString();
+        });
+    }
+    
+    // Переключатель автообновления
+    autoRefreshToggle.addEventListener('change', function() {
+        if (this.checked) {
+            refreshInterval = setInterval(refreshData, 5000);
+            autoRefreshIndicator.style.display = 'block';
+        } else {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+                refreshInterval = null;
+            }
+            autoRefreshIndicator.style.display = 'none';
+        }
+    });
+    
+    // Кнопка обновления
+    refreshNowButton.addEventListener('click', refreshData);
+    
+    // Запускаем автообновление при загрузке страницы (только если статус running)
+    const status = '{{ bulk_import.status }}';
+    if (status === 'running' && autoRefreshToggle.checked) {
+        refreshInterval = setInterval(refreshData, 5000);
+        autoRefreshIndicator.style.display = 'block';
+    }
+    
+    // Первоначальное обновление
+    document.getElementById('lastRefresh').textContent = new Date().toLocaleTimeString();
+});
+</script>
+{% endblock %}
+
+

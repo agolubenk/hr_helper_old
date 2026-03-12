@@ -1,0 +1,332 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+
+{% block content %}
+<!-- Выбор режима работы -->
+<div class="row mb-4">
+    <div class="col-12">
+        <h5 class="mb-3"><i class="fas fa-random me-2"></i>Выберите режим работы</h5>
+    </div>
+    <div class="col-md-6 mb-3">
+        <a href="{% url 'clickup_int:hiring_plan_from_clickup' %}" class="text-decoration-none">
+            <div class="card clickup-card h-100 border-primary hover-shadow">
+                <div class="card-body text-center py-4">
+                    <i class="fas fa-clipboard-list fa-3x text-primary mb-3"></i>
+                    <h5 class="card-title">План найма</h5>
+                    <p class="card-text text-muted small mb-0">Вытянуть данные из папки ClickUp: списки и задачи для плана найма</p>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-6 mb-3">
+        <a href="{% url 'clickup_int:bulk_import' %}" class="text-decoration-none">
+            <div class="card clickup-card h-100 border-success hover-shadow">
+                <div class="card-body text-center py-4">
+                    <i class="fas fa-file-export fa-3x text-success mb-3"></i>
+                    <h5 class="card-title">Выгрузка в Huntflow</h5>
+                    <p class="card-text text-muted small mb-0">Массовый импорт кандидатов из списка ClickUp в Huntflow</p>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Статус интеграции -->
+    <div class="col-lg-8">
+        <div class="card clickup-card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-plug me-2"></i>
+                    Статус интеграции
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if is_configured %}
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <div class="d-flex align-items-center mb-3">
+                                <span class="api-status api-connected">
+                                    <i class="fas fa-check-circle me-1"></i>
+                                    Настроено
+                                </span>
+                            </div>
+                            <div class="path-description">
+                                <strong>Путь к задачам:</strong><br>
+                                {{ settings.get_path_description }}
+                            </div>
+                            {% if settings.last_sync_at %}
+                                <small class="text-muted">
+                                    <i class="fas fa-clock me-1"></i>
+                                    Последняя синхронизация: {{ settings.last_sync_at|date:"d.m.Y H:i" }}
+                                </small>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <div class="d-grid gap-2">
+                                <button class="btn clickup-btn" onclick="syncTasks()">
+                                    <i class="fas fa-sync me-1"></i>
+                                    Синхронизировать
+                                </button>
+                                <a href="{% url 'clickup_int:settings' %}" class="btn clickup-btn-outline">
+                                    <i class="fas fa-cog me-1"></i>
+                                    Настройки
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-exclamation-triangle text-warning mb-3" style="font-size: 3rem;"></i>
+                        <h5>Интеграция не настроена</h5>
+                        <p class="text-muted">Для работы с ClickUp необходимо настроить интеграцию</p>
+                        <a href="{% url 'clickup_int:settings' %}" class="btn clickup-btn">
+                            <i class="fas fa-cog me-1"></i>
+                            Настроить интеграцию
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Статистика -->
+    <div class="col-lg-4">
+        <div class="card clickup-card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-bar me-2"></i>
+                    Статистика
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6 mb-3">
+                        <div class="p-3 bg-light rounded">
+                            <h4 class="text-primary mb-1">{{ tasks_count }}</h4>
+                            <small class="text-muted">Задач в кэше</small>
+                        </div>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <div class="p-3 bg-light rounded">
+                            <h4 class="text-success mb-1">{{ recent_syncs|length }}</h4>
+                            <small class="text-muted">Синхронизаций</small>
+                        </div>
+                    </div>
+                </div>
+                
+                {% if is_configured %}
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'clickup_int:tasks_list' %}" class="btn clickup-btn-outline">
+                            <i class="fas fa-list me-1"></i>
+                            Просмотр задач
+                        </a>
+                        <button class="btn clickup-btn-outline" onclick="clearCache()">
+                            <i class="fas fa-trash me-1"></i>
+                            Очистить кэш
+                        </button>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Последние задачи -->
+{% if recent_tasks %}
+<div class="row">
+    <div class="col-12">
+        <div class="card clickup-card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-clock me-2"></i>
+                    Последние задачи
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for task in recent_tasks %}
+                    <div class="col-md-6 col-lg-4 mb-3">
+                        <div class="card task-card h-100">
+                            <div class="card-body p-3">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <h6 class="card-title mb-0">
+                                        <a href="{% url 'clickup_int:task_detail' task.task_id %}" class="text-decoration-none">
+                                            {{ task.name|truncatechars:50 }}
+                                        </a>
+                                    </h6>
+                                    <span class="status-badge status-{{ task.status|lower|slugify }}">
+                                        {{ task.status }}
+                                    </span>
+                                </div>
+                                
+                                {% if task.priority %}
+                                <div class="mb-2">
+                                    <span class="priority-badge priority-{{ task.priority|lower|slugify }}">
+                                        {{ task.priority }}
+                                    </span>
+                                </div>
+                                {% endif %}
+                                
+                                <div class="text-muted small mb-2">
+                                    <i class="fas fa-calendar me-1"></i>
+                                    {{ task.date_updated|date:"d.m.Y H:i" }}
+                                </div>
+                                
+                                {% if task.assignees %}
+                                <div class="text-muted small">
+                                    <i class="fas fa-user me-1"></i>
+                                    {{ task.assignees|join:", " }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <div class="text-center mt-3">
+                    <a href="{% url 'clickup_int:tasks_list' %}" class="btn clickup-btn">
+                        <i class="fas fa-list me-1"></i>
+                        Показать все задачи
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Логи синхронизации -->
+{% if recent_syncs %}
+<div class="row">
+    <div class="col-12">
+        <div class="card clickup-card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-history me-2"></i>
+                    Последние синхронизации
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Статус</th>
+                                <th>Обработано</th>
+                                <th>Создано</th>
+                                <th>Обновлено</th>
+                                <th>Время</th>
+                                <th>Дата</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for sync in recent_syncs %}
+                            <tr>
+                                <td>
+                                    <span class="sync-status sync-{{ sync.status }}"></span>
+                                    {{ sync.get_status_display }}
+                                </td>
+                                <td>{{ sync.tasks_processed }}</td>
+                                <td class="text-success">{{ sync.tasks_created }}</td>
+                                <td class="text-info">{{ sync.tasks_updated }}</td>
+                                <td>
+                                    {% if sync.sync_duration %}
+                                        {{ sync.sync_duration|floatformat:2 }}с
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>{{ sync.created_at|date:"d.m.Y H:i" }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="text-center mt-3">
+                    <a href="{% url 'clickup_int:sync_logs' %}" class="btn clickup-btn-outline">
+                        <i class="fas fa-history me-1"></i>
+                        Показать все логи
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Функция синхронизации задач
+function syncTasks() {
+    const button = event.target;
+    const hideLoading = showLoading(button, 'Синхронизация...');
+    
+    fetch('{% url "clickup_int:sync_tasks" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoading();
+        
+        if (data.success) {
+            showNotification(data.message, 'success');
+            // Обновляем страницу через 2 секунды
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        } else {
+            showNotification(data.message, 'error');
+        }
+    })
+    .catch(error => {
+        hideLoading();
+        showNotification('Ошибка синхронизации: ' + error.message, 'error');
+    });
+}
+
+// Функция очистки кэша
+function clearCache() {
+    if (!confirm('Вы уверены, что хотите очистить кэш задач?')) {
+        return;
+    }
+    
+    const button = event.target;
+    const hideLoading = showLoading(button, 'Очистка...');
+    
+    fetch('{% url "clickup_int:clear_cache" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoading();
+        
+        if (data.success) {
+            showNotification(data.message, 'success');
+            // Обновляем страницу через 2 секунды
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        } else {
+            showNotification(data.message, 'error');
+        }
+    })
+    .catch(error => {
+        hideLoading();
+        showNotification('Ошибка очистки кэша: ' + error.message, 'error');
+    });
+}
+</script>
+{% endblock %}

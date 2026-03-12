@@ -1,0 +1,760 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}ИИ Анализ - Бенчмарки{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">ИИ Анализ бенчмарков</h1>
+                <div>
+                    <a href="{% url 'finance:benchmarks_dashboard' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Назад к бенчмаркам
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Статистика -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="card-title">{{ total_benchmarks }}</h4>
+                            <p class="card-text">Всего бенчмарков</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-chart-bar fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="card-title">{{ candidate_benchmarks }}</h4>
+                            <p class="card-text">Кандидатов</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-user fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="card-title">{{ vacancy_benchmarks }}</h4>
+                            <p class="card-text">Вакансий</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-briefcase fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Настройки анализа -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-cog"></i> Настройки анализа
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form id="aiAnalysisForm">
+                        <div class="mb-3">
+                            <label class="form-label">Фильтры данных:</label>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label for="typeFilter" class="form-label">Тип бенчмарка</label>
+                                    <select class="form-select" id="typeFilter">
+                                        <option value="">Все типы</option>
+                                        <option value="candidate">Кандидаты</option>
+                                        <option value="vacancy">Вакансии</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="locationFilter" class="form-label">Локация</label>
+                                    <input type="text" class="form-control" id="locationFilter" 
+                                           placeholder="Например: Москва">
+                                </div>
+                            </div>
+                            
+                            <div class="row mt-3">
+                                <div class="col-md-6">
+                                    <label for="dateFromFilter" class="form-label">Дата от</label>
+                                    <input type="date" class="form-control" id="dateFromFilter">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="dateToFilter" class="form-label">Дата до</label>
+                                    <input type="date" class="form-control" id="dateToFilter">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="customPrompt" class="form-label">Кастомный промпт (необязательно)</label>
+                            <textarea class="form-control" id="customPrompt" rows="3" 
+                                      placeholder="Оставьте пустым для использования стандартного промпта"></textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="saveToDbCheckbox">
+                                <label class="form-check-label" for="saveToDbCheckbox">
+                                    <i class="fas fa-database"></i> Сохранить структурированные данные в базу
+                                </label>
+                            </div>
+                            <small class="text-muted">
+                                При включении этой опции ИИ создаст бенчмарки в базе данных на основе анализа
+                            </small>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-brain"></i> Запустить ИИ анализ
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Управление промптом -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-edit"></i> Управление промптом
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="promptEditor" class="form-label">Промпт для ИИ анализа</label>
+                        <textarea class="form-control" id="promptEditor" rows="8" 
+                                  placeholder="Введите промпт для ИИ анализа...">{{ current_prompt }}</textarea>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-success" id="updatePromptBtn">
+                            <i class="fas fa-save"></i> Сохранить промпт
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" id="resetPromptBtn">
+                            <i class="fas fa-undo"></i> Сбросить
+                        </button>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle"></i> 
+                            Промпт определяет, как ИИ будет анализировать данные бенчмарков. 
+                            Используйте переменную {benchmark_data} для вставки данных.
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Результаты анализа -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-line"></i> Результаты ИИ анализа
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="aiAnalysisResults">
+                        <div class="text-center text-muted">
+                            <i class="fas fa-robot fa-3x mb-3"></i>
+                            <p>Запустите ИИ анализ для просмотра результатов</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const analysisForm = document.getElementById('aiAnalysisForm');
+    const promptEditor = document.getElementById('promptEditor');
+    const updatePromptBtn = document.getElementById('updatePromptBtn');
+    const resetPromptBtn = document.getElementById('resetPromptBtn');
+    const originalPrompt = promptEditor.value;
+    
+    // Обработка формы анализа
+    analysisForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const filters = {
+            type: document.getElementById('typeFilter').value,
+            location: document.getElementById('locationFilter').value,
+            date_from: document.getElementById('dateFromFilter').value,
+            date_to: document.getElementById('dateToFilter').value
+        };
+        
+        const customPrompt = document.getElementById('customPrompt').value.trim();
+        const saveToDb = document.getElementById('saveToDbCheckbox').checked;
+        
+        // Очищаем пустые фильтры
+        Object.keys(filters).forEach(key => {
+            if (!filters[key]) {
+                delete filters[key];
+            }
+        });
+        
+        runAIAnalysis(filters, customPrompt, saveToDb);
+    });
+    
+    // Обновление промпта
+    updatePromptBtn.addEventListener('click', function() {
+        const newPrompt = promptEditor.value.trim();
+        
+        if (!newPrompt) {
+            alert('Промпт не может быть пустым');
+            return;
+        }
+        
+        updatePrompt(newPrompt);
+    });
+    
+    // Сброс промпта
+    resetPromptBtn.addEventListener('click', function() {
+        if (confirm('Вы уверены, что хотите сбросить промпт к исходному состоянию?')) {
+            promptEditor.value = originalPrompt;
+        }
+    });
+    
+    function runAIAnalysis(filters, customPrompt, saveToDb) {
+        const resultsDiv = document.getElementById('aiAnalysisResults');
+        resultsDiv.innerHTML = `
+            <div class="text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Загрузка...</span>
+                </div>
+                <p class="mt-2">Запуск ИИ анализа...</p>
+            </div>
+        `;
+        
+        fetch('{% url "finance:run_ai_analysis" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                filters: filters,
+                custom_prompt: customPrompt,
+                save_to_db: saveToDb
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayAnalysisResults(data.analysis);
+                
+                // Показываем результат сохранения в базу, если есть
+                if (data.save_result) {
+                    const saveResult = data.save_result;
+                    if (saveResult.success) {
+                        showAlert('success', `✅ ${saveResult.message}`);
+                    } else {
+                        showAlert('warning', `⚠️ ${saveResult.message}`);
+                    }
+                }
+            } else {
+                resultsDiv.innerHTML = `
+                    <div class="alert alert-danger">
+                        <h6><i class="fas fa-exclamation-triangle"></i> Ошибка анализа</h6>
+                        <p>${data.error}</p>
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            resultsDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <h6><i class="fas fa-exclamation-triangle"></i> Ошибка</h6>
+                    <p>Произошла ошибка при запуске ИИ анализа</p>
+                </div>
+            `;
+        });
+    }
+    
+    function updatePrompt(newPrompt) {
+        fetch('{% url "finance:update_ai_prompt" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                prompt: newPrompt
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('success', 'Промпт успешно обновлен');
+            } else {
+                showAlert('danger', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('danger', 'Ошибка при обновлении промпта');
+        });
+    }
+    
+    function displayAnalysisResults(analysis) {
+        const resultsDiv = document.getElementById('aiAnalysisResults');
+        
+        let html = '<div class="ai-analysis-results">';
+        
+        // Демо-информация
+        if (analysis.demo_info) {
+            html += `
+                <div class="alert alert-info">
+                    <h6><i class="fas fa-info-circle"></i> Демонстрационный анализ</h6>
+                    <p><strong>Описание:</strong> ${analysis.demo_info.description}</p>
+                    <p><strong>Источник данных:</strong> ${analysis.demo_info.data_source}</p>
+                    <p><strong>Страны:</strong> ${analysis.demo_info.countries_analyzed.join(', ')}</p>
+                    <p><strong>Дата анализа:</strong> ${analysis.demo_info.analysis_date}</p>
+                </div>
+            `;
+        }
+        
+        // Метаданные анализа (новый формат)
+        if (analysis.analysis_metadata) {
+            html += `
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-info-circle"></i> Метаданные анализа</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <strong>Дата анализа:</strong><br>
+                                <span class="text-muted">${analysis.analysis_metadata.analysis_date}</span>
+                            </div>
+                            <div class="col-md-3">
+                                <strong>Обработано записей:</strong><br>
+                                <span class="text-primary">${analysis.analysis_metadata.total_processed}</span>
+                            </div>
+                            <div class="col-md-3">
+                                <strong>Источник данных:</strong><br>
+                                <span class="text-muted">${analysis.analysis_metadata.data_source}</span>
+                            </div>
+                            <div class="col-md-3">
+                                <strong>Версия анализа:</strong><br>
+                                <span class="text-muted">${analysis.analysis_metadata.analysis_version}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Сводка (старый формат)
+        if (analysis.summary) {
+            html += `
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-chart-bar"></i> Сводка анализа</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <strong>Всего бенчмарков:</strong> ${analysis.summary.total_benchmarks}
+                            </div>
+                            <div class="col-md-4">
+                                <strong>Период анализа:</strong> ${analysis.summary.analysis_period}
+                            </div>
+                            <div class="col-md-4">
+                                <strong>Качество данных:</strong> ${analysis.summary.data_quality || 'N/A'}
+                            </div>
+                        </div>
+                        ${analysis.summary.key_insights ? `
+                            <div class="mt-3">
+                                <strong>Ключевые выводы:</strong>
+                                <ul class="mb-0">
+                                    ${analysis.summary.key_insights.map(insight => `<li>${insight}</li>`).join('')}
+                                </ul>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Анализ зарплат
+        if (analysis.salary_analysis) {
+            html += `
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-chart-bar"></i> Анализ зарплат</h6>
+                    </div>
+                    <div class="card-body">
+            `;
+            
+            // По грейдам
+            if (analysis.salary_analysis.by_grade) {
+                html += `
+                    <h6>По грейдам:</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Грейд</th>
+                                    <th>Количество</th>
+                                    <th>Средняя зарплата</th>
+                                    <th>Мин</th>
+                                    <th>Макс</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+                
+                Object.entries(analysis.salary_analysis.by_grade).forEach(([grade, data]) => {
+                    html += `
+                        <tr>
+                            <td>${grade}</td>
+                            <td>${data.count}</td>
+                            <td>${data.avg_salary || 'N/A'}</td>
+                            <td>${data.min || 'N/A'}</td>
+                            <td>${data.max || 'N/A'}</td>
+                        </tr>
+                    `;
+                });
+                
+                html += '</tbody></table></div>';
+            }
+            
+            // По локациям
+            if (analysis.salary_analysis.by_location) {
+                html += `
+                    <h6 class="mt-4">По локациям:</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Локация</th>
+                                    <th>Количество</th>
+                                    <th>Средняя зарплата</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+                
+                Object.entries(analysis.salary_analysis.by_location).forEach(([location, data]) => {
+                    html += `
+                        <tr>
+                            <td>${location}</td>
+                            <td>${data.count}</td>
+                            <td>${data.avg_salary || 'N/A'}</td>
+                        </tr>
+                    `;
+                });
+                
+                html += '</tbody></table></div>';
+            }
+            
+            html += '</div></div>';
+        }
+        
+        // Структурированные бенчмарки (новый формат)
+        if (analysis.structured_benchmarks && analysis.structured_benchmarks.length > 0) {
+            html += `
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-database"></i> Структурированные бенчмарки (${analysis.structured_benchmarks.length})</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Вакансия</th>
+                                        <th>Грейд</th>
+                                        <th>Зарплата</th>
+                                        <th>Локация</th>
+                                        <th>Формат</th>
+                                        <th>Компания</th>
+                                        <th>Конкурентоспособность</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+            `;
+            
+            analysis.structured_benchmarks.forEach(benchmark => {
+                const salary = benchmark.salary_to ? 
+                    `$${benchmark.salary_from} - $${benchmark.salary_to}` : 
+                    `$${benchmark.salary_from}`;
+                
+                const competitivenessClass = benchmark.market_competitiveness === 'высокая' ? 'bg-success' : 
+                                           benchmark.market_competitiveness === 'средняя' ? 'bg-warning' : 'bg-secondary';
+                
+                html += `
+                    <tr>
+                        <td>${benchmark.vacancy_name}</td>
+                        <td><span class="badge bg-secondary">${benchmark.grade}</span></td>
+                        <td>${salary}</td>
+                        <td>${benchmark.location}</td>
+                        <td><span class="badge bg-info">${benchmark.work_format}</span></td>
+                        <td>${benchmark.company_name || 'N/A'}</td>
+                        <td><span class="badge ${competitivenessClass}">${benchmark.market_competitiveness}</span></td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table></div></div></div>';
+        }
+        
+        // Рекомендуемые диапазоны (новый формат)
+        if (analysis.recommended_ranges) {
+            html += `
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-target"></i> Рекомендуемые диапазоны</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Грейд</th>
+                                        <th>Рекомендуемый диапазон</th>
+                                        <th>Медиана</th>
+                                        <th>Обоснование</th>
+                                        <th>Позиция на рынке</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+            `;
+            
+            Object.entries(analysis.recommended_ranges).forEach(([grade, data]) => {
+                html += `
+                    <tr>
+                        <td><span class="badge bg-primary">${grade}</span></td>
+                        <td>$${data.min_recommended} - $${data.max_recommended}</td>
+                        <td>$${data.median_recommended}</td>
+                        <td>${data.reasoning}</td>
+                        <td><span class="badge bg-info">${data.market_position}</span></td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table></div></div></div>';
+        }
+        
+        // Тренды
+        if (analysis.trends) {
+            html += `
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-trending-up"></i> Тренды</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <strong>Рост зарплат:</strong><br>
+                                <span class="text-muted">${analysis.trends.salary_growth || 'N/A'}</span>
+                            </div>
+                            <div class="col-md-4">
+                                <strong>Спрос на рынке:</strong><br>
+                                <span class="text-muted">${analysis.trends.market_demand || 'N/A'}</span>
+                            </div>
+                            <div class="col-md-4">
+                                <strong>Влияние локации:</strong><br>
+                                <span class="text-muted">${analysis.trends.location_impact || 'N/A'}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Рекомендации
+        if (analysis.recommendations) {
+            html += `
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-lightbulb"></i> Рекомендации</h6>
+                    </div>
+                    <div class="card-body">
+                        ${analysis.recommendations.market_insights ? `
+                            <h6>Инсайты о рынке:</h6>
+                            <ul>
+                                ${analysis.recommendations.market_insights.map(insight => `<li>${insight}</li>`).join('')}
+                            </ul>
+                        ` : ''}
+                        
+                        ${analysis.recommendations.hiring_strategy ? `
+                            <h6>Стратегия найма:</h6>
+                            <p>${analysis.recommendations.hiring_strategy}</p>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Аномалии
+        if (analysis.anomalies) {
+            html += `
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-exclamation-triangle"></i> Аномалии</h6>
+                    </div>
+                    <div class="card-body">
+                        ${analysis.anomalies.outliers && analysis.anomalies.outliers.length > 0 ? `
+                            <h6>Выбросы:</h6>
+                            <ul>
+                                ${analysis.anomalies.outliers.map(outlier => `<li>${outlier}</li>`).join('')}
+                            </ul>
+                        ` : ''}
+                        
+                        ${analysis.anomalies.inconsistencies && analysis.anomalies.inconsistencies.length > 0 ? `
+                            <h6>Несоответствия:</h6>
+                            <ul>
+                                ${analysis.anomalies.inconsistencies.map(inc => `<li>${inc}</li>`).join('')}
+                            </ul>
+                        ` : ''}
+                        
+                        ${analysis.anomalies.data_quality_issues && analysis.anomalies.data_quality_issues.length > 0 ? `
+                            <h6>Проблемы качества данных:</h6>
+                            <ul>
+                                ${analysis.anomalies.data_quality_issues.map(issue => `<li>${issue}</li>`).join('')}
+                            </ul>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Анализ по формату работы (новый формат)
+        if (analysis.market_insights && analysis.market_insights.by_work_format) {
+            html += `
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-laptop"></i> Анализ по формату работы</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+            `;
+            
+            Object.entries(analysis.market_insights.by_work_format).forEach(([format, data]) => {
+                const trendClass = data.trend === 'растущий' ? 'text-success' : 
+                                 data.trend === 'стабильный' ? 'text-info' : 'text-warning';
+                
+                html += `
+                    <div class="col-md-4">
+                        <div class="card border">
+                            <div class="card-body text-center">
+                                <h6 class="card-title">${format}</h6>
+                                <p class="card-text">
+                                    <strong>Количество:</strong> ${data.count}<br>
+                                    <strong>Средняя зарплата:</strong> $${data.avg_salary}<br>
+                                    <strong>Тренд:</strong> <span class="${trendClass}">${data.trend}</span>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div></div></div>';
+        }
+        
+        // Качество данных (новый формат)
+        if (analysis.data_quality) {
+            html += `
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-check-circle"></i> Качество данных</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <strong>Полнота данных:</strong><br>
+                                <div class="progress">
+                                    <div class="progress-bar" role="progressbar" style="width: ${analysis.data_quality.completeness_score}%">
+                                        ${analysis.data_quality.completeness_score}%
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-9">
+                                ${analysis.data_quality.accuracy_indicators && analysis.data_quality.accuracy_indicators.length > 0 ? `
+                                    <strong>Индикаторы точности:</strong><br>
+                                    <ul class="mb-2">
+                                        ${analysis.data_quality.accuracy_indicators.map(indicator => `<li>${indicator}</li>`).join('')}
+                                    </ul>
+                                ` : ''}
+                                
+                                ${analysis.data_quality.missing_fields && analysis.data_quality.missing_fields.length > 0 ? `
+                                    <strong>Отсутствующие поля:</strong><br>
+                                    <ul class="mb-2">
+                                        ${analysis.data_quality.missing_fields.map(field => `<li>${field}</li>`).join('')}
+                                    </ul>
+                                ` : ''}
+                                
+                                ${analysis.data_quality.recommendations && analysis.data_quality.recommendations.length > 0 ? `
+                                    <strong>Рекомендации:</strong><br>
+                                    <ul class="mb-0">
+                                        ${analysis.data_quality.recommendations.map(rec => `<li>${rec}</li>`).join('')}
+                                    </ul>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        html += '</div>';
+        resultsDiv.innerHTML = html;
+    }
+    
+    function showAlert(type, message) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        // Вставляем в начало страницы
+        const container = document.querySelector('.container-fluid');
+        container.insertBefore(alertDiv, container.firstChild);
+        
+        // Автоматически скрываем через 5 секунд
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 5000);
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,438 @@
+{% extends 'common/base.html' %}
+{% load static %}
+{% load calendar_filters %}
+
+{% block title %}Google Calendar - HR Helper{% endblock %}
+{% block page_title %}Google Calendar{% endblock %}
+
+{% block google_oauth_breadcrumb %}
+    <li class="breadcrumb-item"><a href="{% url 'accounts:profile' %}">Профиль</a></li>
+    <li class="breadcrumb-item active">Calendar</li>
+{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="row">
+    <div class="col-12">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <!-- Заголовок и навигация -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div class="d-flex align-items-center">
+                <a href="?year={{ prev_year }}&month={{ prev_month }}" class="btn btn-outline-secondary me-2">
+                    <i class="fas fa-chevron-left"></i>
+                </a>
+                <h2 class="mb-0 me-3">{{ month_name }} {{ year }}</h2>
+                <a href="?year={{ next_year }}&month={{ next_month }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+            </div>
+            <div>
+                <button type="button" class="btn btn-success" onclick="syncCalendar()">
+                    <i class="fas fa-sync me-2"></i>Синхронизировать
+                </button>
+                <a href="{% url 'accounts:profile' %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Назад
+                </a>
+            </div>
+        </div>
+
+        <!-- Календарь -->
+        <div class="card">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-bordered mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="text-center">Пн</th>
+                                <th class="text-center">Вт</th>
+                                <th class="text-center">Ср</th>
+                                <th class="text-center">Чт</th>
+                                <th class="text-center">Пт</th>
+                                <th class="text-center">Сб</th>
+                                <th class="text-center">Вс</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for week in calendar %}
+                                <tr>
+                                    {% for day in week %}
+                                        <td class="calendar-day" style="height: 120px; vertical-align: top; position: relative;">
+                                            {% if day != 0 %}
+                                                {% create_date year month day as current_date %}
+                                                    <div class="d-flex justify-content-between align-items-start p-2">
+                                                        <span class="fw-bold {% if current_date == today %}text-primary{% endif %}">{{ day }}</span>
+                                                        {% if current_date in events_by_day %}
+                                                            <span class="badge bg-primary rounded-pill">{{ events_by_day|lookup:current_date|length }}</span>
+                                                        {% endif %}
+                                                    </div>
+                                                    
+                                                    <!-- События дня -->
+                                                    <div class="events-container p-1" style="max-height: 80px; overflow-y: auto;">
+                                                        {% for event in events_by_day|lookup:current_date %}
+                                                            <div class="event-item mb-1 p-1 rounded" 
+                                                                 style="background-color: {% if event.status == 'confirmed' %}#d4edda{% else %}#fff3cd{% endif %}; 
+                                                                        border-left: 3px solid {% if event.status == 'confirmed' %}#28a745{% else %}#ffc107{% endif %}; 
+                                                                        font-size: 0.75rem; cursor: pointer;"
+                                                                 data-bs-toggle="modal" 
+                                                                 data-bs-target="#eventModal"
+                                                                 data-event-title="{{ event.title }}"
+                                                                 data-event-description="{{ event.description }}"
+                                                                 data-event-start="{{ event.start_time|date:'d.m.Y H:i' }}"
+                                                                 data-event-end="{{ event.end_time|date:'H:i' }}"
+                                                                 data-event-location="{{ event.location }}"
+                                                                 data-event-status="{{ event.status }}"
+                                                                 data-event-all-day="{{ event.all_day }}"
+                                                                 data-event-attendees="{{ event.attendees|default:'[]' }}"
+                                                                 data-event-meet-link="{{ event.meet_link }}"
+                                                                 data-event-creator-email="{{ event.creator_email }}"
+                                                                 data-event-creator-name="{{ event.creator_name }}">
+                                                                <div class="fw-bold text-truncate" title="{{ event.title }}">
+                                                                    {{ event.start_time|date:"H:i" }} {{ event.title|truncatechars:15 }}
+                                                                </div>
+                                                            </div>
+                                                        {% endfor %}
+                                                    </div>
+                                            {% endif %}
+                                        </td>
+                                    {% endfor %}
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Скрипт для заполнения данных участников -->
+        <script>
+        // Заполняем данные участников из JSON, переданного из Django
+        window.eventAttendeesData = {{ attendees_data_json|safe }};
+        console.log('Event attendees data loaded from Django:', window.eventAttendeesData);
+        console.log('Number of events with attendees:', Object.keys(window.eventAttendeesData).length);
+        </script>
+
+        <!-- Модальное окно для детального просмотра события -->
+        <div class="modal fade" id="eventModal" tabindex="-1" aria-labelledby="eventModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="eventModalLabel">Детали события</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="eventDetails">
+                            <!-- Детали события будут загружены через JavaScript -->
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function syncCalendar() {
+    const button = event.target;
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Синхронизация...';
+    button.disabled = true;
+    
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (!csrfToken) {
+        alert('Ошибка: CSRF токен не найден');
+        button.innerHTML = originalText;
+        button.disabled = false;
+        return;
+    }
+    
+    fetch('{% url "google_oauth:sync_calendar" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken.value,
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Ошибка: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Произошла ошибка при синхронизации календаря');
+    })
+    .finally(() => {
+        button.innerHTML = originalText;
+        button.disabled = false;
+    });
+}
+
+// Обработка модального окна для событий
+document.addEventListener('DOMContentLoaded', function() {
+    const eventModal = document.getElementById('eventModal');
+    const eventDetails = document.getElementById('eventDetails');
+    
+    // Создаем объект для хранения данных участников
+    window.eventAttendeesData = {};
+    
+    eventModal.addEventListener('show.bs.modal', function (event) {
+        console.log('Modal opening...');
+        const button = event.relatedTarget;
+        console.log('Button:', button);
+        
+        // Устанавливаем название события в заголовок модального окна
+        const eventTitle = button.getAttribute('data-event-title');
+        const modalTitle = document.getElementById('eventModalLabel');
+        if (modalTitle && eventTitle) {
+            modalTitle.textContent = eventTitle;
+        }
+        
+        const title = button.getAttribute('data-event-title');
+        const description = button.getAttribute('data-event-description');
+        const start = button.getAttribute('data-event-start');
+        const end = button.getAttribute('data-event-end');
+        const location = button.getAttribute('data-event-location');
+        const status = button.getAttribute('data-event-status');
+        const allDay = button.getAttribute('data-event-all-day');
+        // Получаем участников из атрибута data-event-attendees
+        let attendees = [];
+        try {
+            let attendeesRaw = button.getAttribute('data-event-attendees') || '[]';
+            console.log('Raw attendees string:', attendeesRaw);
+            
+            // Исправляем Python-стиль JSON на JavaScript-стиль
+            attendeesRaw = attendeesRaw
+                .replace(/True/g, 'true')      // Заменяем Python True на JavaScript true
+                .replace(/False/g, 'false')    // Заменяем Python False на JavaScript false
+                .replace(/'/g, '"');           // Заменяем одинарные кавычки на двойные
+            
+            console.log('Fixed attendees string:', attendeesRaw);
+            attendees = JSON.parse(attendeesRaw);
+            console.log('Successfully parsed attendees:', attendees);
+        } catch (e) {
+            console.error('Error parsing attendees JSON:', e);
+            console.log('Falling back to empty array');
+            attendees = [];
+        }
+        const meetLink = button.getAttribute('data-event-meet-link');
+        const creatorEmail = button.getAttribute('data-event-creator-email');
+        const creatorName = button.getAttribute('data-event-creator-name');
+        
+        // Отладочная информация
+        console.log('Event data:', {
+            title, attendees, meetLink, creatorEmail, creatorName, description, start, end
+        });
+        
+        // Вычисляем длительность встречи
+        let durationHtml = '';
+        if (start && end && allDay !== 'True') {
+            try {
+                // Парсим время в формате "08.09.2025 13:00" и "13:45"
+                let startTime, endTime;
+                
+                // Парсим время начала (полная дата)
+                const startMatch = start.match(/(\d{2})\.(\d{2})\.(\d{4}) (\d{2}):(\d{2})/);
+                if (startMatch) {
+                    startTime = new Date(`${startMatch[3]}-${startMatch[2]}-${startMatch[1]}T${startMatch[4]}:${startMatch[5]}:00`);
+                }
+                
+                // Парсим время окончания (только время)
+                const endMatch = end.match(/(\d{2}):(\d{2})/);
+                if (endMatch && startMatch) {
+                    endTime = new Date(`${startMatch[3]}-${startMatch[2]}-${startMatch[1]}T${endMatch[1]}:${endMatch[2]}:00`);
+                }
+                
+                console.log('Duration calculation:', { 
+                    start, end, 
+                    startTime, endTime, 
+                    startMatch, endMatch 
+                });
+                
+                if (startTime && endTime && !isNaN(startTime.getTime()) && !isNaN(endTime.getTime())) {
+                    const durationMs = endTime - startTime;
+                    const durationMinutes = Math.round(durationMs / (1000 * 60));
+                    
+                    console.log('Duration calculation result:', { durationMs, durationMinutes });
+                    
+                    if (durationMinutes > 0) {
+                        if (durationMinutes < 60) {
+                            durationHtml = ` (${durationMinutes} мин)`;
+                        } else {
+                            const hours = Math.floor(durationMinutes / 60);
+                            const minutes = durationMinutes % 60;
+                            if (minutes === 0) {
+                                durationHtml = ` (${hours}ч)`;
+                            } else if (minutes === 30) {
+                                durationHtml = ` (${hours},5ч)`;
+                            } else {
+                                durationHtml = ` (${hours}ч ${minutes}мин)`;
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                console.log('Ошибка вычисления длительности:', e);
+            }
+        }
+        
+        // Формируем список участников
+        let attendeesHtml = '';
+        console.log('Creating attendees HTML for:', attendees);
+        if (attendees && Array.isArray(attendees) && attendees.length > 0) {
+            attendeesHtml = `
+                <div class="mb-3">
+                    <strong><i class="fas fa-users me-2"></i>Участники:</strong>
+                    <div class="mt-2">
+                        ${attendees.map(attendee => {
+                            const statusClass = attendee.response_status === 'accepted' ? 'success' : 
+                                              attendee.response_status === 'declined' ? 'danger' : 
+                                              attendee.response_status === 'tentative' ? 'warning' : 'secondary';
+                            const statusText = attendee.response_status === 'accepted' ? 'Принял' : 
+                                             attendee.response_status === 'declined' ? 'Отклонил' : 
+                                             attendee.response_status === 'tentative' ? 'Возможно' : 'Не ответил';
+                            return `
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <div>
+                                        <strong>${attendee.name || attendee.email}</strong>
+                                        ${attendee.organizer ? '<span class="badge bg-primary ms-2">Организатор</span>' : ''}
+                                    </div>
+                                    <span class="badge bg-${statusClass}">${statusText}</span>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        } else {
+            attendeesHtml = `
+                <div class="mb-3">
+                    <strong><i class="fas fa-users me-2"></i>Участники:</strong>
+                    <span class="text-muted ms-2">Нет участников</span>
+                </div>
+            `;
+        }
+        
+        // Формируем ссылку на Google Meet в одном ряду с заголовком
+        let meetLinkHtml = '';
+        if (meetLink && meetLink !== 'None' && meetLink !== 'null' && meetLink.trim() !== '') {
+            meetLinkHtml = `
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <strong><i class="fas fa-video me-2"></i>Google Meet:</strong>
+                        <a href="${meetLink}" target="_blank" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-external-link-alt me-1"></i>
+                            Присоединиться к встрече
+                        </a>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Формируем информацию о создателе
+        let creatorHtml = '';
+        if (creatorName && creatorName !== 'None' && creatorName !== 'null' && creatorName.trim() !== '') {
+            creatorHtml = `
+                <div class="mb-3">
+                    <strong><i class="fas fa-user me-2"></i>Создатель:</strong>
+                    <span class="ms-2">${creatorName}</span>
+                </div>
+            `;
+        } else if (creatorEmail && creatorEmail !== 'None' && creatorEmail !== 'null' && creatorEmail.trim() !== '') {
+            creatorHtml = `
+                <div class="mb-3">
+                    <strong><i class="fas fa-user me-2"></i>Создатель:</strong>
+                    <span class="ms-2">${creatorEmail}</span>
+                </div>
+            `;
+        }
+        
+        // Обрабатываем описание - обрезаем длинные ссылки
+        let descriptionHtml = '';
+        if (description && description.trim() !== '') {
+            let processedDescription = description;
+            
+            // Проверяем, содержит ли описание уже HTML теги
+            if (description.includes('<a href=')) {
+                // Если уже есть HTML теги, обрабатываем их для обрезания длинных ссылок
+                processedDescription = description.replace(/<a href="([^"]+)"[^>]*>([^<]+)<\/a>/g, (match, url, text) => {
+                    // Обрезаем длинные URL в тексте ссылки
+                    const displayText = text.length > 50 ? text.substring(0, 47) + '...' : text;
+                    return `<a href="${url}" target="_blank" class="text-decoration-none" title="${url}">${displayText}</a>`;
+                });
+            } else {
+                // Если нет HTML тегов, ищем URL и создаем ссылки
+                const urlRegex = /(https?:\/\/[^\s]+)/g;
+                if (urlRegex.test(description)) {
+                    processedDescription = description.replace(urlRegex, (url) => {
+                        // Обрезаем длинные URL
+                        const displayUrl = url.length > 50 ? url.substring(0, 47) + '...' : url;
+                        return `<a href="${url}" target="_blank" class="text-decoration-none" title="${url}">${displayUrl}</a>`;
+                    });
+                }
+            }
+            
+            descriptionHtml = `
+                <div class="mb-3">
+                    <strong><i class="fas fa-align-left me-2"></i>Описание:</strong>
+                    <div class="mt-2 p-2 bg-light rounded text-break">${processedDescription}</div>
+                </div>
+            `;
+        }
+        
+        // Простая версия для тестирования
+        const modalHtml = `
+            <div class="row">
+                <div class="col-12">
+                    <div class="mb-3">
+                        <strong><i class="fas fa-clock me-2"></i>Время:</strong>
+                        <span class="ms-2">${start || 'Не указано'} - ${end || 'Не указано'}${durationHtml || ''}</span>
+                        ${allDay === 'True' ? '<span class="badge bg-info ms-2">Весь день</span>' : ''}
+                    </div>
+                    ${location ? `
+                    <div class="mb-3">
+                        <strong><i class="fas fa-map-marker-alt me-2"></i>Место:</strong>
+                        <span class="ms-2">${location}</span>
+                    </div>
+                    ` : ''}
+                    <div class="mb-3">
+                        <strong><i class="fas fa-info-circle me-2"></i>Статус:</strong>
+                        <span class="badge bg-${status === 'confirmed' ? 'success' : 'warning'} ms-2">${status || 'Не указано'}</span>
+                    </div>
+                    ${creatorHtml || ''}
+                    ${attendeesHtml || ''}
+                    ${meetLinkHtml || ''}
+                    ${descriptionHtml || ''}
+                </div>
+            </div>
+        `;
+        
+        console.log('Setting modal HTML...');
+        
+        if (eventDetails) {
+            eventDetails.innerHTML = modalHtml;
+            console.log('HTML set successfully');
+        } else {
+            console.error('EventDetails element not found!');
+        }
+    });
+});
+</script>
+
+{% load static %}
+<link href="{% static 'css/google-oauth.css' %}" rel="stylesheet">
+{% endblock %}

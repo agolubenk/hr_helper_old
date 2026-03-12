@@ -1,0 +1,128 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Google Sheets - HR Helper{% endblock %}
+{% block page_title %}Google Sheets{% endblock %}
+
+{% block google_oauth_breadcrumb %}
+    <li class="breadcrumb-item"><a href="{% url 'accounts:profile' %}">Профиль</a></li>
+    <li class="breadcrumb-item active">Sheets</li>
+{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="row">
+    <div class="col-12">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="fas fa-table me-2"></i>Google Таблицы</h2>
+            <div>
+                <button type="button" class="btn btn-success" onclick="syncSheets()">
+                    <i class="fas fa-sync me-2"></i>Синхронизировать
+                </button>
+                <a href="{% url 'google_oauth:dashboard' %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Назад
+                </a>
+            </div>
+        </div>
+
+        {% if sheets %}
+            <div class="row">
+                {% for sheet in sheets %}
+                <div class="col-md-6 col-lg-4 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-table me-2"></i>{{ sheet.title|truncatechars:30 }}
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-2">
+                                <small class="text-muted">
+                                    <i class="fas fa-calendar me-1"></i>
+                                    Создано: {{ sheet.created_time|date:"d.m.Y H:i" }}
+                                </small>
+                            </div>
+                            <div class="mb-2">
+                                <small class="text-muted">
+                                    <i class="fas fa-edit me-1"></i>
+                                    Изменено: {{ sheet.modified_time|date:"d.m.Y H:i" }}
+                                </small>
+                            </div>
+                            <div class="mb-2">
+                                <small class="text-muted">
+                                    <i class="fas fa-sync me-1"></i>
+                                    Синхронизировано: {{ sheet.synced_at|date:"d.m.Y H:i" }}
+                                </small>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            {% if sheet.web_view_link %}
+                                <a href="{{ sheet.web_view_link }}" target="_blank" class="btn btn-primary btn-sm">
+                                    <i class="fas fa-external-link-alt me-1"></i>Открыть
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="alert alert-info">
+                <h5><i class="fas fa-info-circle me-2"></i>Нет таблиц</h5>
+                <p class="mb-0">Google Таблицы не найдены. Нажмите "Синхронизировать" для загрузки данных из Google Sheets.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function syncSheets() {
+    const button = event.target;
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Синхронизация...';
+    button.disabled = true;
+    
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (!csrfToken) {
+        alert('Ошибка: CSRF токен не найден');
+        button.innerHTML = originalText;
+        button.disabled = false;
+        return;
+    }
+    
+    fetch('{% url "google_oauth:sync_sheets" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken.value,
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Ошибка: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Произошла ошибка при синхронизации Sheets');
+    })
+    .finally(() => {
+        button.innerHTML = originalText;
+        button.disabled = false;
+    });
+}
+</script>
+{% endblock %}

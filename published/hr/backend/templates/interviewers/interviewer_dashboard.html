@@ -1,0 +1,322 @@
+{% extends 'common/base.html' %}
+
+{% block title %}Дашборд интервьюеров - HR Helper{% endblock %}
+{% block page_title %}Дашборд интервьюеров{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Статистика -->
+    <div class="col-lg-3 col-md-6 mb-4">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ total_interviewers }}</h4>
+                        <p class="card-text">Всего интервьюеров</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-users fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-4">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ active_interviewers }}</h4>
+                        <p class="card-text">Активных</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-user-check fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-4">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ inactive_interviewers }}</h4>
+                        <p class="card-text">Неактивных</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-user-times fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-4">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ total_rules }}</h4>
+                        <p class="card-text">Правил привлечения</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-cogs fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Статистика по правилам -->
+<div class="row mb-4">
+    <div class="col-lg-4 col-md-6 mb-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ active_rules }}</h4>
+                        <p class="card-text">Активных правил</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-check-circle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4 col-md-6 mb-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ inactive_rules }}</h4>
+                        <p class="card-text">Неактивных правил</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-pause-circle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4 col-md-6 mb-3">
+        <div class="card {% if active_rule %}bg-primary{% else %}bg-secondary{% endif %} text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">{% if active_rule %}{{ active_rule.name }}{% else %}Нет активного правила{% endif %}</h6>
+                        <p class="card-text">Текущее активное правило</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-star fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Быстрые действия -->
+    <div class="col-lg-8 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-tachometer-alt me-2"></i>
+                    Быстрые действия
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <a href="{% url 'interviewers:interviewer_create' %}" class="btn btn-primary btn-lg w-100">
+                            <i class="fas fa-plus me-2"></i>
+                            Добавить интервьюера
+                        </a>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <a href="{% url 'interviewers:interviewer_list' %}" class="btn btn-outline-primary btn-lg w-100">
+                            <i class="fas fa-list me-2"></i>
+                            Список интервьюеров
+                        </a>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <a href="{% url 'interviewers:rule_create' %}" class="btn btn-success btn-lg w-100">
+                            <i class="fas fa-cog me-2"></i>
+                            Создать правило
+                        </a>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <a href="{% url 'interviewers:rule_list' %}" class="btn btn-outline-success btn-lg w-100">
+                            <i class="fas fa-list-alt me-2"></i>
+                            Список правил
+                        </a>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <button class="btn btn-info btn-lg w-100 auto-fill-all-calendars">
+                            <i class="fas fa-magic me-2"></i>
+                            Автозаполнить календари
+                        </button>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <a href="{% url 'interviewers:interviewer_list' %}" class="btn btn-outline-secondary btn-lg w-100">
+                            <i class="fas fa-cog me-2"></i>
+                            Управление
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Последние добавленные -->
+    <div class="col-lg-4 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-clock me-2"></i>
+                    Последние интервьюеры
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if recent_interviewers %}
+                    {% for interviewer in recent_interviewers %}
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="flex-shrink-0">
+                                <div class="avatar-sm bg-primary text-white rounded-circle d-flex align-items-center justify-content-center">
+                                    {{ interviewer.first_name|first }}{{ interviewer.last_name|first }}
+                                </div>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <h6 class="mb-1">
+                                    <a href="{% url 'interviewers:interviewer_detail' interviewer.pk %}" class="text-decoration-none">
+                                        {{ interviewer.get_full_name }}
+                                    </a>
+                                </h6>
+                                <small class="text-muted">{{ interviewer.email }}</small>
+                            </div>
+                            <div class="flex-shrink-0">
+                                {% if interviewer.is_active %}
+                                    <span class="badge bg-success">Активен</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Неактивен</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted text-center">Нет интервьюеров</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Последние правила -->
+<div class="row">
+    <div class="col-lg-12 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-cogs me-2"></i>
+                    Последние правила привлечения
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if recent_rules %}
+                    <div class="row">
+                        {% for rule in recent_rules %}
+                            <div class="col-md-6 col-lg-4 mb-3">
+                                <div class="card h-100">
+                                    <div class="card-body">
+                                        <h6 class="card-title">
+                                            <a href="{% url 'interviewers:rule_detail' rule.pk %}" class="text-decoration-none">
+                                                {{ rule.name }}
+                                            </a>
+                                        </h6>
+                                        <p class="card-text">
+                                            <small class="text-muted">
+                                                <i class="fas fa-layer-group me-1"></i>
+                                                {{ rule.get_grade_range }}
+                                            </small>
+                                        </p>
+                                        <p class="card-text">
+                                            <small class="text-muted">
+                                                <i class="fas fa-calendar-day me-1"></i>
+                                                {{ rule.daily_limit }}/день, {{ rule.weekly_limit }}/неделю
+                                            </small>
+                                        </p>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            {% if rule.is_active %}
+                                                <span class="badge bg-success">
+                                                    <i class="fas fa-star me-1"></i>Активно
+                                                </span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Неактивно</span>
+                                            {% endif %}
+                                            <small class="text-muted">{{ rule.created_at|date:"d.m.Y" }}</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted text-center">Нет правил привлечения</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Скрытый CSRF токен для AJAX запросов -->
+{% csrf_token %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Автозаполнение всех календарей
+    document.querySelectorAll('.auto-fill-all-calendars').forEach(button => {
+        button.addEventListener('click', function() {
+            if (confirm('Автозаполнить календари для всех интервьюеров?')) {
+                // Показываем индикатор загрузки
+                const originalText = this.innerHTML;
+                this.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Обработка...';
+                this.disabled = true;
+                
+                fetch('/interviewers/auto-fill-all-calendars/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message);
+                        location.reload();
+                    } else {
+                        alert('Ошибка: ' + data.error);
+                        // Восстанавливаем кнопку
+                        this.innerHTML = originalText;
+                        this.disabled = false;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Ошибка при автозаполнении календарей');
+                    // Восстанавливаем кнопку
+                    this.innerHTML = originalText;
+                    this.disabled = false;
+                });
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

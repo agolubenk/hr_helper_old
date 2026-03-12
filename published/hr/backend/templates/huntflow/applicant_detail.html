@@ -1,0 +1,641 @@
+{% extends 'common/base.html' %}
+{% load huntflow_filters %}
+
+{% block title %}Кандидат: {{ applicant.first_name|default:"" }} {{ applicant.last_name|default:"" }}{% endblock %}
+{% block page_title %}Кандидат: {{ applicant.first_name|default:"" }} {{ applicant.last_name|default:"" }}{% endblock %}
+
+
+{% block content %}
+<div class="row">
+    <!-- Основная информация -->
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-user me-2"></i>
+                    Основная информация
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-12">
+                        <!-- Первая строка: Вакансия | Статус -->
+                        <div class="row mb-3">
+                            <div class="col-4">
+                                {% if applicant.vacancy_info %}
+                                <strong>Вакансия:</strong> 
+                                <span class="badge bg-primary">{{ applicant.vacancy_info.position }}</span>
+                                {% endif %}
+                            </div>
+                            <div class="col-8">
+                                {% if applicant.status_info %}
+                                <strong>Статус:</strong> 
+                                <span class="badge bg-info">{{ applicant.status_info.name }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Вторая строка: ID | ФИО -->
+                        <div class="row mb-3">
+                            <div class="col-4">
+                                <strong>ID:</strong> {{ applicant.id }}
+                            </div>
+                            <div class="col-8">
+                                <strong>ФИО:</strong> 
+                                {% if applicant.first_name or applicant.last_name %}
+                                    {{ applicant.first_name|default:"" }} {{ applicant.last_name|default:"" }}{% if applicant.middle_name %} {{ applicant.middle_name }}{% endif %}
+                                {% else %}
+                                    Не указано
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Третья строка: Зарплатные ожидания (текстом) -->
+                        {% if applicant.money %}
+                        <div class="mb-3">
+                            <strong>Зарплатные ожидания:</strong> 
+                            <span data-money="{{ applicant.money }}">{{ applicant.money }}</span>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Четвертая строка: Метки -->
+                        {% if applicant.enriched_tags %}
+                        <div class="mb-3">
+                            <strong>Метки:</strong> 
+                            {% for tag in applicant.enriched_tags %}
+                                {% if tag.color %}
+                                    <span class="badge m-1" style="background-color: #{{ tag.color }} !important; color: {{ tag.color|get_contrast_color }} !important;">{{ tag.name|default:tag }}</span>
+                                {% else %}
+                                    <span class="badge bg-secondary mt-1 mb-1 ms-0  me-0">{{ tag.name|default:tag }}</span>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-12">
+                        <!-- Дополнительная информация -->
+                        {% if applicant.updated %}
+                        <p><strong>Обновлен:</strong> {{ applicant.updated|date:"d.m.Y H:i" }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                
+            </div>
+        </div>
+        
+        <!-- Анкета кандидата -->
+        {% if questionary and questionary|length > 0 %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-clipboard-list me-2"></i>
+                    Анкета кандидата
+                    <span class="badge bg-primary ms-2">{{ questionary|length }} полей</span>
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for field_key, field_data in questionary.items %}
+                    <div class="col-12 mb-3">
+                        <div class="questionary-field d-flex align-items-start border-bottom pb-2">
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center mb-1">
+                                    <strong class="questionary-title me-2">{{ field_data.title }}</strong>
+                                    <span class="badge bg-secondary questionary-badge me-2">{{ field_key }}</span>
+                                    {% if field_data.required %}
+                                        <span class="badge bg-danger">Обязательное</span>
+                                    {% endif %}
+                                </div>
+                                <div class="ms-0">
+                                    {% if field_data.value %}
+                                        <span class="questionary-value">{{ field_data.value }}</span>
+                                    {% else %}
+                                        <span class="questionary-empty">Не указано</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- Боковая панель -->
+    <div class="col-md-4">
+
+        
+        <!-- Быстрые действия -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-bolt me-2"></i>
+                    Быстрые действия
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{% url 'huntflow:applicant_edit' account_id applicant.id %}" class="btn btn-outline-warning">
+                        <i class="fas fa-edit me-1"></i>
+                        Редактировать кандидата
+                    </a>
+                    {% if huntflow_link %}
+                    <button class="btn btn-outline-primary" onclick="copyHuntflowLink()" title="Скопировать ссылку на кандидата в Huntflow">
+                        <i class="fas fa-link me-1"></i>
+                        Скопировать ссылку Huntflow
+                    </button>
+                    {% endif %}
+                    <button class="btn btn-outline-secondary" onclick="copyApplicantInfo()">
+                        <i class="fas fa-copy me-1"></i>
+                        Скопировать информацию
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Контакты -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-address-book me-2"></i>
+                    Контакты
+                </h6>
+            </div>
+            <div class="card-body">
+                {% if applicant.email %}
+                <div class="d-grid mb-2">
+                    <a href="mailto:{{ applicant.email }}" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-envelope me-1"></i>
+                        Написать email
+                    </a>
+                </div>
+                {% endif %}
+                
+                {% if applicant.phone %}
+                <div class="d-grid mb-2">
+                    <a href="tel:{{ applicant.phone }}" class="btn btn-outline-success btn-sm">
+                        <i class="fas fa-phone me-1"></i>
+                        Позвонить
+                    </a>
+                </div>
+                {% endif %}
+                
+                {% if applicant.social %}
+                    {% for social in applicant.social %}
+                        {% if social.social_type == 'TELEGRAM' %}
+                        <div class="d-grid mb-2">
+                            <a href="https://t.me/{{ social.value }}" target="_blank" class="btn btn-outline-info btn-sm">
+                                <i class="fab fa-telegram me-1"></i>
+                                Написать в Telegram
+                            </a>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Комментарии -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-comments me-2"></i>
+                    Комментарии
+                    {% if comments_count > 0 %}
+                        <span class="badge bg-primary ms-2">{{ comments_count }} комментариев</span>
+                    {% endif %}
+                </h6>
+            </div>
+            <div class="card-body">
+                <!-- Форма для добавления комментария -->
+                <div class="add-comment-section mb-4">
+                    <form id="add-comment-form" class="comment-form">
+                        {% csrf_token %}
+                        <div class="form-group">
+                            <label for="new-comment" class="form-label">
+                                <i class="fas fa-plus-circle me-1"></i>
+                                Добавить комментарий
+                            </label>
+                            <div class="comment-input-wrapper">
+                                <textarea 
+                                    id="new-comment" 
+                                    name="comment" 
+                                    class="form-control comment-textarea" 
+                                    rows="1" 
+                                    placeholder="Введите ваш комментарий..."
+                                ></textarea>
+                                <div class="comment-actions mt-2" style="display: none;">
+                                    <button type="submit" class="btn btn-primary btn-sm">
+                                        <i class="fas fa-paper-plane me-1"></i>
+                                        Отправить
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm ms-2" id="cancel-comment">
+                                        <i class="fas fa-times me-1"></i>
+                                        Отмена
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                
+                <hr class="my-3">
+                {% if applicant_logs %}
+                    {% for log in applicant_logs %}
+                        {% if log.comment %}
+                        <div class="comment-item">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                {% if log.status %}
+                                    <h6 class="comment-title text-primary mb-0">
+                                        <span class="badge bg-info comment-status-badge">{{ log.status.name }}</span>
+                                    </h6>
+                                {% elif log.type == 'COMMENT' %}
+                                    <h6 class="comment-title text-primary mb-0">
+                                        <span class="badge bg-secondary">Комментарий</span>
+                                    </h6>
+                                {% else %}
+                                    <h6 class="comment-title text-primary mb-0">
+                                        <span class="badge bg-light text-dark">{{ log.type_display|default:log.type }}</span>
+                                    </h6>
+                                {% endif %}
+                                <div class="text-end">
+                                    {% if log.created %}
+                                        <div class="text-muted">
+                                            <span class="date-time" data-iso="{{ log.created }}">{{ log.created }}</span>
+                                            <i class="fas fa-clock text-muted ms-1"></i>
+                                        </div>
+                                    {% else %}
+                                        <div class="text-muted">
+                                            <span class="text-danger">Дата не найдена</span>
+                                            <i class="fas fa-clock text-muted ms-1"></i>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="comment-bubble-wrapper">
+                                <div class="comment-bubble">
+                                    <div class="comment-content">
+                                        {{ log.comment|linebreaks|safe }}
+                                    </div>
+                                    <div class="comment-bubble-arrow"></div>
+                                </div>
+                                {% if log.author %}
+                                    <div class="comment-author-wrapper">
+                                        <span class="badge bg-secondary comment-author-badge">
+                                            <i class="fas fa-user me-1"></i>
+                                            {{ log.author }}
+                                        </span>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            
+                            {% if log.files %}
+                                <div class="comment-vacancy-info">
+                                    <i class="fas fa-paperclip me-1"></i>
+                                    Файлы: {{ log.files|length }} шт.
+                                </div>
+                            {% endif %}
+                            
+                            {% if log.email %}
+                                <div class="comment-vacancy-info">
+                                    <i class="fas fa-envelope me-1"></i>
+                                    Email: {{ log.email.subject|default:"Без темы" }}
+                                </div>
+                            {% endif %}
+                            
+                            {% if log.im %}
+                                <div class="comment-vacancy-info">
+                                    <i class="fab fa-telegram me-1"></i>
+                                    IM: {{ log.im.body|default:"НЕТ" }}
+                                </div>
+                            {% endif %}
+                            
+                            {% if log.sms %}
+                                <div class="comment-vacancy-info">
+                                    <i class="fas fa-sms me-1"></i>
+                                    SMS: {{ log.sms.body|default:"НЕТ" }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        {% if not forloop.last %}
+                            <hr class="comment-divider">
+                        {% endif %}
+                        {% endif %}
+                    {% endfor %}
+                {% endif %}
+                
+                {% if applicant.status_info and applicant.status_info.description %}
+                    <div class="comment-section">
+                        <h6 class="comment-title text-info">Описание статуса:</h6>
+                        <div class="comment-content">
+                            {{ applicant.status_info.description }}
+                        </div>
+                    </div>
+                {% endif %}
+                
+                {% if not comments_count and not applicant.status_info.description %}
+                    <div class="no-comments">
+                        <i class="fas fa-comment-slash fa-2x mb-2"></i>
+                        <p class="mb-0">Комментарии отсутствуют</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- Стили уже подключены в base.html -->
+
+<script>
+// Функция для копирования ссылки на кандидата в Huntflow
+function copyHuntflowLink() {
+    {% if huntflow_link %}
+    const link = '{{ huntflow_link }}';
+    
+    navigator.clipboard.writeText(link).then(function() {
+        showAlert('success', 'Ссылка на кандидата в Huntflow скопирована в буфер обмена');
+    }, function() {
+        // Fallback для старых браузеров
+        const textArea = document.createElement('textarea');
+        textArea.value = link;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            showAlert('success', 'Ссылка на кандидата в Huntflow скопирована в буфер обмена');
+        } catch (err) {
+            showAlert('danger', 'Не удалось скопировать ссылку');
+        }
+        document.body.removeChild(textArea);
+    });
+    {% else %}
+    showAlert('warning', 'Ссылка на кандидата недоступна. Убедитесь, что кандидат привязан к вакансии.');
+    {% endif %}
+}
+
+function copyApplicantInfo() {
+    let info = `Кандидат: ${document.title}\nID: {{ applicant.id }}\nФИО: {{ applicant.first_name|default:"" }} {{ applicant.last_name|default:"" }}{% if applicant.middle_name %} {{ applicant.middle_name }}{% endif %}`;
+    
+    // Добавляем контакты из карточки контактов
+    const emailElement = document.querySelector('[data-email]');
+    const phoneElement = document.querySelector('[data-phone]');
+    const telegramElement = document.querySelector('[data-telegram]');
+    
+    if (emailElement) {
+        info += `\nEmail: ${emailElement.textContent}`;
+    }
+    if (phoneElement) {
+        info += `\nТелефон: ${phoneElement.textContent}`;
+    }
+    if (telegramElement) {
+        info += `\nTelegram: ${telegramElement.textContent}`;
+    }
+    
+    // Добавляем статус и вакансию из DOM
+    const statusElement = document.querySelector('.badge.bg-info');
+    if (statusElement) {
+        info += `\nСтатус: ${statusElement.textContent}`;
+    }
+    
+    const vacancyElement = document.querySelector('.badge.bg-primary');
+    if (vacancyElement) {
+        info += `\nВакансия: ${vacancyElement.textContent}`;
+    }
+
+    // Добавляем зарплатные ожидания из DOM
+    const moneyElement = document.querySelector('[data-money]');
+    if (moneyElement) {
+        info += `\nЗарплатные ожидания: ${moneyElement.textContent}`;
+    }
+    
+    navigator.clipboard.writeText(info).then(function() {
+        showAlert('success', 'Информация скопирована в буфер обмена');
+    }, function() {
+        showAlert('danger', 'Не удалось скопировать информацию');
+    });
+}
+
+
+function showAlert(type, message) {
+    const alertHtml = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    
+    $('.messages').append(alertHtml);
+    
+    setTimeout(() => {
+        $('.alert').fadeOut();
+    }, 3000);
+}
+
+// Функция для форматирования ISO даты в красивый формат
+function formatISODate(isoString) {
+    if (!isoString) return '';
+    
+    try {
+        // Убираем часовой пояс если есть
+        const cleanISO = isoString.replace(/[+-]\d{2}:\d{2}$/, '');
+        
+        // Парсим дату
+        const date = new Date(cleanISO);
+        
+        // Проверяем, что дата валидна
+        if (isNaN(date.getTime())) {
+            return isoString;
+        }
+        
+        // Форматируем в dd.mm.yy hh:mm
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = String(date.getFullYear()).slice(-2);
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        
+        return `${day}.${month}.${year} ${hours}:${minutes}`;
+    } catch (error) {
+        return isoString;
+    }
+}
+
+// Применяем форматирование ко всем датам при загрузке страницы
+document.addEventListener('DOMContentLoaded', function() {
+    const dateElements = document.querySelectorAll('.date-time');
+    dateElements.forEach(function(element) {
+        const isoDate = element.getAttribute('data-iso');
+        if (isoDate) {
+            element.textContent = formatISODate(isoDate);
+        }
+    });
+    
+    // Применяем контрастные цвета к меткам
+    const tagBadges = document.querySelectorAll('.badge[style*="background-color"]');
+    tagBadges.forEach(function(badge) {
+        const bgColor = badge.style.backgroundColor;
+        if (bgColor && bgColor !== 'rgb(108, 117, 125)') { // Не обрабатываем серые метки
+            // Извлекаем hex цвет из rgb() строки
+            const rgbMatch = bgColor.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+            if (rgbMatch) {
+                const r = parseInt(rgbMatch[1]);
+                const g = parseInt(rgbMatch[2]);
+                const b = parseInt(rgbMatch[3]);
+                const hexColor = '#' + 
+                    r.toString(16).padStart(2, '0') + 
+                    g.toString(16).padStart(2, '0') + 
+                    b.toString(16).padStart(2, '0');
+                
+                const contrastColor = getContrastColor(hexColor);
+                badge.style.color = contrastColor + ' !important';
+            }
+        }
+    });
+});
+
+// Функция для конвертации hex в RGB
+function hexToRgb(hex) {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+    } : null;
+}
+
+// Функция для вычисления контрастности цвета
+function getContrastColor(hexColor) {
+    if (!hexColor) {
+        return '#000000';
+    }
+    
+    // Убираем # если есть
+    hexColor = hexColor.replace('#', '');
+    
+    // Проверяем, что это валидный hex цвет
+    if (hexColor.length !== 6) {
+        return '#000000';
+    }
+    
+    try {
+        // Конвертируем hex в RGB
+        const r = parseInt(hexColor.substr(0, 2), 16);
+        const g = parseInt(hexColor.substr(2, 2), 16);
+        const b = parseInt(hexColor.substr(4, 2), 16);
+        
+        // Вычисляем яркость по формуле W3C
+        // Используем веса для учета восприятия яркости человеческим глазом
+        const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+        
+        // Возвращаем черный для светлых цветов, белый для темных
+        return brightness > 128 ? '#000000' : '#ffffff';
+    } catch (error) {
+        // Если не удалось распарсить, возвращаем черный по умолчанию
+        return '#000000';
+    }
+}
+
+// Обработка формы комментария
+document.addEventListener('DOMContentLoaded', function() {
+    const commentForm = document.getElementById('add-comment-form');
+    const commentTextarea = document.getElementById('new-comment');
+    const commentActions = document.querySelector('.comment-actions');
+    const cancelButton = document.getElementById('cancel-comment');
+    
+    if (commentForm && commentTextarea && commentActions) {
+        // Обработка фокуса на textarea
+        commentTextarea.addEventListener('focus', function() {
+            this.classList.add('expanded');
+            commentActions.style.display = 'block';
+        });
+        
+        // Обработка потери фокуса
+        commentTextarea.addEventListener('blur', function() {
+            if (!this.value.trim()) {
+                this.classList.remove('expanded');
+                commentActions.style.display = 'none';
+            }
+        });
+        
+        // Обработка клика вне формы
+        document.addEventListener('click', function(e) {
+            if (!commentForm.contains(e.target) && !commentTextarea.value.trim()) {
+                commentTextarea.classList.remove('expanded');
+                commentActions.style.display = 'none';
+            }
+        });
+        
+        // Обработка кнопки отмены
+        cancelButton.addEventListener('click', function() {
+            commentTextarea.value = '';
+            commentTextarea.classList.remove('expanded');
+            commentActions.style.display = 'none';
+            commentTextarea.blur();
+        });
+        
+        // Обработка отправки формы
+        commentForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const commentText = commentTextarea.value.trim();
+            if (!commentText) {
+                showAlert('warning', 'Введите текст комментария');
+                return;
+            }
+            
+            // Показываем индикатор загрузки
+            const submitButton = commentForm.querySelector('button[type="submit"]');
+            const originalText = submitButton.innerHTML;
+            submitButton.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Отправка...';
+            submitButton.disabled = true;
+            
+            // Отправляем AJAX запрос
+            fetch(`{% url 'huntflow:create_comment_ajax' account_id applicant.id %}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: `comment=${encodeURIComponent(commentText)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert('success', data.message);
+                    // Очищаем форму
+                    commentTextarea.value = '';
+                    commentTextarea.classList.remove('expanded');
+                    commentActions.style.display = 'none';
+                    // Перезагружаем страницу для обновления комментариев
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    showAlert('error', data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Ошибка:', error);
+                showAlert('error', 'Произошла ошибка при отправке комментария');
+            })
+            .finally(() => {
+                // Восстанавливаем кнопку
+                submitButton.innerHTML = originalText;
+                submitButton.disabled = false;
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

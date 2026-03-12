@@ -1,0 +1,483 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}{% if object %}Редактирование{% else %}Создание{% endif %} заявки - HR Helper{% endblock %}
+{% block page_title %}{% if object %}Редактирование заявки{% else %}Создание заявки{% endif %}{% endblock %}
+
+{% block content %}
+<style>
+/* Стили для формы редактирования заявки */
+.card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.card-header h6 {
+    color: #495057;
+    font-weight: 600;
+}
+
+/* Темная тема для формы */
+[data-bs-theme="dark"] .card-header {
+    background-color: #495057;
+    border-bottom-color: #6c757d;
+}
+
+[data-bs-theme="dark"] .card-header h6 {
+    color: #ffffff;
+}
+
+[data-bs-theme="dark"] .card {
+    background-color: #343a40;
+    border-color: #495057;
+}
+
+[data-bs-theme="dark"] .card-body {
+    background-color: #343a40;
+    color: #ffffff;
+}
+
+[data-bs-theme="dark"] .form-control {
+    background-color: #495057;
+    border-color: #6c757d;
+    color: #ffffff;
+}
+
+[data-bs-theme="dark"] .form-control:focus {
+    background-color: #495057;
+    border-color: #66b3ff;
+    color: #ffffff;
+    box-shadow: 0 0 0 0.2rem rgba(102, 179, 255, 0.25);
+}
+
+[data-bs-theme="dark"] .form-control-plaintext {
+    color: #ffffff;
+}
+
+[data-bs-theme="dark"] .form-label {
+    color: #ffffff;
+}
+
+[data-bs-theme="dark"] .form-text {
+    color: #adb5bd;
+}
+
+[data-bs-theme="dark"] .text-muted {
+    color: #adb5bd !important;
+}
+
+[data-bs-theme="dark"] .badge {
+    color: #ffffff;
+}
+
+[data-bs-theme="dark"] .badge.bg-info {
+    background-color: #0dcaf0 !important;
+    color: #000000 !important;
+}
+
+[data-bs-theme="dark"] .badge.bg-warning {
+    background-color: #ffc107 !important;
+    color: #000000 !important;
+}
+
+[data-bs-theme="dark"] .badge.bg-success {
+    background-color: #198754 !important;
+    color: #ffffff !important;
+}
+
+[data-bs-theme="dark"] .badge.bg-secondary {
+    background-color: #6c757d !important;
+    color: #ffffff !important;
+}
+
+/* Стили для заметок */
+.notes-card {
+    background-color: #ffffff;
+    border: 1px solid #dee2e6;
+}
+
+[data-bs-theme="dark"] .notes-card {
+    background-color: #343a40;
+    border-color: #495057;
+}
+
+.notes-card .card-header {
+    background-color: #e3f2fd;
+    border-bottom-color: #bbdefb;
+}
+
+[data-bs-theme="dark"] .notes-card .card-header {
+    background-color: #1e3a8a;
+    border-bottom-color: #3b82f6;
+}
+
+.notes-card .card-header h6 {
+    color: #1565c0;
+}
+
+[data-bs-theme="dark"] .notes-card .card-header h6 {
+    color: #93c5fd;
+}
+</style>
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-{% if object %}edit{% else %}plus{% endif %} me-2"></i>
+                        {% if object %}Редактирование заявки{% else %}Создание заявки{% endif %}
+                    </h5>
+                    <div class="btn-group" role="group">
+                        {% if object %}
+                            <a href="{% url 'hiring_plan:hiring_request_detail' object.pk %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Назад
+                            </a>
+                        {% else %}
+                            <a href="{% url 'hiring_plan:hiring_requests_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Назад
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <!-- Основная информация -->
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="card-title mb-0">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        Основная информация
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    {% if not object %}
+                                    <!-- Поля для создания заявки -->
+                                    <div class="mb-3">
+                                        <label for="{{ form.vacancy.id_for_label }}" class="form-label">Вакансия <span class="text-danger">*</span></label>
+                                        {{ form.vacancy }}
+                                        {% if form.vacancy.errors %}
+                                            <div class="text-danger">{{ form.vacancy.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="{{ form.grade.id_for_label }}" class="form-label">Грейд <span class="text-danger">*</span></label>
+                                        {{ form.grade }}
+                                        {% if form.grade.errors %}
+                                            <div class="text-danger">{{ form.grade.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="{{ form.project.id_for_label }}" class="form-label">Проект</label>
+                                        {{ form.project }}
+                                        {% if form.project.errors %}
+                                            <div class="text-danger">{{ form.project.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="{{ form.priority.id_for_label }}" class="form-label">Приоритет <span class="text-danger">*</span></label>
+                                        {{ form.priority }}
+                                        {% if form.priority.errors %}
+                                            <div class="text-danger">{{ form.priority.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="{{ form.opening_reason.id_for_label }}" class="form-label">Причина открытия <span class="text-danger">*</span></label>
+                                        {{ form.opening_reason }}
+                                        {% if form.opening_reason.errors %}
+                                            <div class="text-danger">{{ form.opening_reason.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="{{ form.clickup_task_id.id_for_label }}" class="form-label">{{ form.clickup_task_id.label }}</label>
+                                        {{ form.clickup_task_id }}
+                                        {% if form.clickup_task_id.errors %}
+                                            <div class="text-danger">{{ form.clickup_task_id.errors.0 }}</div>
+                                        {% endif %}
+                                        {% if form.clickup_task_id.help_text %}
+                                            <div class="form-text">{{ form.clickup_task_id.help_text }}</div>
+                                        {% endif %}
+                                    </div>
+                                    {% else %}
+                                    <!-- Информация для редактирования заявки -->
+                                    <div class="mb-3">
+                                        <label class="form-label">Вакансия</label>
+                                        <div class="form-control-plaintext">
+                                            <strong>{{ object.vacancy.name }}</strong>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="{{ form.grade.id_for_label }}" class="form-label">{{ form.grade.label }}</label>
+                                        {{ form.grade }}
+                                        {% if form.grade.errors %}
+                                            <div class="text-danger">{{ form.grade.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="{{ form.project.id_for_label }}" class="form-label">{{ form.project.label }}</label>
+                                        {{ form.project }}
+                                        {% if form.project.errors %}
+                                            <div class="text-danger">{{ form.project.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label class="form-label">Приоритет</label>
+                                                <div class="form-control-plaintext">
+                                                    <span class="badge bg-{% if object.priority == 1 %}danger{% elif object.priority == 2 %}warning{% elif object.priority == 3 %}info{% else %}secondary{% endif %}">
+                                                        {{ object.get_priority_display }}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label class="form-label">Статус</label>
+                                                <div class="form-control-plaintext">
+                                                    <span class="badge bg-{% if object.status == 'planned' %}info{% elif object.status == 'in_progress' %}warning{% elif object.status == 'closed' %}success{% else %}secondary{% endif %}">
+                                                        {{ object.get_status_display }}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label class="form-label">Причина открытия</label>
+                                                <div class="form-control-plaintext">
+                                                    {{ object.get_opening_reason_display }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="{{ form.clickup_task_id.id_for_label }}" class="form-label">{{ form.clickup_task_id.label }}</label>
+                                        {{ form.clickup_task_id }}
+                                        {% if form.clickup_task_id.errors %}
+                                            <div class="text-danger">{{ form.clickup_task_id.errors.0 }}</div>
+                                        {% endif %}
+                                        {% if form.clickup_task_id.help_text %}
+                                            <div class="form-text">{{ form.clickup_task_id.help_text }}</div>
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="card-title mb-0">
+                                        <i class="fas fa-calendar me-2"></i>
+                                        Даты
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    {% if not object %}
+                                    <div class="mb-3">
+                                        <label for="{{ form.opening_date.id_for_label }}" class="form-label">Дата открытия <span class="text-danger">*</span></label>
+                                        {{ form.opening_date }}
+                                        {% if form.opening_date.errors %}
+                                            <div class="text-danger">{{ form.opening_date.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                    {% else %}
+                                    {% if object.status == 'planned' %}
+                                    <div class="mb-3">
+                                        <label for="{{ form.opening_date.id_for_label }}" class="form-label">Дата открытия <span class="text-danger">*</span></label>
+                                        {{ form.opening_date }}
+                                        {% if form.opening_date.errors %}
+                                            <div class="text-danger">{{ form.opening_date.errors.0 }}</div>
+                                        {% endif %}
+                                        <div class="form-text">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            Изменение даты открытия может повлиять на статус заявки. Если дата в будущем - заявка остается планируемой, если сегодня или в прошлом - переходит в работу.
+                                        </div>
+                                    </div>
+                                    {% else %}
+                                    <div class="mb-3">
+                                        <label class="form-label">Дата открытия</label>
+                                        <div class="form-control-plaintext">
+                                            <strong>{{ object.opening_date|date:"d.m.Y" }}</strong>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                    {% endif %}
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">Дедлайн</label>
+                                        <div class="form-control-plaintext" id="calculated_deadline">
+                                            {% if object and object.deadline %}
+                                                <span class="text-success">
+                                                    <i class="fas fa-calendar-alt me-1"></i>
+                                                    {{ object.deadline|date:"d.m.Y" }}
+                                                </span>
+                                            {% else %}
+                                                <span class="text-muted">Будет рассчитан автоматически на основе SLA</span>
+                                            {% endif %}
+                                        </div>
+                                        <div class="form-text">Автоматически рассчитывается из SLA при выборе вакансии и грейда</div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="{{ form.recruiter.id_for_label }}" class="form-label">Рекрутер</label>
+                                        {{ form.recruiter }}
+                                        {% if form.recruiter.errors %}
+                                            <div class="text-danger">{{ form.recruiter.errors.0 }}</div>
+                                        {% endif %}
+                                        <div class="form-text">
+                                            <i class="fas fa-user me-1"></i>
+                                            Ответственный рекрутер за данную заявку
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Информация о кандидате (только для редактирования) -->
+                        {% if object %}
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="card-title mb-0">
+                                        <i class="fas fa-user me-2"></i>
+                                        Информация о кандидате
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label for="{{ form.candidate_id.id_for_label }}" class="form-label">ID кандидата</label>
+                                        {{ form.candidate_id }}
+                                        {% if form.candidate_id.errors %}
+                                            <div class="text-danger">{{ form.candidate_id.errors.0 }}</div>
+                                        {% endif %}
+                                        <div class="form-text">ID кандидата из внешней системы (Huntflow, ClickUp и т.д.)</div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="{{ form.candidate_name.id_for_label }}" class="form-label">Имя кандидата</label>
+                                        {{ form.candidate_name }}
+                                        {% if form.candidate_name.errors %}
+                                            <div class="text-danger">{{ form.candidate_name.errors.0 }}</div>
+                                        {% endif %}
+                                        <div class="form-text">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            Заполняется автоматически из Huntflow по ID кандидата
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="{{ form.closed_date.id_for_label }}" class="form-label">Дата закрытия</label>
+                                        {{ form.closed_date }}
+                                        {% if form.closed_date.errors %}
+                                            <div class="text-danger">{{ form.closed_date.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="{{ form.hire_date.id_for_label }}" class="form-label">Дата выхода специалиста</label>
+                                        {{ form.hire_date }}
+                                        {% if form.hire_date.errors %}
+                                            <div class="text-danger">{{ form.hire_date.errors.0 }}</div>
+                                        {% endif %}
+                                        <div class="form-text">
+                                            <i class="fas fa-calendar-alt me-1"></i>
+                                            Дата, когда специалист вышел на работу (для расчета time2hire)
+                                        </div>
+                                    </div>
+                                    
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Заметки -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <div class="card notes-card">
+                                <div class="card-header">
+                                    <h6 class="card-title mb-0">
+                                        <i class="fas fa-sticky-note me-2"></i>
+                                        Заметки
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label for="{{ form.notes.id_for_label }}" class="form-label">Заметки</label>
+                                        {{ form.notes }}
+                                        {% if form.notes.errors %}
+                                            <div class="text-danger">{{ form.notes.errors.0 }}</div>
+                                        {% endif %}
+                                        <div class="form-text">Дополнительная информация по заявке</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Кнопки -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <div class="d-flex justify-content-end">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-2"></i>
+                                    {% if object %}Сохранить изменения{% else %}Создать заявку{% endif %}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Автоматическое отображение дедлайна при выборе вакансии и грейда
+document.getElementById('id_vacancy').addEventListener('change', updateDeadline);
+document.getElementById('id_grade').addEventListener('change', updateDeadline);
+document.getElementById('id_opening_date').addEventListener('change', updateDeadline);
+
+function updateDeadline() {
+    const vacancyId = document.getElementById('id_vacancy').value;
+    const gradeId = document.getElementById('id_grade').value;
+    const openingDate = document.getElementById('id_opening_date').value;
+    const deadlineElement = document.getElementById('calculated_deadline');
+    
+    if (vacancyId && gradeId && openingDate) {
+        // Пока просто добавляем 30 дней к дате открытия (по умолчанию)
+        const date = new Date(openingDate);
+        date.setDate(date.getDate() + 30);
+        const deadlineDate = date.toISOString().split('T')[0];
+        
+        deadlineElement.innerHTML = `
+            <span class="text-success">
+                <i class="fas fa-calendar-alt me-1"></i>
+                ${deadlineDate} (30 дней по умолчанию)
+            </span>
+        `;
+    } else {
+        deadlineElement.innerHTML = '<span class="text-muted">Будет рассчитан автоматически на основе SLA</span>';
+    }
+}
+
+// Инициализация при загрузке страницы
+document.addEventListener('DOMContentLoaded', function() {
+    updateDeadline();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,269 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+
+{% block content %}
+{% csrf_token %}
+<div class="row">
+    <div class="col-12">
+        <div class="card clickup-card mb-4">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list me-2"></i>
+                        Задачи
+                    </h5>
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'clickup_int:bulk_import' %}" class="btn btn-warning">
+                            <i class="fas fa-download me-1"></i>
+                            Массовый импорт
+                        </a>
+                        <button class="btn clickup-btn" onclick="syncTasks()">
+                            <i class="fas fa-sync me-1"></i>
+                            Синхронизировать
+                        </button>
+                        <a href="{% url 'clickup_int:dashboard' %}" class="btn clickup-btn-outline">
+                            <i class="fas fa-arrow-left me-1"></i>
+                            Назад
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Фильтры и поиск -->
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <form method="get" class="d-flex">
+                            <input type="text" name="search" class="form-control me-2" 
+                                   placeholder="Поиск по названию..." 
+                                   value="{{ search_query }}">
+                            <button type="submit" class="btn clickup-btn-outline">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </form>
+                    </div>
+                    <div class="col-md-2">
+                        <select name="status" class="form-select" onchange="this.form.submit()">
+                            <option value="">Все статусы</option>
+                            {% for status in statuses %}
+                                <option value="{{ status }}" {% if status == status_filter %}selected{% endif %}>
+                                    {{ status }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <select name="priority" class="form-select" onchange="this.form.submit()">
+                            <option value="">Все приоритеты</option>
+                            {% for priority in priorities %}
+                                <option value="{{ priority }}" {% if priority == priority_filter %}selected{% endif %}>
+                                    {{ priority }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <select name="sort" class="form-select" onchange="this.form.submit()">
+                            <option value="-date_updated" {% if sort_by == '-date_updated' %}selected{% endif %}>
+                                По дате обновления
+                            </option>
+                            <option value="date_updated" {% if sort_by == 'date_updated' %}selected{% endif %}>
+                                По дате обновления (возр.)
+                            </option>
+                            <option value="name" {% if sort_by == 'name' %}selected{% endif %}>
+                                По названию
+                            </option>
+                            <option value="-name" {% if sort_by == '-name' %}selected{% endif %}>
+                                По названию (убыв.)
+                            </option>
+                            <option value="status" {% if sort_by == 'status' %}selected{% endif %}>
+                                По статусу
+                            </option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <a href="{% url 'clickup_int:tasks_list' %}" class="btn clickup-btn-outline w-100">
+                            <i class="fas fa-times me-1"></i>
+                            Сбросить
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- Список задач -->
+                {% if page_obj %}
+                    <div class="row">
+                        {% for task in page_obj %}
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card task-card h-100">
+                                <div class="card-body p-3">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <h6 class="card-title mb-0">
+                                            <a href="{% url 'clickup_int:task_detail' task.task_id %}" class="text-decoration-none">
+                                                {{ task.name|truncatechars:50 }}
+                                            </a>
+                                        </h6>
+                                        <span class="status-badge status-{{ task.status|lower|slugify }}">
+                                            {{ task.status }}
+                                        </span>
+                                    </div>
+                                    
+                                    {% if task.priority %}
+                                    <div class="mb-2">
+                                        <span class="priority-badge priority-{{ task.priority|lower|slugify }}">
+                                            {{ task.priority }}
+                                        </span>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    {% if task.description %}
+                                    <p class="card-text small text-muted mb-2">
+                                        {{ task.description|truncatechars:100 }}
+                                    </p>
+                                    {% endif %}
+                                    
+                                    <div class="text-muted small mb-2">
+                                        <i class="fas fa-calendar me-1"></i>
+                                        {{ task.date_updated|date:"d.m.Y H:i" }}
+                                        {% if task.due_date %}
+                                            <br><i class="fas fa-clock me-1"></i>
+                                            Срок: {{ task.due_date|date:"d.m.Y H:i" }}
+                                        {% endif %}
+                                    </div>
+                                    
+                                    {% if task.assignees %}
+                                    <div class="text-muted small mb-2">
+                                        <i class="fas fa-user me-1"></i>
+                                        {{ task.assignees|join:", " }}
+                                    </div>
+                                    {% endif %}
+                                    
+                                    {% if task.tags %}
+                                    <div class="mb-2">
+                                        {% for tag in task.tags %}
+                                            <span class="badge bg-secondary me-1">{{ tag }}</span>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                    
+                                    {% if task.attachments %}
+                                    <div class="mb-2">
+                                        <small class="text-muted">
+                                            <i class="fas fa-paperclip me-1"></i>
+                                            {{ task.attachments|length }} вложений
+                                        </small>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <a href="{{ task.url }}" target="_blank" class="btn btn-sm clickup-btn-outline">
+                                            <i class="fas fa-external-link-alt me-1"></i>
+                                            Открыть
+                                        </a>
+                                        <small class="text-muted">#{{ task.task_id }}</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <!-- Пагинация -->
+                    {% if page_obj.has_other_pages %}
+                    <nav aria-label="Пагинация задач">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if priority_filter %}&priority={{ priority_filter }}{% endif %}{% if sort_by %}&sort={{ sort_by }}{% endif %}">
+                                        <i class="fas fa-angle-double-left"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if priority_filter %}&priority={{ priority_filter }}{% endif %}{% if sort_by %}&sort={{ sort_by }}{% endif %}">
+                                        <i class="fas fa-angle-left"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+                            
+                            <li class="page-item active">
+                                <span class="page-link">
+                                    {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}
+                                </span>
+                            </li>
+                            
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if priority_filter %}&priority={{ priority_filter }}{% endif %}{% if sort_by %}&sort={{ sort_by }}{% endif %}">
+                                        <i class="fas fa-angle-right"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if priority_filter %}&priority={{ priority_filter }}{% endif %}{% if sort_by %}&sort={{ sort_by }}{% endif %}">
+                                        <i class="fas fa-angle-double-right"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-inbox text-muted mb-3" style="font-size: 3rem;"></i>
+                        <h5>Задачи не найдены</h5>
+                        <p class="text-muted">
+                            {% if search_query or status_filter or priority_filter %}
+                                Попробуйте изменить фильтры поиска
+                            {% else %}
+                                Выполните синхронизацию для загрузки задач
+                            {% endif %}
+                        </p>
+                        {% if not search_query and not status_filter and not priority_filter %}
+                            <button class="btn clickup-btn" onclick="syncTasks()">
+                                <i class="fas fa-sync me-1"></i>
+                                Синхронизировать задачи
+                            </button>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Функция синхронизации задач
+function syncTasks() {
+    const button = event.target;
+    const hideLoading = showLoading(button, 'Синхронизация...');
+    
+    fetch('{% url "clickup_int:sync_tasks" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoading();
+        
+        if (data.success) {
+            showNotification(data.message, 'success');
+            // Обновляем страницу через 2 секунды
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        } else {
+            showNotification(data.message, 'error');
+        }
+    })
+    .catch(error => {
+        hideLoading();
+        showNotification('Ошибка синхронизации: ' + error.message, 'error');
+    });
+}
+// Тема инициализируется в базовом шаблоне
+</script>
+{% endblock %}
+

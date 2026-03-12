@@ -1,0 +1,351 @@
+{% extends 'common/base.html' %}
+
+{% block title %}{{ interviewer.get_full_name }} - HR Helper{% endblock %}
+{% block page_title %}{{ interviewer.get_full_name }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <div class="row align-items-center">
+                    <div class="col">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-user me-2"></i>
+                            Информация об интервьюере
+                        </h5>
+                    </div>
+                    <div class="col-auto">
+                        <div class="btn-group" role="group">
+                            <a href="{% url 'interviewers:interviewer_edit' interviewer.pk %}" class="btn btn-warning">
+                                <i class="fas fa-edit me-2"></i>
+                                Редактировать
+                            </a>
+                            <button class="btn {% if interviewer.is_active %}btn-success{% else %}btn-secondary{% endif %} toggle-active"
+                                    data-pk="{{ interviewer.pk }}"
+                                    data-active="{{ interviewer.is_active|yesno:'true,false' }}">
+                                {% if interviewer.is_active %}
+                                    <i class="fas fa-check me-2"></i>
+                                    Активен
+                                {% else %}
+                                    <i class="fas fa-times me-2"></i>
+                                    Неактивен
+                                {% endif %}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 text-center mb-4">
+                        <div class="avatar-lg bg-primary text-white rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3">
+                            <span class="display-4">{{ interviewer.first_name|first }}{{ interviewer.last_name|first }}</span>
+                        </div>
+                        <h4 class="mb-1">{{ interviewer.get_full_name }}</h4>
+                        <p class="text-muted mb-0">{{ interviewer.get_short_name }}</p>
+                    </div>
+                    
+                    <div class="col-md-8">
+                        <div class="row">
+                            <div class="col-sm-6 mb-3">
+                                <label class="form-label fw-bold">Имя:</label>
+                                <p class="mb-0">{{ interviewer.first_name }}</p>
+                            </div>
+                            <div class="col-sm-6 mb-3">
+                                <label class="form-label fw-bold">Фамилия:</label>
+                                <p class="mb-0">{{ interviewer.last_name }}</p>
+                            </div>
+                            {% if interviewer.middle_name %}
+                                <div class="col-sm-6 mb-3">
+                                    <label class="form-label fw-bold">Отчество:</label>
+                                    <p class="mb-0">{{ interviewer.middle_name }}</p>
+                                </div>
+                            {% endif %}
+                            <div class="col-sm-6 mb-3">
+                                <label class="form-label fw-bold">Email:</label>
+                                <p class="mb-0">
+                                    <a href="mailto:{{ interviewer.email }}" class="text-decoration-none">
+                                        {{ interviewer.email }}
+                                    </a>
+                                </p>
+                            </div>
+                            <div class="col-sm-6 mb-3">
+                                <label class="form-label fw-bold">Статус:</label>
+                                <p class="mb-0">
+                                    {% if interviewer.is_active %}
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-check me-1"></i>
+                                            Активен
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">
+                                            <i class="fas fa-times me-1"></i>
+                                            Неактивен
+                                        </span>
+                                    {% endif %}
+                                </p>
+                            </div>
+                            <div class="col-sm-6 mb-3">
+                                <label class="form-label fw-bold">Дата создания:</label>
+                                <p class="mb-0">{{ interviewer.created_at|date:"d.m.Y H:i" }}</p>
+                            </div>
+                            {% if interviewer.updated_at != interviewer.created_at %}
+                                <div class="col-sm-6 mb-3">
+                                    <label class="form-label fw-bold">Последнее обновление:</label>
+                                    <p class="mb-0">{{ interviewer.updated_at|date:"d.m.Y H:i" }}</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                {% if interviewer.calendar_link %}
+                    <hr>
+                    <div class="row">
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Ссылка на календарь:</label>
+                            <p class="mb-3">
+                                <a href="{{ interviewer.calendar_link }}" target="_blank" class="btn btn-info">
+                                    <i class="fas fa-calendar me-2"></i>
+                                    Открыть календарь
+                                </a>
+                            </p>
+                            <div class="input-group">
+                                <input type="text" class="form-control" value="{{ interviewer.calendar_link }}" readonly>
+                                <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('{{ interviewer.calendar_link }}')">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <!-- Действия -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-cogs me-2"></i>
+                    Действия
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{% url 'interviewers:interviewer_edit' interviewer.pk %}" class="btn btn-warning">
+                        <i class="fas fa-edit me-2"></i>
+                        Редактировать
+                    </a>
+                    <a href="mailto:{{ interviewer.email }}" class="btn btn-outline-primary">
+                        <i class="fas fa-envelope me-2"></i>
+                        Написать email
+                    </a>
+                    {% if interviewer.calendar_link %}
+                        <a href="{{ interviewer.calendar_link }}" target="_blank" class="btn btn-outline-info">
+                            <i class="fas fa-calendar me-2"></i>
+                            Записаться на интервью
+                        </a>
+                    {% else %}
+                        <button class="btn btn-outline-info auto-fill-calendar" data-interviewer-id="{{ interviewer.pk }}">
+                            <i class="fas fa-magic me-2"></i>
+                            Автозаполнить календарь
+                        </button>
+                    {% endif %}
+                    <button class="btn btn-outline-danger delete-interviewer" 
+                            data-pk="{{ interviewer.pk }}" 
+                            data-name="{{ interviewer.get_full_name }}">
+                        <i class="fas fa-trash me-2"></i>
+                        Удалить
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Статистика -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-chart-bar me-2"></i>
+                    Статистика
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6">
+                        <h4 class="text-primary mb-1">1</h4>
+                        <small class="text-muted">Интервью</small>
+                    </div>
+                    <div class="col-6">
+                        <h4 class="text-success mb-1">0</h4>
+                        <small class="text-muted">Завершено</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Кнопка "Назад" -->
+<div class="row mt-4">
+    <div class="col-12">
+        <a href="{% url 'interviewers:interviewer_list' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>
+            Назад к списку интервьюеров
+        </a>
+    </div>
+</div>
+
+<!-- Скрытый CSRF токен для AJAX запросов -->
+{% csrf_token %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Переключение статуса активности
+document.querySelectorAll('.toggle-active').forEach(button => {
+    button.addEventListener('click', function() {
+        const pk = this.dataset.pk;
+        const isActive = this.dataset.active === 'true';
+        
+        fetch(`/interviewers/${pk}/toggle-active/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Обновляем кнопку
+                this.dataset.active = data.is_active ? 'true' : 'false';
+                if (data.is_active) {
+                    this.className = 'btn btn-success toggle-active';
+                    this.innerHTML = '<i class="fas fa-check me-2"></i>Активен';
+                } else {
+                    this.className = 'btn btn-secondary toggle-active';
+                    this.innerHTML = '<i class="fas fa-times me-2"></i>Неактивен';
+                }
+                
+                // Обновляем статус в информации
+                const statusBadge = document.querySelector('.badge');
+                if (data.is_active) {
+                    statusBadge.className = 'badge bg-success';
+                    statusBadge.innerHTML = '<i class="fas fa-check me-1"></i>Активен';
+                } else {
+                    statusBadge.className = 'badge bg-secondary';
+                    statusBadge.innerHTML = '<i class="fas fa-times me-1"></i>Неактивен';
+                }
+                
+                // Показываем сообщение
+                showAlert('success', data.message);
+            } else {
+                showAlert('danger', data.message);
+            }
+        })
+        .catch(error => {
+            showAlert('danger', 'Ошибка при изменении статуса');
+        });
+    });
+});
+
+// Удаление интервьюера
+document.querySelectorAll('.delete-interviewer').forEach(button => {
+    button.addEventListener('click', function() {
+        const pk = this.dataset.pk;
+        const name = this.dataset.name;
+        
+        if (confirm(`Вы уверены, что хотите удалить интервьюера "${name}"?`)) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `/interviewers/${pk}/delete/`;
+            
+            const csrfToken = document.createElement('input');
+            csrfToken.type = 'hidden';
+            csrfToken.name = 'csrfmiddlewaretoken';
+            csrfToken.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            
+            form.appendChild(csrfToken);
+            document.body.appendChild(form);
+            form.submit();
+        }
+    });
+});
+
+// Копирование ссылки в буфер обмена
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(function() {
+        showAlert('success', 'Ссылка скопирована в буфер обмена');
+    }, function(err) {
+        showAlert('danger', 'Ошибка при копировании');
+    });
+}
+
+// Автозаполнение календаря
+document.querySelectorAll('.auto-fill-calendar').forEach(button => {
+    button.addEventListener('click', function() {
+        const interviewerId = this.dataset.interviewerId;
+        
+        // Показываем индикатор загрузки
+        const originalText = this.innerHTML;
+        this.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Поиск календаря...';
+        this.disabled = true;
+        
+        fetch('/interviewers/auto-fill-calendar/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            },
+            body: JSON.stringify({
+                interviewer_id: interviewerId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('success', data.message);
+                // Перезагружаем страницу через небольшую задержку
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+            } else {
+                showAlert('danger', data.error);
+                // Восстанавливаем кнопку
+                this.innerHTML = originalText;
+                this.disabled = false;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('danger', 'Ошибка при автозаполнении календаря');
+            // Восстанавливаем кнопку
+            this.innerHTML = originalText;
+            this.disabled = false;
+        });
+    });
+});
+
+// Функция для показа уведомлений
+function showAlert(type, message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    const container = document.querySelector('.container-fluid');
+    container.insertBefore(alertDiv, container.firstChild);
+    
+    // Автоматически скрываем через 5 секунд
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 5000);
+}
+</script>
+{% endblock %}
+

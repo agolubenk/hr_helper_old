@@ -1,0 +1,315 @@
+{% extends 'common/base.html' %}
+
+{% block title %}G-данные и автоматизации - HR Helper{% endblock %}
+{% block page_title %}G-данные и автоматизации{% endblock %}
+{% block content %}
+{% csrf_token %}
+
+<div class="row">
+    <!-- Быстрые действия -->
+    <div class="col-lg-8 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-tachometer-alt me-2"></i>
+                    Быстрые действия
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <a href="{% url 'google_oauth:oauth_start' %}" class="btn btn-primary btn-lg w-100">
+                            <i class="fas fa-link me-2"></i>
+                            {% if is_connected %}Настройки подключения{% else %}Подключить Google{% endif %}
+                        </a>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <a href="{% url 'google_oauth:calendar_events' %}" class="btn btn-outline-primary btn-lg w-100">
+                            <i class="fas fa-calendar-alt me-2"></i>
+                            События календаря
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Статус интеграции -->
+    <div class="col-lg-4 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Статус интеграции
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if is_connected %}
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle me-2"></i>
+                        Google успешно подключен
+                    </div>
+                    
+                    <h6>Активные сервисы:</h6>
+                    <ul class="list-unstyled">
+                        {% if oauth_account %}
+                            {% with services=oauth_account.get_available_services %}
+                                {% if 'calendar' in services %}
+                                    <li><i class="fas fa-check text-success me-2"></i>Google Calendar</li>
+                                {% else %}
+                                    <li><i class="fas fa-times text-danger me-2"></i>Google Calendar</li>
+                                {% endif %}
+                                
+                                {% if 'drive' in services %}
+                                    <li><i class="fas fa-check text-success me-2"></i>Google Drive</li>
+                                {% else %}
+                                    <li><i class="fas fa-times text-danger me-2"></i>Google Drive</li>
+                                {% endif %}
+                            {% endwith %}
+                        {% else %}
+                            <li><i class="fas fa-times text-danger me-2"></i>Google Calendar</li>
+                            <li><i class="fas fa-times text-danger me-2"></i>Google Drive</li>
+                        {% endif %}
+                    </ul>
+                    
+                    {% if oauth_account and oauth_account.last_sync_at %}
+                        <small class="text-muted">
+                            Последняя синхронизация: {{ oauth_account.last_sync_at|date:"d.m.Y H:i" }}
+                        </small>
+                    {% endif %}
+                    {% if oauth_account %}
+                        {% with services=oauth_account.get_available_services %}
+                            {% if 'calendar' not in services or 'drive' not in services %}
+                                <div class="alert alert-info mt-2 mb-0 small">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Календарь или файлы недоступны? Отключите и подключите Google заново, выдав все запрашиваемые права (Calendar, Drive, профиль).
+                                </div>
+                            {% endif %}
+                        {% endwith %}
+                    {% endif %}
+                {% else %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Google не подключен
+                    </div>
+                    <p class="text-muted">Для работы с Google сервисами необходимо подключить аккаунт.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Последние события -->
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-calendar-alt me-2"></i>
+                    Ближайшие события
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if oauth_account %}
+                    <div class="alert alert-info mb-3">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Показываются события:</strong> {{ oauth_account.email }} (только личный календарь, ближайшие 100 дней)
+                    </div>
+                {% endif %}
+                
+                {% if recent_events %}
+                    {% for event in recent_events %}
+                        <div class="d-flex align-items-center mb-2 p-2 border rounded">
+                            <div class="flex-shrink-0 me-2">
+                                {% if event.status == 'confirmed' %}
+                                    <i class="fas fa-check-circle text-success" title="Подтверждено"></i>
+                                {% elif event.status == 'tentative' %}
+                                    <i class="fas fa-question-circle text-warning" title="Предварительно"></i>
+                                {% elif event.status == 'cancelled' %}
+                                    <i class="fas fa-times-circle text-danger" title="Отменено"></i>
+                                {% else %}
+                                    <i class="fas fa-circle text-secondary" title="{{ event.status }}"></i>
+                                {% endif %}
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <strong class="small">{{ event.title }}</strong>
+                                        <div class="small text-muted">
+                                            {{ event.start_datetime|date:"d.m H:i" }} - {{ event.end_datetime|date:"H:i" }}
+                                        </div>
+                                    </div>
+                                    <div class="flex-shrink-0 ms-2">
+                                        {% if event.meet_link %}
+                                            <a href="{{ event.meet_link }}" target="_blank" class="btn btn-sm btn-outline-success" title="Google Meet">
+                                                <i class="fab fa-google-meet"></i>
+                                                {% if event.attendees %}
+                                                    <span class="badge bg-light text-dark ms-1">{{ event.attendees|length }}</span>
+                                                {% endif %}
+                                            </a>
+                                        {% endif %}
+                                        {% if event.html_link %}
+                                            <a href="{{ event.html_link }}" target="_blank" class="btn btn-sm btn-outline-primary" title="Google Calendar">
+                                                <i class="fab fa-google"></i>
+                                            </a>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    {% if oauth_account %}
+                        <p class="text-muted text-center">Нет предстоящих событий</p>
+                        <div class="text-center">
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="syncCalendar()">
+                                <i class="fas fa-sync me-2"></i>
+                                Синхронизировать календарь
+                            </button>
+                        </div>
+                    {% else %}
+                        <p class="text-muted text-center">Подключите Google аккаунт для просмотра событий</p>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Последние файлы -->
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-cloud me-2"></i>
+                    Последние файлы
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if recent_files %}
+                    {% for file in recent_files %}
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="flex-shrink-0 me-3">
+                                {% if file.is_folder %}
+                                    <i class="fas fa-folder fa-2x text-warning"></i>
+                                {% elif 'document' in file.mime_type %}
+                                    <i class="fas fa-file-alt fa-2x text-primary"></i>
+                                {% elif 'spreadsheet' in file.mime_type %}
+                                    <i class="fas fa-file-excel fa-2x text-success"></i>
+                                {% elif 'presentation' in file.mime_type %}
+                                    <i class="fas fa-file-powerpoint fa-2x text-danger"></i>
+                                {% elif 'image' in file.mime_type %}
+                                    <i class="fas fa-file-image fa-2x text-info"></i>
+                                {% elif 'video' in file.mime_type %}
+                                    <i class="fas fa-file-video fa-2x text-purple"></i>
+                                {% elif 'audio' in file.mime_type %}
+                                    <i class="fas fa-file-audio fa-2x text-secondary"></i>
+                                {% elif 'pdf' in file.mime_type %}
+                                    <i class="fas fa-file-pdf fa-2x text-danger"></i>
+                                {% else %}
+                                    <i class="fas fa-file fa-2x text-muted"></i>
+                                {% endif %}
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <strong class="small">{{ file.name }}</strong>
+                                        <div class="small text-muted">
+                                            {% if file.modified_time %}
+                                                {{ file.modified_time|date:"d.m H:i" }}
+                                            {% else %}
+                                                {{ file.created_time|date:"d.m H:i" }}
+                                            {% endif %}
+                                            {% if not file.is_folder %}
+                                                • {{ file.get_size_display }}
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="flex-shrink-0 ms-2">
+                                        <div class="d-flex align-items-center gap-2">
+                                            {% if file.is_shared %}
+                                                <span class="badge bg-info">Общий</span>
+                                            {% endif %}
+                                            {% if file.shared_with_me %}
+                                                <span class="badge bg-warning">Поделились</span>
+                                            {% endif %}
+                                            {% if file.web_view_link %}
+                                                <a href="{{ file.web_view_link }}" target="_blank" class="btn btn-sm btn-outline-primary" title="Открыть в Google Drive">
+                                                    <i class="fas fa-external-link-alt"></i>
+                                                </a>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    {% if oauth_account %}
+                        <p class="text-muted text-center">Нет файлов</p>
+                        <div class="text-center">
+                            <a href="{% url 'google_oauth:sync_drive' %}" class="btn btn-sm btn-outline-success">
+                                <i class="fas fa-sync me-2"></i>
+                                Синхронизировать Drive
+                            </a>
+                        </div>
+                    {% else %}
+                        <p class="text-muted text-center">Подключите Google аккаунт для просмотра файлов</p>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function syncCalendar() {
+    const button = event.target;
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Синхронизация...';
+    button.disabled = true;
+    
+    fetch('{% url "google_oauth:sync_calendar" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Показываем сообщение об успехе
+            alert('Синхронизация завершена: ' + data.message);
+            // Перезагружаем страницу для обновления данных
+            location.reload();
+        } else {
+            alert('Ошибка синхронизации: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Ошибка:', error);
+        alert('Произошла ошибка при синхронизации');
+    })
+    .finally(() => {
+        button.innerHTML = originalText;
+        button.disabled = false;
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,422 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Бенчмарк: {{ benchmark.vacancy.name }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/finance.css' %}">
+<style>
+.benchmark-detail-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-24);
+    margin-bottom: var(--space-16);
+}
+
+.benchmark-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: var(--space-20);
+    padding-bottom: var(--space-16);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.benchmark-type {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-6) var(--space-12);
+    border-radius: var(--radius-full);
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.benchmark-type.candidate {
+    background: rgba(40, 167, 69, 0.1);
+    color: var(--color-success);
+}
+
+.benchmark-type.vacancy {
+    background: rgba(0, 123, 255, 0.1);
+    color: var(--color-primary);
+}
+
+.benchmark-amount {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    margin: var(--space-16) 0;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: var(--space-16);
+    margin-bottom: var(--space-20);
+}
+
+.info-item {
+    background: var(--color-background);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    padding: var(--space-12);
+}
+
+.info-label {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-4);
+}
+
+.info-value {
+    font-size: 1.125rem;
+    font-weight: 500;
+    color: var(--color-text);
+}
+
+.notes-section {
+    background: var(--color-background);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    padding: var(--space-16);
+    margin-bottom: var(--space-20);
+}
+
+.actions-section {
+    display: flex;
+    gap: var(--space-8);
+    flex-wrap: wrap;
+}
+
+[data-theme="dark"] .benchmark-detail-card {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .info-item {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .notes-section {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.hh-link-btn {
+    transition: all 0.3s ease;
+    border: 2px solid var(--color-primary);
+    background: transparent;
+    color: var(--color-primary);
+    font-weight: 500;
+    padding: var(--space-8) var(--space-16);
+    border-radius: var(--radius-base);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-8);
+}
+
+.hh-link-btn:hover {
+    background: var(--color-primary);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+}
+
+[data-theme="dark"] .hh-link-btn {
+    border-color: var(--color-pink-400);
+    color: var(--color-pink-400);
+}
+
+[data-theme="dark"] .hh-link-btn:hover {
+    background: var(--color-pink-400);
+    color: var(--color-background);
+    box-shadow: 0 4px 12px rgba(255, 20, 147, 0.3);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <!-- Хлебные крошки -->
+            <nav aria-label="breadcrumb" class="mb-4">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'finance:dashboard' %}">Финансы</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'finance:benchmarks_dashboard' %}">Бенчмарки</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'finance:benchmarks_list' %}">Список</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">{{ benchmark.vacancy.name }}</li>
+                </ol>
+            </nav>
+
+            <!-- Заголовок -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="h3 mb-1">Детали бенчмарка</h1>
+                    <p class="text-muted mb-0">{{ benchmark.vacancy.name }} - {{ benchmark.grade.name }}</p>
+                </div>
+                <div class="actions-section">
+                    <a href="{% url 'finance:benchmark_edit' benchmark.pk %}" class="btn btn-outline-primary">
+                        <i class="fas fa-edit me-2"></i>Редактировать
+                    </a>
+                    <button class="btn btn-outline-danger" data-benchmark-id="{{ benchmark.pk }}" onclick="deleteBenchmark(this.dataset.benchmarkId)">
+                        <i class="fas fa-trash me-2"></i>Удалить
+                    </button>
+                    <a href="{% url 'finance:benchmarks_list' %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Назад к списку
+                    </a>
+                </div>
+            </div>
+
+            <!-- Основная информация -->
+            <div class="benchmark-detail-card">
+                <div class="benchmark-header">
+                    <div>
+                        <span class="benchmark-type {{ benchmark.type }}">
+                            <i class="{{ benchmark.type_icon }}"></i>
+                            {{ benchmark.get_type_display }}
+                        </span>
+                        <h2 class="h4 mt-3 mb-2">{{ benchmark.vacancy.name }}</h2>
+                        <p class="text-muted mb-0">{{ benchmark.grade.name }}</p>
+                    </div>
+                </div>
+
+                <div class="benchmark-amount text-center">
+                    {{ benchmark.get_salary_display }}
+                </div>
+
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">Локация</div>
+                        <div class="info-value">
+                            <i class="fas fa-map-marker-alt me-2"></i>{{ benchmark.location }}
+                        </div>
+                    </div>
+                    
+                    <div class="info-item">
+                        <div class="info-label">Дата добавления</div>
+                        <div class="info-value">
+                            <i class="fas fa-calendar me-2"></i>{{ benchmark.date_added|date:"d.m.Y H:i" }}
+                        </div>
+                    </div>
+                    
+                    <div class="info-item">
+                        <div class="info-label">Статус</div>
+                        <div class="info-value">
+                            {% if benchmark.is_active %}
+                                <span class="badge bg-success">
+                                    <i class="fas fa-check me-1"></i>Активен
+                                </span>
+                            {% else %}
+                                <span class="badge bg-secondary">
+                                    <i class="fas fa-pause me-1"></i>Неактивен
+                                </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="info-item">
+                        <div class="info-label">Последнее обновление</div>
+                        <div class="info-value">
+                            <i class="fas fa-clock me-2"></i>{{ benchmark.updated_at|date:"d.m.Y H:i" }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Дополнительные поля вакансии -->
+                {% if benchmark.work_format or benchmark.compensation or benchmark.benefits or benchmark.development or benchmark.technologies or benchmark.domain %}
+                <div class="benchmark-detail-card">
+                    <h5 class="mb-3">
+                        <i class="fas fa-info-circle me-2"></i>Дополнительная информация
+                    </h5>
+                    <div class="info-grid">
+                        {% if benchmark.work_format %}
+                        <div class="info-item">
+                            <div class="info-label">Формат работы</div>
+                            <div class="info-value">
+                                {% if benchmark.work_format == 'офис' %}
+                                    <span class="badge bg-primary">{{ benchmark.get_work_format_display }}</span>
+                                {% elif benchmark.work_format == 'гибрид' %}
+                                    <span class="badge bg-success">{{ benchmark.get_work_format_display }}</span>
+                                {% elif benchmark.work_format == 'удаленка' %}
+                                    <span class="badge bg-warning">{{ benchmark.get_work_format_display }}</span>
+                                {% elif benchmark.work_format == 'all world' %}
+                                    <span class="badge bg-info">{{ benchmark.get_work_format_display }}</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ benchmark.get_work_format_display }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if benchmark.domain %}
+                        <div class="info-item">
+                            <div class="info-label">Домен</div>
+                            <div class="info-value">{{ benchmark.domain }}</div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if benchmark.technologies %}
+                        <div class="info-item">
+                            <div class="info-label">Технологии</div>
+                            <div class="info-value">{{ benchmark.technologies }}</div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if benchmark.compensation %}
+                        <div class="info-item">
+                            <div class="info-label">Компенсации</div>
+                            <div class="info-value">{{ benchmark.compensation }}</div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if benchmark.benefits %}
+                        <div class="info-item">
+                            <div class="info-label">Бенефиты</div>
+                            <div class="info-value">{{ benchmark.benefits }}</div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if benchmark.development %}
+                        <div class="info-item">
+                            <div class="info-label">Развитие/обучение</div>
+                            <div class="info-value">{{ benchmark.development }}</div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if benchmark.notes %}
+                <div class="notes-section">
+                    <h5 class="mb-3">
+                        <i class="fas fa-sticky-note me-2"></i>Примечания
+                    </h5>
+                    <p class="mb-0">{{ benchmark.notes|linebreaks }}</p>
+                </div>
+                {% endif %}
+
+                <!-- Ссылка на hh.ru -->
+                {% if benchmark.hh_vacancy_id %}
+                <div class="notes-section">
+                    <h5 class="mb-3">
+                        <i class="fas fa-external-link-alt me-2"></i>Ссылка на вакансию
+                    </h5>
+                    <a href="https://hh.ru/vacancy/{{ benchmark.hh_vacancy_id }}" 
+                       target="_blank" 
+                       rel="noopener noreferrer"
+                       class="hh-link-btn">
+                        <i class="fas fa-external-link-alt"></i>
+                        Посмотреть на hh.ru
+                    </a>
+                    <small class="text-muted d-block mt-2">
+                        ID вакансии: {{ benchmark.hh_vacancy_id }}
+                    </small>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Связанная информация -->
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="benchmark-detail-card">
+                        <h5 class="mb-3">
+                            <i class="fas fa-briefcase me-2"></i>Информация о вакансии
+                        </h5>
+                        <div class="info-item">
+                            <div class="info-label">Название</div>
+                            <div class="info-value">{{ benchmark.vacancy.name }}</div>
+                        </div>
+                        {% if benchmark.vacancy.description %}
+                        <div class="info-item mt-3">
+                            <div class="info-label">Описание</div>
+                            <div class="info-value">{{ benchmark.vacancy.description|truncatechars:200 }}</div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="benchmark-detail-card">
+                        <h5 class="mb-3">
+                            <i class="fas fa-star me-2"></i>Информация о грейде
+                        </h5>
+                        <div class="info-item">
+                            <div class="info-label">Название</div>
+                            <div class="info-value">{{ benchmark.grade.name }}</div>
+                        </div>
+                        <div class="info-item mt-3">
+                            <div class="info-label">Количество бенчмарков</div>
+                            <div class="info-value">
+                                {{ benchmark.grade.benchmarks.count }} бенчмарков
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Функции для редактирования и удаления
+function editBenchmark(id) {
+    // TODO: Реализовать редактирование
+    showAlert('info', 'Функция редактирования будет добавлена');
+}
+
+function deleteBenchmark(id) {
+    if (confirm('Вы уверены, что хотите удалить этот бенчмарк?')) {
+        fetch(`/finance/benchmarks/${id}/delete/`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                showAlert('success', result.message);
+                setTimeout(() => {
+                    window.location.href = '{% url "finance:benchmarks_list" %}';
+                }, 1500);
+            } else {
+                showAlert('error', result.message);
+            }
+        })
+        .catch(error => {
+            showAlert('error', 'Ошибка при удалении бенчмарка');
+        });
+    }
+}
+
+// Функция показа уведомлений
+function showAlert(type, message) {
+    const alertClass = type === 'success' ? 'alert-success' : 
+                      type === 'error' ? 'alert-danger' : 'alert-info';
+    
+    const alert = document.createElement('div');
+    alert.className = `alert ${alertClass} alert-dismissible fade show position-fixed`;
+    alert.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alert.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(alert);
+    
+    setTimeout(() => {
+        if (alert.parentNode) {
+            alert.parentNode.removeChild(alert);
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}
+

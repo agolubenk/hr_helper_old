@@ -1,0 +1,3577 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Дашборд бенчмарков{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/finance.css' %}">
+<style>
+.dashboard-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-20);
+    margin-bottom: var(--space-16);
+    transition: all var(--duration-normal) var(--ease-standard);
+}
+
+.dashboard-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.stat-card {
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
+    color: white;
+    border-radius: var(--radius-lg);
+    padding: var(--space-20);
+    text-align: center;
+    margin-bottom: var(--space-16);
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+    pointer-events: none;
+}
+
+.stat-card .stat-number {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: var(--space-4);
+    position: relative;
+    z-index: 1;
+}
+
+.stat-card .stat-label {
+    font-size: 1rem;
+    opacity: 0.9;
+    position: relative;
+    z-index: 1;
+}
+
+.stat-card .stat-icon {
+    position: absolute;
+    top: var(--space-12);
+    right: var(--space-12);
+    font-size: 3rem;
+    opacity: 0.2;
+    z-index: 0;
+}
+
+.chart-container {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-20);
+    margin-bottom: var(--space-16);
+}
+
+/* Фиксированная высота для контейнеров круговых графиков */
+.chart-container.pie-chart-container {
+    min-height: 350px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Предотвращаем выход содержимого за границы */
+}
+
+.chart-container.pie-chart-container canvas {
+    flex: 1;
+    max-height: 200px; /* Уменьшаем высоту canvas, чтобы оставить место для фильтров */
+}
+
+/* Фиксированная высота для контейнеров линейных графиков */
+.chart-container.line-chart-container {
+    min-height: 400px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Предотвращаем выход содержимого за границы */
+}
+
+.chart-container.line-chart-container canvas {
+    flex: 1;
+    max-height: 250px; /* Уменьшаем высоту canvas, чтобы оставить место для фильтров */
+}
+
+/* Дополнительные стили для canvas */
+.chart-container canvas {
+    width: 100% !important;
+    height: auto !important;
+}
+
+/* Стили для легенды candlestick */
+.candlestick-legend {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 8px;
+    margin-bottom: 4px;
+    flex-wrap: wrap;
+    max-height: 30px; /* Ограничиваем высоту легенды */
+    overflow: hidden;
+}
+
+.candlestick-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--color-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
+}
+
+.candlestick-legend-color {
+    width: 12px;
+    height: 2px;
+    border-radius: 1px;
+    flex-shrink: 0;
+}
+
+/* Убираем отступы у заголовков графиков */
+.chart-container .chart-title {
+    margin-bottom: 15px;
+    flex-shrink: 0;
+}
+
+/* Стили для компактных фильтров */
+
+/* Локальные фильтры из графиков */
+.local-filters-container {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--color-border);
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.local-filters-section {
+    flex: 1;
+    min-width: 200px;
+}
+
+.local-filters-title {
+    color: var(--color-text);
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.local-filters-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+}
+
+.local-filter-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 8px;
+    background: var(--color-background);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.8rem;
+}
+
+.local-filter-item:hover {
+    background: var(--color-primary);
+    color: white;
+    border-color: var(--color-primary);
+}
+
+.local-filter-item.active {
+    background: var(--color-primary);
+    color: white;
+    border-color: var(--color-primary);
+}
+
+.local-filter-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+
+/* Адаптивность для мобильных устройств */
+@media (max-width: 768px) {
+    
+    /* Адаптивность для локальных фильтров на мобильных */
+    .local-filters-container {
+        max-height: 60px; /* Уменьшаем высоту на мобильных */
+        padding: 4px 0;
+    }
+    
+    .local-filter-item {
+        font-size: 0.65rem;
+        padding: 1px 4px;
+        max-width: 80px;
+    }
+    
+    .local-filter-color {
+        width: 4px;
+        height: 4px;
+    }
+    
+    /* Адаптивность для линейных графиков на мобильных */
+    .chart-container.line-chart-container {
+        min-height: 350px; /* Уменьшаем высоту на мобильных */
+    }
+    
+    .chart-container.line-chart-container canvas {
+        max-height: 200px; /* Уменьшаем высоту canvas на мобильных */
+    }
+    
+    .candlestick-legend {
+        max-height: 25px; /* Уменьшаем высоту легенды на мобильных */
+        gap: 10px;
+    }
+    
+    .candlestick-legend-item {
+        font-size: 10px;
+        max-width: 100px;
+    }
+}
+
+.chart-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: var(--space-16);
+    color: var(--color-text);
+}
+
+.benchmark-item {
+    display: flex;
+    justify-content: between;
+    align-items: center;
+    padding: var(--space-12);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    margin-bottom: var(--space-8);
+    transition: all var(--duration-normal) var(--ease-standard);
+}
+
+.benchmark-item:hover {
+    background: var(--color-background);
+    transform: translateX(4px);
+}
+
+.benchmark-type-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-4) var(--space-8);
+    border-radius: var(--radius-full);
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.benchmark-type-badge.candidate {
+    background: rgba(40, 167, 69, 0.1);
+    color: var(--color-success);
+}
+
+.benchmark-type-badge.vacancy {
+    background: rgba(0, 123, 255, 0.1);
+    color: var(--color-primary);
+}
+
+.progress-bar-custom {
+    height: 8px;
+    border-radius: var(--radius-full);
+    background: var(--color-border);
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-secondary) 100%);
+    border-radius: var(--radius-full);
+    transition: width var(--duration-normal) var(--ease-standard);
+}
+
+[data-theme="dark"] .dashboard-card {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .dashboard-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .chart-container {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .benchmark-item {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .benchmark-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+/* Локальные фильтры из графиков - как настоящие теги */
+.local-filters-container {
+    margin-top: 8px;
+    padding: 8px 0;
+    border: none;
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    flex-shrink: 0; /* Не сжимается */
+    min-height: 40px; /* Минимальная высота для контейнера */
+    max-height: 80px; /* Максимальная высота, чтобы не выходить за границы карточки */
+    overflow-y: auto; /* Прокрутка, если фильтров много */
+}
+
+.local-filters-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    justify-content: center;
+    align-items: center;
+}
+
+.local-filter-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 6px;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-size: 0.7rem;
+    color: #495057;
+    line-height: 1;
+    font-weight: 400;
+    white-space: nowrap;
+    user-select: none;
+    max-width: 100px; /* Ограничиваем ширину элементов */
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.local-filter-item:hover {
+    background: #e9ecef;
+    border-color: #adb5bd;
+    transform: translateY(-1px);
+}
+
+.local-filter-item.active {
+    background: #007bff;
+    color: white;
+    border-color: #007bff;
+    font-weight: 500;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.2);
+}
+
+.local-filter-item.active:hover {
+    background: #0056b3;
+    border-color: #0056b3;
+}
+
+.local-filter-color {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.local-filter-item.active .local-filter-color {
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* Темная тема для локальных фильтров */
+[data-theme="dark"] .local-filter-item {
+    background: #343a40;
+    border-color: #495057;
+    color: #f8f9fa;
+}
+
+[data-theme="dark"] .local-filter-item:hover {
+    background: #495057;
+    border-color: #6c757d;
+}
+
+[data-theme="dark"] .local-filter-item.active {
+    background: #007bff;
+    color: white;
+    border-color: #007bff;
+}
+
+[data-theme="dark"] .local-filter-item.active:hover {
+    background: #0056b3;
+    border-color: #0056b3;
+}
+
+/* Стили для коллапсирующего блока фильтров */
+.collapse-icon {
+    transition: transform 0.3s ease;
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+
+.collapsed .collapse-icon {
+    transform: rotate(-90deg);
+}
+
+.card-header .btn-link {
+    text-decoration: none;
+    color: inherit;
+}
+
+.card-header .btn-link:hover {
+    text-decoration: none;
+    color: inherit;
+}
+
+.card-header .btn-link:focus {
+    box-shadow: none;
+    text-decoration: none;
+    color: inherit;
+}
+
+/* Анимация для collapse */
+.collapse {
+    transition: height 0.3s ease;
+}
+
+/* Темная тема для коллапсирующего блока */
+[data-theme="dark"] .collapse-icon {
+    color: #adb5bd;
+}
+
+[data-theme="dark"] .card-header .btn-link {
+    color: var(--color-text);
+}
+
+[data-theme="dark"] .card-header .btn-link:hover {
+    color: var(--color-text);
+}
+
+/* Стили для tokenfield (мультивыбор фильтров) - адаптированы из applicant_edit.html */
+.tokenfield-container {
+    position: relative;
+    border: 1px solid #ced4da;
+    border-radius: 0.375rem;
+    background: #fff;
+    min-height: 38px;
+    padding: 4px 8px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.tokenfield-container:focus-within {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+.selected-tags {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+}
+
+.tag-token {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.tag-token:hover {
+    transform: scale(1.02);
+}
+
+.tag-token.removing {
+    opacity: 0;
+    transform: scale(0.8);
+}
+
+.tag-token .btn-close {
+    background: none;
+    border: none;
+    color: inherit;
+    opacity: 0.5;
+    font-size: 0.75rem;
+    padding: 0;
+    margin-left: 4px;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tag-token .btn-close:hover {
+    opacity: 1;
+}
+
+.tag-token .btn-close::before {
+    content: '×';
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.tag-input {
+    border: none;
+    outline: none;
+    background: transparent;
+    color: #212529;
+    font-size: 0.875rem;
+    padding: 4px 8px;
+    min-width: 120px;
+    flex: 1;
+}
+
+.tag-input::placeholder {
+    color: #6c757d;
+}
+
+.tag-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid #ced4da;
+    border-radius: 0.375rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 1050;
+    margin-top: 2px;
+}
+
+.tag-option {
+    padding: 8px 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: background-color 0.15s ease-in-out;
+}
+
+.tag-option:hover {
+    background-color: #f8f9fa;
+}
+
+.tag-option:first-child {
+    border-radius: 0.375rem 0.375rem 0 0;
+}
+
+.tag-option:last-child {
+    border-radius: 0 0 0.375rem 0.375rem;
+}
+
+/* Темная тема для tokenfield */
+[data-theme="dark"] .tokenfield-container {
+    background: #212529;
+    border-color: #495057;
+    color: #f8f9fa;
+}
+
+[data-theme="dark"] .tokenfield-container:focus-within {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+[data-theme="dark"] .tag-input {
+    color: #f8f9fa;
+}
+
+[data-theme="dark"] .tag-input::placeholder {
+    color: #adb5bd;
+}
+
+[data-theme="dark"] .tag-dropdown {
+    background: #212529;
+    border-color: #495057;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .tag-option:hover {
+    background-color: #343a40;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <!-- Заголовок -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="h3 mb-1">
+                        <i class="fas fa-chart-line me-2"></i>
+                        Дашборд бенчмарков
+                    </h1>
+                    <p class="text-muted mb-0">Аналитика и статистика по зарплатным бенчмаркам</p>
+                </div>
+                <div class="btn-group">
+                    <a href="{% url 'finance:benchmarks_list' %}" class="btn btn-primary">
+                        <i class="fas fa-list me-2"></i>Все бенчмарки
+                    </a>
+                    <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createBenchmarkModal">
+                        <i class="fas fa-plus me-2"></i>Добавить бенчмарк
+                    </button>
+                    <a href="{% url 'finance:hh_analysis_dashboard' %}" class="btn btn-info">
+                        <i class="fas fa-external-link-alt me-2"></i>Анализ hh.ru
+                    </a>
+                    <a href="{% url 'finance:ai_analysis_dashboard' %}" class="btn btn-warning">
+                        <i class="fas fa-brain me-2"></i>ИИ Анализ
+                    </a>
+                </div>
+            </div>
+
+
+            <!-- Основная статистика -->
+            <div class="row mb-4">
+                <div class="col-md-3 reporting-section">
+                    <div class="stat-card" style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);">
+                        <div class="stat-icon">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div class="stat-number">{{ total_benchmarks }}</div>
+                        <div class="stat-label">Всего бенчмарков</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card" style="background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);">
+                        <div class="stat-icon">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div class="stat-number">{{ candidate_count }}</div>
+                        <div class="stat-label">Кандидаты</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card" style="background: linear-gradient(135deg, #17a2b8 0%, #117a8b 100%);">
+                        <div class="stat-icon">
+                            <i class="fas fa-briefcase"></i>
+                        </div>
+                        <div class="stat-number">{{ vacancy_count }}</div>
+                        <div class="stat-label">Вакансии</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card" style="background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);">
+                        <div class="stat-icon">
+                            <i class="fas fa-dollar-sign"></i>
+                        </div>
+                        <div class="stat-number">${{ avg_amount|floatformat:0 }}</div>
+                        <div class="stat-label">Средняя зарплата</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Коллапсирующие основные фильтры -->
+            <div class="row mb-4">
+                <div class="col-12 reporting-section">
+                    <div class="card">
+                        <div class="card-header">
+                            <button class="btn btn-link p-0 w-100 text-start" type="button" data-bs-toggle="collapse" data-bs-target="#mainFiltersCollapse" aria-expanded="false" aria-controls="mainFiltersCollapse">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h5 class="card-title mb-0">
+                                            <i class="fas fa-filter me-2"></i>
+                                            Фильтры для графиков
+                                        </h5>
+                                        <p class="card-subtitle text-muted mb-0">Применяются ко всем графикам на странице</p>
+                                    </div>
+                                    <i class="fas fa-chevron-down collapse-icon"></i>
+                                </div>
+                            </button>
+                        </div>
+                        <div class="collapse" id="mainFiltersCollapse">
+                            <div class="card-body">
+                                <!-- Фильтр по грейдам -->
+                                <div class="mb-3">
+                                    <label class="form-label"><strong>Грейды:</strong></label>
+                                    <div class="tokenfield-container">
+                                        <div class="selected-tags" id="selected-grade-tags">
+                                            <input type="text" class="tag-input" id="grade-tag-input" placeholder="Выберите или введите грейд...">
+                                        </div>
+                                        <div class="tag-dropdown" id="grade-tag-dropdown" style="display: none;">
+                                            {% for grade_id, grade_name in available_grades %}
+                                            <div class="tag-option" data-tag-id="{{ grade_id }}" data-tag-name="{{ grade_name }}">
+                                                <span class="badge bg-primary me-2">{{ grade_name }}</span>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                        <div id="hidden-grade-inputs"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Фильтр по вакансиям -->
+                                <div class="mb-3">
+                                    <label class="form-label"><strong>Вакансии:</strong></label>
+                                    <div class="tokenfield-container">
+                                        <div class="selected-tags" id="selected-vacancy-tags">
+                                            <input type="text" class="tag-input" id="vacancy-tag-input" placeholder="Выберите или введите вакансию...">
+                                        </div>
+                                        <div class="tag-dropdown" id="vacancy-tag-dropdown" style="display: none;">
+                                            {% for vacancy_id, vacancy_name in available_vacancies %}
+                                            <div class="tag-option" data-tag-id="{{ vacancy_id }}" data-tag-name="{{ vacancy_name }}">
+                                                <span class="badge bg-info me-2">{{ vacancy_name }}</span>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                        <div id="hidden-vacancy-inputs"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Фильтр по локациям -->
+                                <div class="mb-3">
+                                    <label class="form-label"><strong>Локации:</strong></label>
+                                    <div class="tokenfield-container">
+                                        <div class="selected-tags" id="selected-location-tags">
+                                            <input type="text" class="tag-input" id="location-tag-input" placeholder="Выберите или введите локацию...">
+                                        </div>
+                                        <div class="tag-dropdown" id="location-tag-dropdown" style="display: none;">
+                                            {% for location in available_locations %}
+                                            <div class="tag-option" data-tag-id="{{ location }}" data-tag-name="{{ location }}">
+                                                <span class="badge bg-success me-2">{{ location }}</span>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                        <div id="hidden-location-inputs"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Кнопки действий -->
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-primary btn-sm" onclick="applyMainFilters()">
+                                        <i class="fas fa-search me-1"></i> Применить фильтры
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearMainFilters()">
+                                        <i class="fas fa-times me-1"></i> Очистить все
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Детальная статистика -->
+            <div class="row mb-4">
+                <div class="col-md-4 reporting-section">
+                    <div class="dashboard-card">
+                        <h5 class="chart-title">
+                            <i class="fas fa-chart-bar me-2"></i>
+                            Диапазон зарплат
+                        </h5>
+                        <div class="row text-center">
+                            <div class="col-4">
+                                <div class="h4 text-success">${{ min_amount|floatformat:0 }}</div>
+                                <small class="text-muted">Минимум</small>
+                            </div>
+                            <div class="col-4">
+                                <div class="h4 text-primary">${{ avg_amount|floatformat:0 }}</div>
+                                <small class="text-muted">Среднее</small>
+                            </div>
+                            <div class="col-4">
+                                <div class="h4 text-warning">${{ max_amount|floatformat:0 }}</div>
+                                <small class="text-muted">Максимум</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="dashboard-card">
+                        <h5 class="chart-title">
+                            <i class="fas fa-balance-scale me-2"></i>
+                            Сравнение типов
+                        </h5>
+                        <div class="row text-center">
+                            <div class="col-6">
+                                <div class="h4 text-success">${{ avg_candidate|floatformat:0 }}</div>
+                                <small class="text-muted">Кандидаты</small>
+                            </div>
+                            <div class="col-6">
+                                <div class="h4 text-primary">${{ avg_vacancy|floatformat:0 }}</div>
+                                <small class="text-muted">Вакансии</small>
+                            </div>
+                        </div>
+                        {% if total_benchmarks > 0 %}
+                        <div class="mt-3">
+                            <div class="d-flex justify-content-between mb-1">
+                                <small>Кандидаты</small>
+                                <small>{{ candidate_count }}</small>
+                            </div>
+                            <div class="progress-bar-custom">
+                                <div class="progress-fill" style="width: {% widthratio candidate_count total_benchmarks 100 %}%"></div>
+                            </div>
+                            <div class="d-flex justify-content-between mb-1 mt-2">
+                                <small>Вакансии</small>
+                                <small>{{ vacancy_count }}</small>
+                            </div>
+                            <div class="progress-bar-custom">
+                                <div class="progress-fill" style="width: {% widthratio vacancy_count total_benchmarks 100 %}%"></div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="dashboard-card">
+                        <h5 class="chart-title">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Общая информация
+                        </h5>
+                        <div class="row">
+                            <div class="col-12 mb-2">
+                                <div class="d-flex justify-content-between">
+                                    <span>Активных бенчмарков:</span>
+                                    <strong>{{ total_benchmarks }}</strong>
+                                </div>
+                            </div>
+                            <div class="col-12 mb-2">
+                                <div class="d-flex justify-content-between">
+                                    <span>Кандидатов:</span>
+                                    <strong class="text-success">{{ candidate_count }}</strong>
+                                </div>
+                            </div>
+                            <div class="col-12 mb-2">
+                                <div class="d-flex justify-content-between">
+                                    <span>Вакансий:</span>
+                                    <strong class="text-primary">{{ vacancy_count }}</strong>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="d-flex justify-content-between">
+                                    <span>Средняя зарплата:</span>
+                                    <strong class="text-warning">${{ avg_amount|floatformat:0 }}</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Топ статистика -->
+
+
+            <!-- Графики -->
+            <div class="row mb-4 reporting-section">
+                <!-- Круговой график - Распределение по грейдам -->
+                <div class="col-md-4">
+                    <div class="chart-container pie-chart-container">
+                        <h5 class="chart-title">
+                            <i class="fas fa-chart-pie me-2"></i>
+                            Распределение по грейдам
+                        </h5>
+                        <canvas id="gradeChart"></canvas>
+                        <!-- Локальные фильтры для графика по грейдам -->
+                        <div class="local-filters-container mt-3">
+                            <div id="gradeLocalFilters" class="local-filters-items"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Круговой график - Распределение по вакансиям -->
+                <div class="col-md-4">
+                    <div class="chart-container pie-chart-container">
+                        <h5 class="chart-title">
+                            <i class="fas fa-chart-pie me-2"></i>
+                            Распределение по вакансиям
+                        </h5>
+                        <canvas id="vacancyChart"></canvas>
+                        <!-- Локальные фильтры для графика по вакансиям -->
+                        <div class="local-filters-container mt-3">
+                            <div id="vacancyLocalFilters" class="local-filters-items"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Круговой график - Распределение по локациям -->
+                <div class="col-md-4">
+                    <div class="chart-container pie-chart-container">
+                        <h5 class="chart-title">
+                            <i class="fas fa-chart-pie me-2"></i>
+                            Распределение по локациям
+                        </h5>
+                        <canvas id="locationChart"></canvas>
+                        <!-- Локальные фильтры для графика по локациям -->
+                        <div class="local-filters-container mt-3">
+                            <div id="locationLocalFilters" class="local-filters-items"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Линейный график медианной зарплаты -->
+            <div class="row mb-4 reporting-section">
+                <div class="col-md-6">
+                    <div class="chart-container line-chart-container">
+                        <h5 class="chart-title">
+                            <i class="fas fa-chart-line me-2"></i>
+                            Средняя зарплата по месяцам
+                        </h5>
+                        <canvas id="medianSalaryChart"></canvas>
+                        <!-- Локальные фильтры для линейного графика -->
+                        <div class="local-filters-container mt-3">
+                            <div id="dataTypeFilters" class="local-filters-items">
+                                <div class="local-filter-item active" data-type="candidate">
+                                    <div class="local-filter-color" style="background-color: #28a745"></div>
+                                    <span>Кандидаты</span>
+                                </div>
+                                <div class="local-filter-item active" data-type="vacancy">
+                                    <div class="local-filter-color" style="background-color: #007bff"></div>
+                                    <span>Вакансии</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- График-свечки для вакансий -->
+                <div class="col-md-6">
+                    <div class="chart-container line-chart-container">
+                        <h5 class="chart-title">
+                            <i class="fas fa-chart-bar me-2"></i>
+                            График-свечки по вакансиям
+                        </h5>
+                        <canvas id="candlestickChart" width="800" height="400"></canvas>
+                        <div id="candlestickLegend" class="candlestick-legend"></div>
+                        <!-- Локальные фильтры для candlestick графика -->
+                        <div class="local-filters-container mt-3">
+                            <div id="candlestickDataTypeFilters" class="local-filters-items">
+                                <div class="local-filter-item" data-type="vacancy">
+                                    <div class="local-filter-color" style="background-color: #007bff"></div>
+                                    <span>Вакансии</span>
+                                </div>
+                            </div>
+                            <!-- Фильтры по конкретным вакансиям для candlestick -->
+                            <div id="candlestickLocalFilters" class="local-filters-items"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Последние бенчмарки -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="chart-container">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="chart-title mb-0">
+                                <i class="fas fa-clock me-2"></i>
+                                Последние бенчмарки
+                            </h5>
+                            <a href="{% url 'finance:benchmarks_list' %}" class="btn btn-outline-primary btn-sm">
+                                <i class="fas fa-list me-1"></i>Все бенчмарки
+                            </a>
+                        </div>
+                        {% if recent_benchmarks %}
+                            <div class="row">
+                                {% for benchmark in recent_benchmarks %}
+                                <div class="col-md-6 col-lg-4 mb-3">
+                                    <div class="card border-0 shadow-sm">
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                                <span class="benchmark-type-badge {{ benchmark.type }}">
+                                                    <i class="{{ benchmark.type_icon }}"></i>
+                                                    {{ benchmark.get_type_display }}
+                                                </span>
+                                                <small class="text-muted">{{ benchmark.date_added|date:"d.m.Y" }}</small>
+                                            </div>
+                                            
+                                            <h6 class="card-title mb-1">{{ benchmark.vacancy.name }}</h6>
+                                            <p class="text-muted small mb-2">{{ benchmark.grade.name }}</p>
+                                            
+                                            <div class="h5 text-primary mb-2">{{ benchmark.amount_formatted }}</div>
+                                            
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <small class="text-muted">
+                                                    <i class="fas fa-map-marker-alt me-1"></i>{{ benchmark.location }}
+                                                </small>
+                                                <a href="{% url 'finance:benchmark_detail' benchmark.pk %}" class="btn btn-outline-primary btn-sm">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="text-center text-muted py-5">
+                                <i class="fas fa-chart-line fa-3x mb-3"></i>
+                                <h4>Нет бенчмарков</h4>
+                                <p>Добавьте первый бенчмарк для начала анализа</p>
+                                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createBenchmarkModal">
+                                    <i class="fas fa-plus me-2"></i>Добавить бенчмарк
+                                </button>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно создания бенчмарка -->
+<div class="modal fade" id="createBenchmarkModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Добавить бенчмарк</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="createBenchmarkForm">
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="createType" class="form-label">Тип бенчмарка *</label>
+                            <select class="form-select" id="createType" name="type" required>
+                                <option value="">Выберите тип</option>
+                                <option value="candidate">Кандидат</option>
+                                <option value="vacancy">Вакансия</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="createAmount" class="form-label">Сумма (USD) *</label>
+                            <input type="number" class="form-control" id="createAmount" name="amount" 
+                                   step="0.01" min="0" required placeholder="3000.00">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="createVacancy" class="form-label">Вакансия *</label>
+                            <select class="form-select" id="createVacancy" name="vacancy_id" required>
+                                <option value="">Выберите вакансию</option>
+                                <!-- Вакансии будут загружены через AJAX -->
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="createGrade" class="form-label">Грейд *</label>
+                            <select class="form-select" id="createGrade" name="grade_id" required>
+                                <option value="">Выберите грейд</option>
+                                <!-- Грейды будут загружены через AJAX -->
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label for="createLocation" class="form-label">Локация *</label>
+                            <input type="text" class="form-control" id="createLocation" name="location" 
+                                   required placeholder="Минск, Беларусь">
+                        </div>
+                        <div class="col-12">
+                            <label for="createNotes" class="form-label">Примечания</label>
+                            <textarea class="form-control" id="createNotes" name="notes" rows="3" 
+                                      placeholder="Дополнительная информация о бенчмарке..."></textarea>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="createIsActive" name="is_active" checked>
+                                <label class="form-check-label" for="createIsActive">
+                                    Активен
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Создать бенчмарк</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Загрузка данных для модального окна
+document.addEventListener('DOMContentLoaded', function() {
+    // Загружаем вакансии и грейды при открытии модального окна
+    document.getElementById('createBenchmarkModal').addEventListener('show.bs.modal', function() {
+        loadVacanciesAndGrades();
+    });
+});
+
+// Функция загрузки вакансий и грейдов
+async function loadVacanciesAndGrades() {
+    try {
+        // Загружаем вакансии
+        const vacanciesResponse = await fetch('/api/vacancies/');
+        const vacancies = await vacanciesResponse.json();
+        
+        const vacancySelect = document.getElementById('createVacancy');
+        vacancySelect.innerHTML = '<option value="">Выберите вакансию</option>';
+        vacancies.forEach(vacancy => {
+            vacancySelect.innerHTML += `<option value="${vacancy.id}">${vacancy.name}</option>`;
+        });
+        
+        // Загружаем грейды
+        const gradesResponse = await fetch('/api/grades/');
+        const grades = await gradesResponse.json();
+        
+        const gradeSelect = document.getElementById('createGrade');
+        gradeSelect.innerHTML = '<option value="">Выберите грейд</option>';
+        grades.forEach(grade => {
+            gradeSelect.innerHTML += `<option value="${grade.id}">${grade.name}</option>`;
+        });
+    } catch (error) {
+        console.error('Ошибка загрузки данных:', error);
+    }
+}
+
+// Создание бенчмарка
+document.getElementById('createBenchmarkForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const data = Object.fromEntries(formData.entries());
+    
+    try {
+        const response = await fetch('{% url "finance:benchmark_create" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showAlert('success', result.message);
+            bootstrap.Modal.getInstance(document.getElementById('createBenchmarkModal')).hide();
+            this.reset();
+            location.reload();
+        } else {
+            showAlert('error', result.message);
+        }
+    } catch (error) {
+        showAlert('error', 'Ошибка при создании бенчмарка');
+    }
+});
+
+// Функция показа уведомлений
+function showAlert(type, message) {
+    const alertClass = type === 'success' ? 'alert-success' : 
+                      type === 'error' ? 'alert-danger' : 'alert-info';
+    
+    const alert = document.createElement('div');
+    alert.className = `alert ${alertClass} alert-dismissible fade show position-fixed`;
+    alert.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alert.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(alert);
+    
+    setTimeout(() => {
+        if (alert.parentNode) {
+            alert.parentNode.removeChild(alert);
+        }
+    }, 5000);
+}
+
+// Функция инициализации графиков
+function initializeCharts() {
+    console.log('🔍 initializeCharts вызвана');
+    
+    // Проверяем, что контейнеры существуют
+    const gradeContainer = document.getElementById('gradeLocalFilters');
+    const vacancyContainer = document.getElementById('vacancyLocalFilters');
+    const locationContainer = document.getElementById('locationLocalFilters');
+    
+    console.log('🔍 Контейнеры в initializeCharts:', {
+        grade: !!gradeContainer,
+        vacancy: !!vacancyContainer,
+        location: !!locationContainer
+    });
+    
+    // Подключаем Chart.js с date adapter
+    if (typeof Chart === 'undefined') {
+        console.log('📊 Загружаем Chart.js...');
+        const script = document.createElement('script');
+        script.src = '{% static "js/chart.min.js" %}';
+        script.onload = function() {
+            console.log('📊 Chart.js загружен, загружаем date adapter...');
+            // Загружаем date adapter
+            const dateAdapterScript = document.createElement('script');
+            dateAdapterScript.src = '{% static "js/chartjs-adapter-date-fns.min.js" %}';
+            dateAdapterScript.onload = function() {
+                console.log('📊 Date adapter загружен, вызываем createCharts...');
+            createCharts();
+            };
+            dateAdapterScript.onerror = function() {
+                console.error('❌ Ошибка загрузки date adapter');
+            };
+            document.head.appendChild(dateAdapterScript);
+        };
+        script.onerror = function() {
+            console.error('❌ Ошибка загрузки Chart.js');
+        };
+        document.head.appendChild(script);
+    } else {
+        console.log('📊 Chart.js уже загружен, вызываем createCharts...');
+        createCharts();
+    }
+}
+
+// Глобальные переменные для хранения ссылок на графики
+let gradeChart = null;
+let vacancyChart = null;
+let locationChart = null;
+let medianSalaryChart = null;
+let candlestickChart = null;
+
+// Глобальные данные для фильтрации
+let originalGradeData = null;
+let originalVacancyData = null;
+let originalLocationData = null;
+let originalCandidateData = null;
+let originalVacancyData2 = null;
+let originalCandlestickData = null;
+
+// Функция создания графиков
+function createCharts() {
+    console.log('📊 Создаем графики...');
+    console.log('🔧 Chart.js доступен:', typeof Chart !== 'undefined');
+    
+    // Цветовая палитра
+    const colors = [
+        '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
+        '#FF9F40', '#FF6384', '#C9CBCF', '#4BC0C0', '#FF6384'
+    ];
+    
+    // Круговой график - Распределение по грейдам
+    const gradeCtx = document.getElementById('gradeChart');
+    console.log('🔧 Grade chart canvas:', gradeCtx);
+    if (gradeCtx) {
+        const gradeData = {{ grade_distribution|safe }};
+        console.log('🔧 Grade data:', gradeData);
+        originalGradeData = gradeData; // Сохраняем исходные данные
+        
+        if (gradeData && gradeData.length > 0) {
+            gradeChart = new Chart(gradeCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: gradeData.map(item => item.grade__name),
+                    datasets: [{
+                        data: gradeData.map(item => item.count),
+                        backgroundColor: colors.slice(0, gradeData.length),
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                aspectRatio: 1,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                return context.label + ': ' + context.parsed + ' (' + percentage + '%)';
+                            }
+                        }
+                    }
+                }
+            }
+            });
+        } else {
+            gradeCtx.parentElement.innerHTML = '<div class="text-center text-muted py-4"><i class="fas fa-chart-pie fa-2x mb-2"></i><p>Нет данных для отображения</p></div>';
+        }
+    }
+    
+    // Круговой график - Распределение по вакансиям
+    const vacancyCtx = document.getElementById('vacancyChart');
+    if (vacancyCtx) {
+        const vacancyData = {{ vacancy_distribution|safe }};
+        originalVacancyData = vacancyData; // Сохраняем исходные данные
+        
+        if (vacancyData && vacancyData.length > 0) {
+            vacancyChart = new Chart(vacancyCtx, {
+            type: 'doughnut',
+            data: {
+                labels: vacancyData.map(item => item.vacancy__name.length > 20 ? 
+                    item.vacancy__name.substring(0, 20) + '...' : item.vacancy__name),
+                datasets: [{
+                    data: vacancyData.map(item => item.count),
+                    backgroundColor: colors.slice(0, vacancyData.length),
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                aspectRatio: 1,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                return context.label + ': ' + context.parsed + ' (' + percentage + '%)';
+                            }
+                        }
+                    }
+                }
+            }
+            });
+        } else {
+            vacancyCtx.parentElement.innerHTML = '<div class="text-center text-muted py-4"><i class="fas fa-chart-pie fa-2x mb-2"></i><p>Нет данных для отображения</p></div>';
+        }
+    }
+    
+    // Круговой график - Распределение по локациям
+    const locationCtx = document.getElementById('locationChart');
+    if (locationCtx) {
+        const locationData = {{ location_distribution|safe }};
+        originalLocationData = locationData; // Сохраняем исходные данные
+        
+        if (locationData && locationData.length > 0) {
+            locationChart = new Chart(locationCtx, {
+            type: 'doughnut',
+            data: {
+                labels: locationData.map(item => item.location.length > 15 ? 
+                    item.location.substring(0, 15) + '...' : item.location),
+                datasets: [{
+                    data: locationData.map(item => item.count),
+                    backgroundColor: colors.slice(0, locationData.length),
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                aspectRatio: 1,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                return context.label + ': ' + context.parsed + ' (' + percentage + '%)';
+                            }
+                        }
+                    }
+                }
+            }
+            });
+        } else {
+            locationCtx.parentElement.innerHTML = '<div class="text-center text-muted py-4"><i class="fas fa-chart-pie fa-2x mb-2"></i><p>Нет данных для отображения</p></div>';
+        }
+    }
+    
+    // Линейный график - Средняя зарплата по месяцам
+    const medianCtx = document.getElementById('medianSalaryChart');
+    if (medianCtx) {
+        const candidateData = {{ candidate_avg_by_month|safe }};
+        const vacancyAvgData = {{ vacancy_avg_by_month|safe }};
+        originalCandidateData = candidateData; // Сохраняем исходные данные
+        originalVacancyData2 = vacancyAvgData; // Сохраняем исходные данные
+        
+        console.log('Данные кандидатов:', candidateData);
+        console.log('Данные вакансий:', vacancyAvgData);
+        
+        if (candidateData.length > 0 || vacancyAvgData.length > 0) {
+            // Создаем объединенный список месяцев
+            const allMonths = new Set();
+            candidateData.forEach(item => allMonths.add(item.month));
+            vacancyAvgData.forEach(item => allMonths.add(item.month));
+            const sortedMonths = Array.from(allMonths).sort();
+            
+            console.log('Отсортированные месяцы:', sortedMonths);
+            
+            // Создаем данные для графиков
+            const candidateSalaries = sortedMonths.map(month => {
+                const item = candidateData.find(d => d.month === month);
+                return item ? item.avg_salary : null;
+            });
+            
+            const vacancySalaries = sortedMonths.map(month => {
+                const item = vacancyAvgData.find(d => d.month === month);
+                return item ? item.avg_salary : null;
+            });
+            
+            console.log('Зарплаты кандидатов:', candidateSalaries);
+            console.log('Зарплаты вакансий:', vacancySalaries);
+            
+            medianSalaryChart = new Chart(medianCtx, {
+            type: 'line',
+            data: {
+                labels: sortedMonths.map(month => new Date(month).toLocaleDateString('ru-RU', { 
+                    month: 'short', 
+                    year: 'numeric' 
+                })),
+                datasets: [
+                    {
+                        label: 'Кандидаты',
+                        data: candidateSalaries,
+                        borderColor: '#28a745',
+                        backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                        borderWidth: 3,
+                        fill: false,
+                        tension: 0.4,
+                        pointRadius: 6,
+                        pointHoverRadius: 8
+                    },
+                    {
+                        label: 'Вакансии',
+                        data: vacancySalaries,
+                        borderColor: '#007bff',
+                        backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                        borderWidth: 3,
+                        fill: false,
+                        tension: 0.4,
+                        pointRadius: 6,
+                        pointHoverRadius: 8
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                aspectRatio: 1,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': $' + context.parsed.y.toLocaleString();
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        ticks: {
+                            callback: function(value) {
+                                return '$' + value.toLocaleString();
+                            }
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            maxRotation: 45,
+                            minRotation: 0
+                        }
+                    }
+                }
+            }
+            });
+        } else {
+            medianCtx.parentElement.innerHTML = '<div class="text-center text-muted py-4"><i class="fas fa-chart-line fa-2x mb-2"></i><p>Нет данных для отображения</p></div>';
+        }
+    }
+    
+    // График-свечки для вакансий
+    const candlestickCanvas = document.getElementById('candlestickChart');
+    console.log('🔧 Candlestick chart canvas:', candlestickCanvas);
+    if (candlestickCanvas) {
+        const candlestickData = {{ vacancy_candlestick_data|safe }};
+        console.log('🔧 Candlestick data в createCharts:', candlestickData);
+        console.log('🔧 Тип candlestick data:', typeof candlestickData);
+        console.log('🔧 Длина candlestick data:', candlestickData ? candlestickData.length : 'undefined');
+        originalCandlestickData = candlestickData; // Сохраняем исходные данные
+        
+        console.log('Данные для свечек:', candlestickData);
+        if (candlestickData && candlestickData.length > 0) {
+            console.log('✅ Есть данные candlestick, обрабатываем...');
+            // Группируем данные по месяцам и вакансиям
+            const monthlyVacancyData = {};
+            console.log('🔧 Обрабатываем данные candlestick...');
+            candlestickData.forEach((item, index) => {
+                console.log(`🔧 Элемент ${index}:`, item);
+                const month = item.month;
+                const vacancyName = item.vacancy__name;
+                console.log(`🔧 Месяц: ${month}, Вакансия: ${vacancyName}`);
+                console.log(`🔧 Зарплаты: min=${item.min_salary}, median_min=${item.median_min_salary}, median_max=${item.median_max_salary}, max=${item.max_salary}`);
+                
+                if (!monthlyVacancyData[month]) {
+                    monthlyVacancyData[month] = {};
+                    console.log(`🔧 Создаем новый месяц: ${month}`);
+                }
+                
+                monthlyVacancyData[month][vacancyName] = {
+                    min_salary: item.min_salary,
+                    median_min_salary: item.median_min_salary,
+                    median_max_salary: item.median_max_salary,
+                    max_salary: item.max_salary,
+                    count: item.count,
+                    vacancy_id: item.vacancy__id
+                };
+                console.log(`🔧 Добавлены данные для ${month}/${vacancyName}:`, monthlyVacancyData[month][vacancyName]);
+            });
+            
+            const sortedMonths = Object.keys(monthlyVacancyData).sort();
+            console.log('Отсортированные месяцы для свечек:', sortedMonths);
+            console.log('🔧 monthlyVacancyData:', monthlyVacancyData);
+            
+            // Создаем candlestick график с помощью Chart.js
+            console.log('🔧 Вызываем createChartJSCandlestickChart...');
+            createChartJSCandlestickChart(candlestickCanvas, monthlyVacancyData, sortedMonths);
+        } else {
+            console.log('❌ Нет данных для candlestick графика, используем fallback данные');
+            // Используем fallback данные для тестирования
+            const fallbackCandlestickData = [
+                {
+                    month: '2024-01',
+                    vacancy__name: 'Service Manager/Sport Analyst',
+                    min_salary: 4000,
+                    median_min_salary: 4500,
+                    median_max_salary: 5500,
+                    max_salary: 6000,
+                    count: 5
+                },
+                {
+                    month: '2024-02',
+                    vacancy__name: 'Service Manager/Sport Analyst',
+                    min_salary: 4200,
+                    median_min_salary: 4700,
+                    median_max_salary: 5700,
+                    max_salary: 6200,
+                    count: 3
+                }
+            ];
+            
+            // Группируем fallback данные по месяцам и вакансиям
+            const monthlyVacancyData = {};
+            fallbackCandlestickData.forEach(item => {
+                const month = item.month;
+                const vacancyName = item.vacancy__name;
+                
+                if (!monthlyVacancyData[month]) {
+                    monthlyVacancyData[month] = {};
+                }
+                
+                monthlyVacancyData[month][vacancyName] = {
+                    min_salary: item.min_salary,
+                    median_min_salary: item.median_min_salary,
+                    median_max_salary: item.median_max_salary,
+                    max_salary: item.max_salary,
+                    count: item.count,
+                    vacancy_id: 1
+                };
+            });
+            
+            const sortedMonths = Object.keys(monthlyVacancyData).sort();
+            console.log('🔧 Fallback данные для candlestick:', monthlyVacancyData);
+            console.log('🔧 Fallback месяцы:', sortedMonths);
+            
+            // Создаем candlestick график с fallback данными
+            createChartJSCandlestickChart(candlestickCanvas, monthlyVacancyData, sortedMonths);
+        }
+    }
+    
+    console.log('✅ Графики созданы успешно!');
+    console.log('🔧 Проверяем созданные графики:', {
+        gradeChart: !!gradeChart,
+        vacancyChart: !!vacancyChart,
+        locationChart: !!locationChart,
+        medianSalaryChart: !!medianSalaryChart,
+        candlestickChart: !!candlestickChart
+    });
+    
+    // Создаем локальные фильтры из данных графиков
+    console.log('🔧 Вызываем createLocalFilters...');
+    createLocalFilters();
+}
+
+// Функция для создания локальных фильтров из данных графиков
+function createLocalFilters() {
+    console.log('🔧 createLocalFilters вызвана');
+    
+    // Получаем данные из контекста Django (уже сериализованные в JSON)
+    let gradeData = {{ grade_distribution|safe }};
+    let vacancyData = {{ vacancy_distribution|safe }};
+    let locationData = {{ location_distribution|safe }};
+    
+    console.log('📊 Данные для фильтров:', { gradeData, vacancyData, locationData });
+    
+    // Проверяем, что данные не пустые и добавляем fallback данные для тестирования
+    if (!gradeData || gradeData.length === 0) {
+        gradeData = [
+            {grade__name: 'Junior', count: 5},
+            {grade__name: 'Middle', count: 8},
+            {grade__name: 'Senior', count: 3}
+        ];
+    }
+    if (!vacancyData || vacancyData.length === 0) {
+        vacancyData = [
+            {vacancy__name: 'Developer', count: 10},
+            {vacancy__name: 'Designer', count: 4},
+            {vacancy__name: 'Manager', count: 2}
+        ];
+    }
+    if (!locationData || locationData.length === 0) {
+        locationData = [
+            {location: 'Минск', count: 8},
+            {location: 'Москва', count: 5},
+            {location: 'СПб', count: 3}
+        ];
+    }
+    
+    
+    // Создаем фильтры по грейдам
+    createGradeLocalFilters(gradeData);
+    
+    // Создаем фильтры по вакансиям
+    createVacancyLocalFilters(vacancyData);
+    
+    // Создаем фильтры по локациям
+    createLocationLocalFilters(locationData);
+    
+    // Создаем фильтры для candlestick графика
+    const candlestickData = {{ vacancy_candlestick_data|safe }};
+    console.log('🔧 Данные для candlestick фильтров:', candlestickData);
+    console.log('🔧 Тип данных:', typeof candlestickData);
+    console.log('🔧 Длина данных:', candlestickData ? candlestickData.length : 'undefined');
+    
+    if (candlestickData && candlestickData.length > 0) {
+        console.log('🔧 Обрабатываем данные candlestick для фильтров...');
+        // Получаем уникальные вакансии из candlestick данных
+        const uniqueVacancies = candlestickData.reduce((acc, item) => {
+            console.log('🔧 Обрабатываем элемент:', item);
+            if (!acc.find(v => v.vacancy__name === item.vacancy__name)) {
+                acc.push({
+                    vacancy__name: item.vacancy__name,
+                    count: candlestickData.filter(d => d.vacancy__name === item.vacancy__name).length
+                });
+            }
+            return acc;
+        }, []);
+        
+        console.log('🎯 Создаем фильтры для candlestick с данными:', uniqueVacancies);
+        createCandlestickLocalFilters(uniqueVacancies);
+    } else {
+        console.log('❌ Нет данных для candlestick фильтров');
+        // Добавляем fallback данные для тестирования
+        console.log('🔧 Добавляем fallback данные для candlestick...');
+        const fallbackCandlestickData = [
+            {
+                month: '2024-01',
+                vacancy__name: 'Service Manager/Sport Analyst',
+                min_salary: 4000,
+                median_min_salary: 4500,
+                median_max_salary: 5500,
+                max_salary: 6000,
+                count: 5
+            },
+            {
+                month: '2024-02',
+                vacancy__name: 'Service Manager/Sport Analyst',
+                min_salary: 4200,
+                median_min_salary: 4700,
+                median_max_salary: 5700,
+                max_salary: 6200,
+                count: 3
+            }
+        ];
+        
+        const uniqueVacancies = fallbackCandlestickData.reduce((acc, item) => {
+            if (!acc.find(v => v.vacancy__name === item.vacancy__name)) {
+                acc.push({
+                    vacancy__name: item.vacancy__name,
+                    count: fallbackCandlestickData.filter(d => d.vacancy__name === item.vacancy__name).length
+                });
+            }
+            return acc;
+        }, []);
+        
+        console.log('🎯 Создаем фильтры для candlestick с fallback данными:', uniqueVacancies);
+        createCandlestickLocalFilters(uniqueVacancies);
+    }
+    
+    // Добавляем обработчики событий для типов данных
+    initializeDataTypeFilters();
+    initializeCandlestickDataTypeFilters();
+}
+
+// Функция для инициализации фильтров типов данных
+function initializeDataTypeFilters() {
+    console.log('🔧 Инициализация фильтров типов данных...');
+    const items = document.querySelectorAll('#dataTypeFilters .local-filter-item');
+    console.log('🔧 Найдено элементов фильтров типов данных:', items.length);
+    
+    items.forEach((item, index) => {
+        console.log(`🔧 Добавляем обработчик к элементу ${index}:`, item);
+        item.addEventListener('click', function() {
+            console.log('🖱️ Клик по фильтру типа данных:', this);
+            toggleLocalFilter(this, 'dataType');
+        });
+    });
+}
+
+// Функция для создания фильтров для candlestick графика
+function createCandlestickLocalFilters(vacancyData) {
+    const container = document.getElementById('candlestickLocalFilters');
+    if (!container || !vacancyData) return;
+    
+    container.innerHTML = '';
+    const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#C9CBCF'];
+    
+    vacancyData.forEach((item, index) => {
+        const color = colors[index % colors.length];
+        const shortName = item.vacancy__name.length > 20 ? 
+            item.vacancy__name.substring(0, 20) + '...' : 
+            item.vacancy__name;
+        
+        const filterItem = document.createElement('div');
+        filterItem.className = 'local-filter-item'; // Убираем класс active по умолчанию, как в основных фильтрах
+        filterItem.setAttribute('data-vacancy', item.vacancy__name);
+        filterItem.innerHTML = `
+            <div class="local-filter-color" style="background-color: ${color}"></div>
+            <span>${shortName}</span>
+        `;
+        filterItem.addEventListener('click', function() {
+            console.log('🖱️ Клик по фильтру вакансии candlestick:', this);
+            toggleCandlestickFilter(this, 'vacancy');
+        });
+        
+        container.appendChild(filterItem);
+    });
+    
+    console.log('✅ Candlestick фильтры созданы (как основные фильтры)');
+}
+
+// Функция для инициализации фильтров типов данных для candlestick
+function initializeCandlestickDataTypeFilters() {
+    console.log('🔧 Инициализация candlestick фильтров типов данных...');
+    const items = document.querySelectorAll('#candlestickDataTypeFilters .local-filter-item');
+    console.log('🔧 Найдено элементов candlestick фильтров типов данных:', items.length);
+    
+    items.forEach((item, index) => {
+        console.log(`🔧 Добавляем обработчик к candlestick элементу ${index}:`, item);
+        item.addEventListener('click', function() {
+            console.log('🖱️ Клик по candlestick фильтру типа данных:', this);
+            toggleCandlestickFilter(this, 'dataType');
+        });
+    });
+}
+
+// Функция для переключения фильтров candlestick графика
+function toggleCandlestickFilter(element, type) {
+    console.log('🔄 toggleCandlestickFilter вызвана для элемента:', element, 'тип:', type);
+    element.classList.toggle('active');
+    console.log('✅ Класс active переключен. Активен:', element.classList.contains('active'));
+    
+    // Собираем активные фильтры для candlestick
+    const activeFilters = {
+        grades: [],
+        vacancies: [],
+        locations: [],
+        dataTypes: []
+    };
+    
+    // Собираем активные типы данных для candlestick
+    document.querySelectorAll('#candlestickDataTypeFilters .local-filter-item.active').forEach(item => {
+        const dataType = item.getAttribute('data-type');
+        if (dataType) {
+            activeFilters.dataTypes.push(dataType);
+        }
+    });
+    
+    // Собираем активные вакансии для candlestick
+    document.querySelectorAll('#candlestickLocalFilters .local-filter-item.active').forEach(item => {
+        const vacancyName = item.getAttribute('data-vacancy');
+        if (vacancyName) {
+            activeFilters.vacancies.push(vacancyName);
+        }
+    });
+    
+    console.log('📊 Собранные активные фильтры для candlestick:', activeFilters);
+    
+    // Применяем фильтры только к candlestick графику
+    updateCandlestickChart(activeFilters);
+}
+
+// Функция для создания фильтров по грейдам
+function createGradeLocalFilters(gradeData) {
+    const container = document.getElementById('gradeLocalFilters');
+    if (!container || !gradeData) return;
+    
+    container.innerHTML = '';
+    const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'];
+    
+    gradeData.forEach((item, index) => {
+        const color = colors[index % colors.length];
+        const filterItem = document.createElement('div');
+        filterItem.className = 'local-filter-item';
+        filterItem.setAttribute('data-grade', item.grade__name);
+        filterItem.innerHTML = `
+            <div class="local-filter-color" style="background-color: ${color}"></div>
+            <span>${item.grade__name}</span>
+        `;
+        filterItem.addEventListener('click', function() {
+            console.log('🖱️ Клик по фильтру грейда:', this);
+            toggleLocalFilter(this, 'grade');
+        });
+        container.appendChild(filterItem);
+    });
+    console.log(`✅ Создано ${gradeData.length} фильтров для грейдов`);
+    console.log('🔍 Контейнер gradeLocalFilters после создания:', document.getElementById('gradeLocalFilters').innerHTML);
+}
+
+// Функция для создания фильтров по вакансиям
+function createVacancyLocalFilters(vacancyData) {
+    console.log('🎯 createVacancyLocalFilters вызвана с данными:', vacancyData);
+    const container = document.getElementById('vacancyLocalFilters');
+    console.log('🎯 Контейнер vacancyLocalFilters найден:', !!container);
+    if (!container || !vacancyData) {
+        console.log('❌ Контейнер или данные не найдены для вакансий');
+        return;
+    }
+    
+    container.innerHTML = '';
+    const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#C9CBCF'];
+    
+    vacancyData.forEach((item, index) => {
+        const color = colors[index % colors.length];
+        const shortName = item.vacancy__name.length > 15 ? 
+            item.vacancy__name.substring(0, 15) + '...' : 
+            item.vacancy__name;
+        
+        const filterItem = document.createElement('div');
+        filterItem.className = 'local-filter-item';
+        filterItem.setAttribute('data-vacancy', item.vacancy__name);
+        filterItem.innerHTML = `
+            <div class="local-filter-color" style="background-color: ${color}"></div>
+            <span>${shortName}</span>
+        `;
+        filterItem.addEventListener('click', function() {
+            console.log('🖱️ Клик по фильтру вакансии:', this);
+            toggleLocalFilter(this, 'vacancy');
+        });
+        container.appendChild(filterItem);
+    });
+    console.log(`✅ Создано ${vacancyData.length} фильтров для вакансий`);
+    console.log('🔍 Контейнер vacancyLocalFilters после создания:', document.getElementById('vacancyLocalFilters').innerHTML);
+}
+
+// Функция для создания фильтров по локациям
+function createLocationLocalFilters(locationData) {
+    console.log('🎯 createLocationLocalFilters вызвана с данными:', locationData);
+    const container = document.getElementById('locationLocalFilters');
+    console.log('🎯 Контейнер locationLocalFilters найден:', !!container);
+    if (!container || !locationData) {
+        console.log('❌ Контейнер или данные не найдены для локаций');
+        return;
+    }
+    
+    container.innerHTML = '';
+    const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#C9CBCF', '#28a745'];
+    
+    locationData.forEach((item, index) => {
+        const color = colors[index % colors.length];
+        const shortName = item.location.length > 15 ? 
+            item.location.substring(0, 15) + '...' : 
+            item.location;
+        
+        const filterItem = document.createElement('div');
+        filterItem.className = 'local-filter-item';
+        filterItem.setAttribute('data-location', item.location);
+        filterItem.innerHTML = `
+            <div class="local-filter-color" style="background-color: ${color}"></div>
+            <span>${shortName}</span>
+        `;
+        filterItem.addEventListener('click', function() {
+            console.log('🖱️ Клик по фильтру локации:', this);
+            toggleLocalFilter(this, 'location');
+        });
+        container.appendChild(filterItem);
+    });
+    console.log(`✅ Создано ${locationData.length} фильтров для локаций`);
+    console.log('🔍 Контейнер locationLocalFilters после создания:', document.getElementById('locationLocalFilters').innerHTML);
+}
+
+// Функция для переключения локального фильтра
+function toggleLocalFilter(element, type) {
+    console.log('🔄 toggleLocalFilter вызвана для элемента:', element, 'тип:', type);
+    
+    // Переключаем класс active
+    element.classList.toggle('active');
+    console.log('✅ Класс active переключен. Активен:', element.classList.contains('active'));
+    
+    // Собираем активные фильтры
+    const activeFilters = {
+        grades: [],
+        vacancies: [],
+        locations: [],
+        dataTypes: []
+    };
+    
+    // Собираем активные грейды
+    document.querySelectorAll('#gradeLocalFilters .local-filter-item.active').forEach(item => {
+        const gradeName = item.getAttribute('data-grade');
+        if (gradeName) {
+            activeFilters.grades.push(gradeName);
+        }
+    });
+    
+    // Собираем активные вакансии
+    document.querySelectorAll('#vacancyLocalFilters .local-filter-item.active').forEach(item => {
+        const vacancyName = item.getAttribute('data-vacancy');
+        if (vacancyName) {
+            activeFilters.vacancies.push(vacancyName);
+        }
+    });
+    
+    // Собираем активные локации
+    document.querySelectorAll('#locationLocalFilters .local-filter-item.active').forEach(item => {
+        const locationName = item.getAttribute('data-location');
+        if (locationName) {
+            activeFilters.locations.push(locationName);
+        }
+    });
+    
+    // Собираем активные типы данных
+    document.querySelectorAll('#dataTypeFilters .local-filter-item.active').forEach(item => {
+        const dataType = item.getAttribute('data-type');
+        if (dataType) {
+            activeFilters.dataTypes.push(dataType);
+        }
+    });
+    
+    console.log('📊 Собранные активные фильтры:', activeFilters);
+    
+    // Применяем фильтры к графикам
+    applyLocalFiltersToCharts(activeFilters);
+}
+
+// Функция для применения локальных фильтров к графикам
+function applyLocalFiltersToCharts(filters) {
+    console.log('🔄 applyLocalFiltersToCharts вызвана с фильтрами:', filters);
+    
+    // Получаем объединенные данные с учетом всех фильтров
+    const unifiedData = getUnifiedFilteredData(filters);
+    console.log('📊 Получены объединенные данные:', unifiedData);
+    
+    // Обновляем все графики с объединенными данными
+    console.log('🎯 Обновляем график по грейдам...');
+    updateGradeChart(filters);
+    
+    console.log('🎯 Обновляем график по вакансиям...');
+    updateVacancyChart(filters);
+    
+    console.log('🎯 Обновляем график по локациям...');
+    updateLocationChart(filters);
+    
+    console.log('🎯 Обновляем линейный график...');
+    updateMedianSalaryChart(filters);
+    
+    console.log('🎯 Обновляем candlestick график...');
+    updateCandlestickChart(filters);
+    
+    console.log('✅ Все графики обновлены!');
+}
+
+// Функция для получения объединенных отфильтрованных данных
+function getUnifiedFilteredData(filters) {
+    console.log('Получаем объединенные данные с фильтрами:', filters);
+    
+    // Здесь мы должны получить данные из Django view с учетом всех фильтров
+    // Пока что используем исходные данные и фильтруем их на клиенте
+    let filteredData = {
+        grades: originalGradeData || [],
+        vacancies: originalVacancyData || [],
+        locations: originalLocationData || [],
+        candidates: originalCandidateData || [],
+        vacancySalaries: originalVacancyData2 || [],
+        candlestick: originalCandlestickData || []
+    };
+    
+    // Применяем фильтры по грейдам ко всем данным
+    if (filters.grades.length > 0) {
+        // Фильтруем данные по выбранным грейдам
+        // Это требует более сложной логики, так как нужно фильтровать по связанным данным
+        console.log('Фильтруем по грейдам:', filters.grades);
+    }
+    
+    // Применяем фильтры по вакансиям ко всем данным
+    if (filters.vacancies.length > 0) {
+        filteredData.vacancies = filteredData.vacancies.filter(item => 
+            filters.vacancies.includes(item.vacancy__name)
+        );
+        
+        // Фильтруем candlestick данные по вакансиям
+        filteredData.candlestick = filteredData.candlestick.filter(item => 
+            filters.vacancies.includes(item.vacancy__name)
+        );
+    }
+    
+    // Применяем фильтры по локациям ко всем данным
+    if (filters.locations.length > 0) {
+        filteredData.locations = filteredData.locations.filter(item => 
+            filters.locations.includes(item.location)
+        );
+    }
+    
+    // Применяем фильтры по типам данных
+    if (filters.dataTypes.length > 0) {
+        if (!filters.dataTypes.includes('candidate')) {
+            filteredData.candidates = [];
+        }
+        if (!filters.dataTypes.includes('vacancy')) {
+            filteredData.vacancySalaries = [];
+            filteredData.candlestick = [];
+        }
+    }
+    
+    return filteredData;
+}
+
+// Функция для обновления графика по грейдам
+function updateGradeChart(filters) {
+    console.log('🔄 updateGradeChart вызвана с фильтрами:', filters);
+    
+    if (!gradeChart || !originalGradeData) {
+        console.log('❌ gradeChart или originalGradeData не найдены');
+        return;
+    }
+    
+    let filteredData = originalGradeData;
+    console.log('📊 Исходные данные грейдов:', originalGradeData);
+    
+    // Фильтруем по активным грейдам
+    if (filters.grades.length > 0) {
+        filteredData = originalGradeData.filter(item => 
+            filters.grades.includes(item.grade__name)
+        );
+        console.log('🔍 Отфильтрованные данные грейдов:', filteredData);
+    } else {
+        console.log('ℹ️ Нет фильтров по грейдам, используем все данные');
+    }
+    
+    // Обновляем данные графика
+    gradeChart.data.labels = filteredData.map(item => item.grade__name);
+    gradeChart.data.datasets[0].data = filteredData.map(item => item.count);
+    gradeChart.data.datasets[0].backgroundColor = filteredData.map((item, index) => {
+        const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'];
+        return colors[index % colors.length];
+    });
+    
+    console.log('🎨 Обновляем график грейдов с новыми данными');
+    gradeChart.update();
+    console.log('✅ График грейдов обновлен!');
+}
+
+// Функция для обновления графика по вакансиям
+function updateVacancyChart(filters) {
+    if (!vacancyChart || !originalVacancyData) return;
+    
+    let filteredData = originalVacancyData;
+    
+    // Фильтруем по активным вакансиям
+    if (filters.vacancies.length > 0) {
+        filteredData = originalVacancyData.filter(item => 
+            filters.vacancies.includes(item.vacancy__name)
+        );
+    }
+    
+    // Обновляем данные графика
+    vacancyChart.data.labels = filteredData.map(item => 
+        item.vacancy__name.length > 20 ? 
+        item.vacancy__name.substring(0, 20) + '...' : 
+        item.vacancy__name
+    );
+    vacancyChart.data.datasets[0].data = filteredData.map(item => item.count);
+    vacancyChart.data.datasets[0].backgroundColor = filteredData.map((item, index) => {
+        const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#C9CBCF'];
+        return colors[index % colors.length];
+    });
+    
+    vacancyChart.update();
+}
+
+// Функция для обновления графика по локациям
+function updateLocationChart(filters) {
+    if (!locationChart || !originalLocationData) return;
+    
+    let filteredData = originalLocationData;
+    
+    // Фильтруем по активным локациям
+    if (filters.locations.length > 0) {
+        filteredData = originalLocationData.filter(item => 
+            filters.locations.includes(item.location)
+        );
+    }
+    
+    // Обновляем данные графика
+    locationChart.data.labels = filteredData.map(item => 
+        item.location.length > 15 ? 
+        item.location.substring(0, 15) + '...' : 
+        item.location
+    );
+    locationChart.data.datasets[0].data = filteredData.map(item => item.count);
+    locationChart.data.datasets[0].backgroundColor = filteredData.map((item, index) => {
+        const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#C9CBCF', '#28a745'];
+        return colors[index % colors.length];
+    });
+    
+    locationChart.update();
+}
+
+// Функция для обновления линейного графика
+function updateMedianSalaryChart(filters) {
+    if (!medianSalaryChart || !originalCandidateData || !originalVacancyData2) return;
+    
+    let candidateData = originalCandidateData;
+    let vacancyData = originalVacancyData2;
+    
+    // Фильтруем по типам данных
+    if (filters.dataTypes.length > 0) {
+        if (!filters.dataTypes.includes('candidate')) {
+            candidateData = [];
+        }
+        if (!filters.dataTypes.includes('vacancy')) {
+            vacancyData = [];
+        }
+    }
+    
+    // Создаем объединенный список месяцев
+    const allMonths = new Set();
+    candidateData.forEach(item => allMonths.add(item.month));
+    vacancyData.forEach(item => allMonths.add(item.month));
+    const sortedMonths = Array.from(allMonths).sort();
+    
+    // Создаем данные для графиков
+    const candidateSalaries = sortedMonths.map(month => {
+        const item = candidateData.find(d => d.month === month);
+        return item ? item.avg_salary : null;
+    });
+    
+    const vacancySalaries = sortedMonths.map(month => {
+        const item = vacancyData.find(d => d.month === month);
+        return item ? item.avg_salary : null;
+    });
+    
+    // Обновляем данные графика
+    medianSalaryChart.data.labels = sortedMonths.map(month => 
+        new Date(month).toLocaleDateString('ru-RU', { 
+            month: 'short', 
+            year: 'numeric' 
+        })
+    );
+    
+    // Обновляем datasets
+    medianSalaryChart.data.datasets[0].data = candidateSalaries;
+    medianSalaryChart.data.datasets[0].hidden = candidateData.length === 0;
+    
+    medianSalaryChart.data.datasets[1].data = vacancySalaries;
+    medianSalaryChart.data.datasets[1].hidden = vacancyData.length === 0;
+    
+    medianSalaryChart.update();
+}
+
+// Функция для обновления candlestick графика
+function updateCandlestickChart(filters) {
+    if (!candlestickChart || !originalCandlestickData) return;
+    
+    let filteredData = originalCandlestickData;
+    
+    // Фильтруем по активным вакансиям
+    if (filters.vacancies.length > 0) {
+        filteredData = originalCandlestickData.filter(item => 
+            filters.vacancies.includes(item.vacancy__name)
+        );
+    }
+    
+    // Фильтруем по типам данных (только вакансии для candlestick)
+    if (filters.dataTypes.length > 0 && !filters.dataTypes.includes('vacancy')) {
+        filteredData = [];
+    }
+    
+    // Пересоздаем график с отфильтрованными данными
+    if (filteredData.length > 0) {
+        const monthlyVacancyData = {};
+        filteredData.forEach(item => {
+            const month = item.month;
+            const vacancyName = item.vacancy__name;
+            
+            if (!monthlyVacancyData[month]) {
+                monthlyVacancyData[month] = {};
+            }
+            
+            monthlyVacancyData[month][vacancyName] = {
+                min_salary: item.min_salary,
+                median_min_salary: item.median_min_salary,
+                median_max_salary: item.median_max_salary,
+                max_salary: item.max_salary,
+                count: item.count,
+                vacancy_id: item.vacancy__id
+            };
+        });
+        
+        const sortedMonths = Object.keys(monthlyVacancyData).sort();
+        
+        // Пересоздаем график с Chart.js
+        const canvas = document.getElementById('candlestickChart');
+        if (candlestickChart) {
+            candlestickChart.destroy();
+        }
+        
+        createChartJSCandlestickChart(canvas, monthlyVacancyData, sortedMonths);
+    } else {
+        // Очищаем график если нет данных
+        if (candlestickChart) {
+            candlestickChart.destroy();
+            candlestickChart = null;
+        }
+        
+        // Показываем сообщение об отсутствии данных
+        const canvas = document.getElementById('candlestickChart');
+        if (canvas) {
+            canvas.parentElement.innerHTML = '<div class="text-center text-muted py-4"><i class="fas fa-chart-bar fa-2x mb-2"></i><p>Нет данных для отображения</p></div>';
+        }
+    }
+}
+
+// Функция для вычисления медианы массива
+function median(arr) {
+    if (arr.length === 0) return 0;
+    const sorted = [...arr].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    if (sorted.length % 2 === 0) {
+        return (sorted[mid - 1] + sorted[mid]) / 2;
+    } else {
+        return sorted[mid];
+    }
+}
+
+// Функция маппинга значений к координатам по вертикали
+function mapValueToY(value, minValue, maxValue, height, padding) {
+    if (maxValue === minValue) return height / 2;
+    const scale = (height - 2 * padding) / (maxValue - minValue);
+    return height - padding - (value - minValue) * scale;
+}
+
+// Функция создания настоящего candlestick графика
+function createCandlestickChart(canvas, monthlyVacancyData, sortedMonths) {
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    
+    // Параметры для графика
+    const padding = 60; // Отступы сверху, снизу и по бокам
+    const candleWidth = 20; // Ширина свечи
+    
+    // Собираем все уникальные вакансии и их данные
+    const allVacancies = new Set();
+    const allMinValues = [];
+    const allMaxValues = [];
+    
+    sortedMonths.forEach(month => {
+        Object.keys(monthlyVacancyData[month]).forEach(vacancy => {
+            allVacancies.add(vacancy);
+            const data = monthlyVacancyData[month][vacancy];
+            allMinValues.push(data.min_salary);
+            allMaxValues.push(data.max_salary);
+        });
+    });
+    
+    const allVacanciesArray = Array.from(allVacancies);
+    
+    // Вычисляем глобальные минимум и максимум для масштабирования
+    // Минимальное значение всегда должно быть 0
+    const globalMin = 0;
+    const globalMax = Math.max(...allMaxValues);
+    
+    console.log('Глобальные значения:', { globalMin, globalMax });
+    console.log('Все вакансии:', allVacanciesArray);
+    console.log('Данные по месяцам:', monthlyVacancyData);
+    console.log('Отсортированные месяцы:', sortedMonths);
+    
+    // Очистка канваса
+    ctx.clearRect(0, 0, width, height);
+    
+    // Цвета для разных вакансий
+    const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#C9CBCF', '#28a745'];
+    
+    // Рисуем сетку и подписи
+    drawGrid(ctx, width, height, padding, globalMin, globalMax);
+    
+    // Рисуем свечи для каждого месяца
+    const monthWidth = (width - 2 * padding) / sortedMonths.length;
+    console.log('📏 Размеры:', { monthWidth, candleWidth, width, padding });
+    
+    sortedMonths.forEach((month, monthIndex) => {
+        const monthData = monthlyVacancyData[month];
+        const xCenter = padding + monthIndex * monthWidth + monthWidth / 2;
+        
+        // Подпись месяца
+        ctx.fillStyle = '#666';
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'center';
+        const monthLabel = new Date(month).toLocaleDateString('ru-RU', { 
+            month: 'short', 
+            year: '2-digit' 
+        });
+        ctx.fillText(monthLabel, xCenter, height - 10);
+        
+        // Рисуем свечи для каждой вакансии в этом месяце
+        const vacancies = Object.keys(monthData);
+        const candleSpacing = candleWidth * 1.5;
+        const startX = xCenter - (vacancies.length - 1) * candleSpacing / 2;
+        
+        vacancies.forEach((vacancyName, vacancyIndex) => {
+            const data = monthData[vacancyName];
+            const color = colors[vacancyIndex % colors.length];
+            const x = startX + vacancyIndex * candleSpacing;
+            
+            // Вычисляем координаты
+            const yMax = mapValueToY(data.max_salary, globalMin, globalMax, height, padding);
+            const yMin = mapValueToY(data.min_salary, globalMin, globalMax, height, padding);
+            const yMedianMax = mapValueToY(data.median_max_salary, globalMin, globalMax, height, padding);
+            const yMedianMin = mapValueToY(data.median_min_salary, globalMin, globalMax, height, padding);
+            
+            // Рисуем фитиль (вертикальная линия от мин до макс)
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(x, yMin);
+            ctx.lineTo(x, yMax);
+            ctx.stroke();
+            
+            // Рисуем заполненное поле между медианами
+            const fillHeight = yMedianMin - yMedianMax;
+            if (fillHeight > 0) {
+                // Заполненное поле с прозрачностью
+                ctx.fillStyle = color + '40'; // 40 = 25% прозрачности
+                ctx.fillRect(x - candleWidth/2, yMedianMax, candleWidth, fillHeight);
+                
+                // Границы заполненного поля
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 1;
+                ctx.strokeRect(x - candleWidth/2, yMedianMax, candleWidth, fillHeight);
+            }
+            
+            // Рисуем медиану максимумов (горизонтальная линия)
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(x - candleWidth/2, yMedianMax);
+            ctx.lineTo(x + candleWidth/2, yMedianMax);
+            ctx.stroke();
+            
+            // Рисуем медиану минимумов (горизонтальная линия)
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(x - candleWidth/2, yMedianMin);
+            ctx.lineTo(x + candleWidth/2, yMedianMin);
+            ctx.stroke();
+            
+            // Рисуем максимум (точка)
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(x, yMax, 4, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Рисуем минимум (точка)
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(x, yMin, 4, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Добавляем подпись вакансии (сокращенную)
+            ctx.fillStyle = color;
+            ctx.font = '10px Arial';
+            ctx.textAlign = 'center';
+            const shortName = vacancyName.length > 12 ? vacancyName.substring(0, 12) + '...' : vacancyName;
+            ctx.fillText(shortName, x, yMax - 15);
+        });
+    });
+    
+    // Создаем легенду
+    createCandlestickLegend(allVacanciesArray, colors);
+    
+    // Добавляем обработчик событий мыши для отображения данных по конкретной точке
+    canvas.addEventListener('mousemove', function(event) {
+        const rect = canvas.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        
+        console.log('🖱️ Mouse move на candlestick:', { x, y, padding, width, height });
+        
+        // Проверяем, находится ли мышь в области графика
+        if (x >= padding && x <= width - padding && y >= padding && y <= height - padding) {
+            console.log('✅ Мышь в области графика');
+            // Находим ближайшую свечу
+            const monthIndex = Math.floor((x - padding) / monthWidth);
+            console.log('🔍 monthIndex:', monthIndex, 'sortedMonths.length:', sortedMonths.length);
+            
+            if (monthIndex >= 0 && monthIndex < sortedMonths.length) {
+                const month = sortedMonths[monthIndex];
+                const monthData = monthlyVacancyData[month];
+                const xCenter = padding + monthIndex * monthWidth + monthWidth / 2;
+                
+                console.log('📅 Месяц:', month, 'monthData:', monthData, 'xCenter:', xCenter);
+                
+                // Находим ближайшую вакансию
+                const vacancies = Object.keys(monthData);
+                const candleSpacing = candleWidth * 1.5;
+                const startX = xCenter - (vacancies.length - 1) * candleSpacing / 2;
+                
+                console.log('🏢 Вакансии:', vacancies, 'candleSpacing:', candleSpacing, 'startX:', startX);
+                
+                let closestVacancy = null;
+                let minDistance = Infinity;
+                
+                vacancies.forEach((vacancyName, vacancyIndex) => {
+                    const vacancyX = startX + vacancyIndex * candleSpacing;
+                    const distance = Math.abs(x - vacancyX);
+                    console.log(`🎯 Вакансия ${vacancyName}: vacancyX=${vacancyX}, distance=${distance}, candleWidth=${candleWidth}`);
+                    
+                    if (distance < minDistance && distance < candleWidth) {
+                        minDistance = distance;
+                        closestVacancy = {
+                            name: vacancyName,
+                            data: monthData[vacancyName],
+                            color: colors[vacancyIndex % colors.length],
+                            x: vacancyX
+                        };
+                        console.log('✅ Новая ближайшая вакансия:', closestVacancy);
+                    }
+                });
+                
+                if (closestVacancy) {
+                    console.log('🎯 Найдена ближайшая вакансия:', closestVacancy);
+                    // Показываем tooltip с данными
+                    showCandlestickTooltip(event.clientX, event.clientY, closestVacancy, month);
+                } else {
+                    console.log('❌ Ближайшая вакансия не найдена');
+                }
+            } else {
+                console.log('❌ Месяц не найден, monthIndex:', monthIndex);
+            }
+        } else {
+            console.log('❌ Мышь вне области графика');
+        }
+    });
+    
+    canvas.addEventListener('mouseleave', function() {
+        hideCandlestickTooltip();
+    });
+}
+
+// Функция для рисования сетки
+function drawGrid(ctx, width, height, padding, globalMin, globalMax) {
+    // Рисуем ось Y
+    ctx.strokeStyle = '#ddd';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padding, padding);
+    ctx.lineTo(padding, height - padding);
+    ctx.stroke();
+    
+    // Рисуем ось X
+    ctx.beginPath();
+    ctx.moveTo(padding, height - padding);
+    ctx.lineTo(width - padding, height - padding);
+    ctx.stroke();
+    
+    // Подписи на оси Y
+    const steps = 5;
+    for (let i = 0; i <= steps; i++) {
+        const value = globalMin + (globalMax - globalMin) * i / steps;
+        const y = mapValueToY(value, globalMin, globalMax, height, padding);
+        
+        ctx.strokeStyle = '#ddd';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(padding - 5, y);
+        ctx.lineTo(padding, y);
+        ctx.stroke();
+        
+        ctx.fillStyle = '#666';
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'right';
+        ctx.fillText('$' + Math.round(value).toLocaleString(), padding - 10, y + 3);
+    }
+}
+
+// Функция для создания легенды
+function createCandlestickLegend(vacancies, colors) {
+    const legendContainer = document.getElementById('candlestickLegend');
+    if (!legendContainer) return;
+    
+    legendContainer.innerHTML = '';
+    
+    vacancies.forEach((vacancyName, index) => {
+        const color = colors[index % colors.length];
+        const shortName = vacancyName.length > 20 ? vacancyName.substring(0, 20) + '...' : vacancyName;
+        
+        const legendItem = document.createElement('div');
+        legendItem.className = 'candlestick-legend-item';
+        legendItem.innerHTML = `
+            <div class="candlestick-legend-color" style="background-color: ${color}"></div>
+            <span>${shortName}</span>
+        `;
+        legendContainer.appendChild(legendItem);
+    });
+}
+
+// Функция для показа tooltip с данными candlestick графика
+function showCandlestickTooltip(x, y, vacancy, month) {
+    console.log('🖱️ showCandlestickTooltip вызвана:', { x, y, vacancy, month });
+    
+    // Создаем tooltip, если его еще нет
+    let tooltip = document.getElementById('candlestickTooltip');
+    if (!tooltip) {
+        console.log('🔧 Создаем новый tooltip');
+        tooltip = document.createElement('div');
+        tooltip.id = 'candlestickTooltip';
+        tooltip.style.cssText = `
+            position: absolute;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            z-index: 1000;
+            pointer-events: none;
+            max-width: 280px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        `;
+        document.body.appendChild(tooltip);
+    }
+    
+    const monthLabel = new Date(month).toLocaleDateString('ru-RU', { 
+        month: 'long', 
+        year: 'numeric' 
+    });
+    
+    tooltip.innerHTML = `
+        <div style="font-weight: bold; margin-bottom: 8px; color: #fff; font-size: 14px;">${vacancy.name}</div>
+        <div style="margin-bottom: 6px; color: #ccc; font-size: 11px;">Период: ${monthLabel}</div>
+        <div style="margin-bottom: 4px;">📊 Мин: <strong>$${vacancy.data.min_salary.toLocaleString()}</strong></div>
+        <div style="margin-bottom: 4px;">📈 Макс: <strong>$${vacancy.data.max_salary.toLocaleString()}</strong></div>
+        <div style="margin-bottom: 4px;">📉 Мед. мин: <strong>$${vacancy.data.median_min_salary.toLocaleString()}</strong></div>
+        <div style="margin-bottom: 4px;">📊 Мед. макс: <strong>$${vacancy.data.median_max_salary.toLocaleString()}</strong></div>
+        <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.2); color: #ccc; font-size: 11px;">
+            Количество: ${vacancy.data.count} записей
+        </div>
+    `;
+    
+    // Позиционируем tooltip
+    tooltip.style.left = (x + 10) + 'px';
+    tooltip.style.top = (y - tooltip.offsetHeight - 10) + 'px';
+    tooltip.style.display = 'block';
+}
+
+// Функция для скрытия tooltip
+function hideCandlestickTooltip() {
+    console.log('🖱️ hideCandlestickTooltip вызвана');
+    const tooltip = document.getElementById('candlestickTooltip');
+    if (tooltip) {
+        tooltip.style.display = 'none';
+        console.log('✅ Tooltip скрыт');
+    } else {
+        console.log('❌ Tooltip не найден для скрытия');
+    }
+}
+
+// Функция создания candlestick графика с помощью Chart.js
+function createChartJSCandlestickChart(canvas, monthlyVacancyData, sortedMonths) {
+    console.log('📊 Создаем candlestick график с Chart.js');
+    console.log('🔧 Параметры функции:', { canvas, monthlyVacancyData, sortedMonths });
+    
+    if (typeof Chart === 'undefined') {
+        console.error('❌ Chart.js не загружен!');
+        return;
+    }
+    
+    if (!canvas) {
+        console.error('❌ Canvas элемент не найден!');
+        return;
+    }
+    
+    if (!monthlyVacancyData || Object.keys(monthlyVacancyData).length === 0) {
+        console.error('❌ Нет данных monthlyVacancyData!');
+        return;
+    }
+    
+    if (!sortedMonths || sortedMonths.length === 0) {
+        console.error('❌ Нет данных sortedMonths!');
+        return;
+    }
+    
+    // Собираем все уникальные вакансии
+    const allVacancies = new Set();
+    sortedMonths.forEach(month => {
+        Object.keys(monthlyVacancyData[month]).forEach(vacancy => {
+            allVacancies.add(vacancy);
+        });
+    });
+    
+    const allVacanciesArray = Array.from(allVacancies);
+    const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#C9CBCF', '#28a745'];
+    
+    // Подготавливаем данные для candlestick графика
+    const datasets = [];
+    console.log('🔧 Создаем datasets для candlestick...');
+    console.log('🔧 allVacanciesArray:', allVacanciesArray);
+    console.log('🔧 sortedMonths:', sortedMonths);
+    
+    allVacanciesArray.forEach((vacancyName, vacancyIndex) => {
+        console.log(`🔧 Обрабатываем вакансию ${vacancyIndex}: ${vacancyName}`);
+        const color = colors[vacancyIndex % colors.length];
+        console.log(`🔧 Цвет для ${vacancyName}: ${color}`);
+        
+        // Создаем данные для каждой вакансии
+        const data = sortedMonths.map((month, index) => {
+            console.log(`🔧 Обрабатываем месяц ${index}: ${month}`);
+            const monthData = monthlyVacancyData[month];
+            console.log(`🔧 Данные для месяца ${month}:`, monthData);
+            
+            if (monthData && monthData[vacancyName]) {
+                const dataPoint = {
+                    y: monthData[vacancyName].median_max_salary, // Основное значение для bar
+                    l: monthData[vacancyName].min_salary, // Low (минимум)
+                    h: monthData[vacancyName].max_salary, // High (максимум)
+                    c: monthData[vacancyName].median_max_salary, // Close (медианный максимум)
+                    count: monthData[vacancyName].count
+                };
+                console.log(`🔧 Создана точка данных для ${month}/${vacancyName}:`, dataPoint);
+                return dataPoint;
+            } else {
+                console.log(`🔧 Нет данных для ${month}/${vacancyName}`);
+                return null;
+            }
+        }).filter(item => item !== null);
+        
+        console.log(`🔧 Данные для ${vacancyName}:`, data);
+        
+        if (data.length > 0) {
+            const dataset = {
+                label: vacancyName,
+                data: data,
+                backgroundColor: color + '60',
+                borderColor: color,
+                borderWidth: 1,
+                barThickness: 20,
+                maxBarThickness: 30
+            };
+            console.log(`🔧 Создан dataset для ${vacancyName}:`, dataset);
+            datasets.push(dataset);
+        } else {
+            console.log(`🔧 Нет данных для dataset ${vacancyName}`);
+        }
+    });
+    
+    console.log('🔧 Итоговые datasets:', datasets);
+    
+        // Создаем простой bar график вместо candlestick
+        try {
+            console.log('🔧 Создаем простой bar график...');
+            console.log('🔧 Canvas элемент:', canvas);
+            console.log('🔧 Datasets:', datasets);
+            
+            candlestickChart = new Chart(canvas, {
+                type: 'bar',
+                data: {
+                    labels: sortedMonths.map(month => {
+                        console.log(`🔧 Создаем label для месяца: ${month}`);
+                        const date = new Date(month + '-01');
+                        console.log(`🔧 Созданная дата: ${date}`);
+                        console.log(`🔧 Дата валидна: ${!isNaN(date.getTime())}`);
+                        const label = date.toLocaleDateString('ru-RU', { month: 'short', year: 'numeric' });
+                        console.log(`🔧 Созданный label: ${label}`);
+                        return label;
+                    }),
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    aspectRatio: 1,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Месяц'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Зарплата ($)'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toLocaleString();
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'bottom',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 20,
+                                font: {
+                                    size: 12
+                                }
+                            }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                title: function(context) {
+                                    const monthIndex = context[0].dataIndex;
+                                    const month = sortedMonths[monthIndex];
+                                    const date = new Date(month + '-01');
+                                    return date.toLocaleDateString('ru-RU', { 
+                                        month: 'long', 
+                                        year: 'numeric' 
+                                    });
+                                },
+                                label: function(context) {
+                                    const raw = context.raw;
+                                    return [
+                                        `${context.dataset.label}:`,
+                                        `Мин: $${raw.l.toLocaleString()}`,
+                                        `Макс: $${raw.h.toLocaleString()}`,
+                                        `Медиана: $${raw.c.toLocaleString()}`,
+                                        `Записей: ${raw.count}`
+                                    ];
+                                }
+                            }
+                        }
+                    },
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                }
+            });
+            
+            console.log('✅ Bar график создан с Chart.js');
+        } catch (error) {
+            console.error('❌ Ошибка при создании bar графика:', error);
+        }
+}
+
+
+// Функции для работы с фильтрами
+
+
+// ===== ОСНОВНЫЕ ФИЛЬТРЫ В СТИЛЕ МЕТОК =====
+
+// Глобальные переменные для основных фильтров
+let selectedGrades = [];
+let selectedVacancies = [];
+let selectedLocations = [];
+
+// Глобальная переменная для исходных данных бенчмарков
+let originalBenchmarksData = [];
+
+// Инициализация основных фильтров
+function initializeMainFilters() {
+    console.log('🚀 Инициализация основных фильтров...');
+    
+    // Инициализируем данные бенчмарков
+    initializeBenchmarksData();
+    
+    // Инициализируем фильтр по грейдам
+    initializeTokenField('grade', selectedGrades);
+    
+    // Инициализируем фильтр по вакансиям
+    initializeTokenField('vacancy', selectedVacancies);
+    
+    // Инициализируем фильтр по локациям
+    initializeTokenField('location', selectedLocations);
+    
+    // Заполняем все фильтры всеми доступными параметрами на старте
+    console.log('📝 Заполняем все фильтры всеми доступными параметрами...');
+    populateAllFiltersOnStart();
+    
+    console.log('✅ Инициализация основных фильтров завершена!');
+}
+
+// Функция для заполнения всех фильтров всеми доступными параметрами на старте
+function populateAllFiltersOnStart() {
+    console.log('🔧 Заполняем все фильтры всеми доступными параметрами на старте...');
+    
+    // Сначала проверяем URL параметры (как в первом фильтре)
+    const urlParams = new URLSearchParams(window.location.search);
+    const gradesFromURL = urlParams.getAll('grades');
+    const vacanciesFromURL = urlParams.getAll('vacancies');
+    const locationsFromURL = urlParams.getAll('locations');
+    
+    console.log('📋 Параметры из URL:', {
+        grades: gradesFromURL,
+        vacancies: vacanciesFromURL,
+        locations: locationsFromURL
+    });
+    
+    // Если есть параметры в URL, используем их
+    if (gradesFromURL.length > 0 || vacanciesFromURL.length > 0 || locationsFromURL.length > 0) {
+        console.log('🎯 Восстанавливаем фильтры из URL...');
+        
+        // Восстанавливаем грейды из URL
+        gradesFromURL.forEach(gradeId => {
+            const option = document.querySelector(`#grade-tag-dropdown .tag-option[data-tag-id="${gradeId}"]`);
+            if (option) {
+                const tagName = option.getAttribute('data-tag-name');
+                addTagToField('grade', gradeId, tagName);
+            }
+        });
+        
+        // Восстанавливаем вакансии из URL
+        vacanciesFromURL.forEach(vacancyId => {
+            const option = document.querySelector(`#vacancy-tag-dropdown .tag-option[data-tag-id="${vacancyId}"]`);
+            if (option) {
+                const tagName = option.getAttribute('data-tag-name');
+                addTagToField('vacancy', vacancyId, tagName);
+            }
+        });
+        
+        // Восстанавливаем локации из URL
+        locationsFromURL.forEach(locationId => {
+            const option = document.querySelector(`#location-tag-dropdown .tag-option[data-tag-id="${locationId}"]`);
+            if (option) {
+                const tagName = option.getAttribute('data-tag-name');
+                addTagToField('location', locationId, tagName);
+            }
+        });
+        
+        console.log('✅ Фильтры восстановлены из URL');
+    } else {
+        console.log('📝 URL пустой, заполняем всеми доступными параметрами...');
+        
+        // Заполняем фильтр грейдов всеми доступными грейдами
+        const gradeOptions = document.querySelectorAll('#grade-tag-dropdown .tag-option');
+        gradeOptions.forEach(option => {
+            const tagId = option.getAttribute('data-tag-id');
+            const tagName = option.getAttribute('data-tag-name');
+            if (tagId && tagName) {
+                addTagToField('grade', tagId, tagName);
+            }
+        });
+        
+        // Заполняем фильтр вакансий всеми доступными вакансиями
+        const vacancyOptions = document.querySelectorAll('#vacancy-tag-dropdown .tag-option');
+        vacancyOptions.forEach(option => {
+            const tagId = option.getAttribute('data-tag-id');
+            const tagName = option.getAttribute('data-tag-name');
+            if (tagId && tagName) {
+                addTagToField('vacancy', tagId, tagName);
+            }
+        });
+        
+        // Заполняем фильтр локаций всеми доступными локациями
+        const locationOptions = document.querySelectorAll('#location-tag-dropdown .tag-option');
+        locationOptions.forEach(option => {
+            const tagId = option.getAttribute('data-tag-id');
+            const tagName = option.getAttribute('data-tag-name');
+            if (tagId && tagName) {
+                addTagToField('location', tagId, tagName);
+            }
+        });
+        
+        console.log('✅ Все фильтры заполнены всеми доступными параметрами');
+    }
+    
+    // НЕ вызываем applyMainFilters здесь, так как это приведет к перезагрузке страницы
+    // Фильтры уже применены через URL параметры
+}
+
+// Вспомогательная функция для добавления тега в поле
+function addTagToField(type, tagId, tagName) {
+    const selectedArray = type === 'grade' ? selectedGrades : 
+                         type === 'vacancy' ? selectedVacancies : selectedLocations;
+    
+    // Проверяем, не выбран ли уже этот тег
+    if (selectedArray.some(tag => tag.id === tagId)) {
+        return;
+    }
+    
+    // Добавляем в массив
+    selectedArray.push({ id: tagId, name: tagName });
+    
+    // Создаем визуальный элемент тега
+    const tagInput = document.getElementById(`${type}-tag-input`);
+    const selectedTagsContainer = document.getElementById(`selected-${type}-tags`);
+    
+    const tagElement = document.createElement('span');
+    tagElement.className = 'tag-token';
+    tagElement.setAttribute('data-tag-id', tagId);
+    
+    // Определяем цвет бейджа в зависимости от типа
+    let badgeClass = 'badge me-1';
+    if (type === 'grade') badgeClass += ' bg-primary';
+    else if (type === 'vacancy') badgeClass += ' bg-info';
+    else if (type === 'location') badgeClass += ' bg-success';
+    
+    tagElement.innerHTML = `
+        <span class="${badgeClass}">${tagName}</span>
+        <button type="button" class="btn-close" aria-label="Удалить"></button>
+    `;
+    
+    // Добавляем обработчик удаления
+    const removeBtn = tagElement.querySelector('.btn-close');
+    removeBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        removeTagFromField(type, tagId);
+    });
+    
+    // Добавляем в контейнер перед полем ввода
+    tagInput.parentNode.insertBefore(tagElement, tagInput);
+    
+    // Обновляем скрытые поля
+    updateHiddenInputsForField(type);
+    
+    // НЕ вызываем applyMainFilters автоматически - это приводит к бесконечной перезагрузке
+}
+
+// Вспомогательная функция для удаления тега из поля
+function removeTagFromField(type, tagId) {
+    const selectedArray = type === 'grade' ? selectedGrades : 
+                         type === 'vacancy' ? selectedVacancies : selectedLocations;
+    
+    // Удаляем из массива
+    const index = selectedArray.findIndex(tag => tag.id === tagId);
+    if (index > -1) {
+        selectedArray.splice(index, 1);
+    }
+    
+    // Находим и удаляем визуальный элемент
+    const selectedTagsContainer = document.getElementById(`selected-${type}-tags`);
+    const tagElement = selectedTagsContainer.querySelector(`[data-tag-id="${tagId}"]`);
+    if (tagElement) {
+        tagElement.classList.add('removing');
+        setTimeout(() => {
+            tagElement.remove();
+            updateHiddenInputsForField(type);
+            
+            // НЕ вызываем applyMainFilters автоматически - это приводит к бесконечной перезагрузке
+        }, 200);
+    }
+}
+
+// Вспомогательная функция для обновления скрытых полей
+function updateHiddenInputsForField(type) {
+    const selectedArray = type === 'grade' ? selectedGrades : 
+                         type === 'vacancy' ? selectedVacancies : selectedLocations;
+    const hiddenInputsContainer = document.getElementById(`hidden-${type}-inputs`);
+    
+    // Очищаем контейнер
+    hiddenInputsContainer.innerHTML = '';
+    
+    // Добавляем скрытые поля для каждого выбранного тега
+    selectedArray.forEach(tag => {
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = `${type}s`;
+        hiddenInput.value = tag.id;
+        hiddenInputsContainer.appendChild(hiddenInput);
+    });
+}
+
+// Инициализация коллапсирующего блока фильтров
+function initializeCollapsibleFilters() {
+    const collapseElement = document.getElementById('mainFiltersCollapse');
+    const collapseIcon = document.querySelector('.collapse-icon');
+    
+    if (collapseElement && collapseIcon) {
+        // Обработчик события collapse
+        collapseElement.addEventListener('show.bs.collapse', function() {
+            collapseIcon.style.transform = 'rotate(0deg)';
+        });
+        
+        collapseElement.addEventListener('hide.bs.collapse', function() {
+            collapseIcon.style.transform = 'rotate(-90deg)';
+        });
+        
+        // Устанавливаем начальное состояние иконки (свернуто)
+        collapseIcon.style.transform = 'rotate(-90deg)';
+    }
+}
+
+// Инициализация данных бенчмарков
+function initializeBenchmarksData() {
+    // Собираем данные из таблицы бенчмарков
+    const tableRows = document.querySelectorAll('.benchmark-item');
+    originalBenchmarksData = [];
+    
+    console.log('Найдено строк таблицы:', tableRows.length);
+    
+    tableRows.forEach((row, index) => {
+        // Пытаемся получить данные из различных источников
+        let grade = '';
+        let vacancy = '';
+        let location = '';
+        let type = '';
+        let salaryFrom = 0;
+        
+        // Ищем грейд
+        const gradeElement = row.querySelector('[data-grade]') || 
+                           row.querySelector('.grade-name') || 
+                           row.querySelector('.benchmark-grade');
+        if (gradeElement) {
+            grade = gradeElement.getAttribute('data-grade') || gradeElement.textContent?.trim() || '';
+        }
+        
+        // Ищем вакансию
+        const vacancyElement = row.querySelector('[data-vacancy]') || 
+                             row.querySelector('.vacancy-name') || 
+                             row.querySelector('.benchmark-vacancy');
+        if (vacancyElement) {
+            vacancy = vacancyElement.getAttribute('data-vacancy') || vacancyElement.textContent?.trim() || '';
+        }
+        
+        // Ищем локацию
+        const locationElement = row.querySelector('[data-location]') || 
+                              row.querySelector('.location-name') || 
+                              row.querySelector('.benchmark-location');
+        if (locationElement) {
+            location = locationElement.getAttribute('data-location') || locationElement.textContent?.trim() || '';
+        }
+        
+        // Ищем тип
+        const typeElement = row.querySelector('[data-type]') || 
+                          row.querySelector('.benchmark-type');
+        if (typeElement) {
+            type = typeElement.getAttribute('data-type') || '';
+        }
+        
+        // Ищем зарплату
+        const salaryElement = row.querySelector('[data-salary-from]') || 
+                            row.querySelector('.salary-amount') || 
+                            row.querySelector('.benchmark-amount');
+        if (salaryElement) {
+            const salaryText = salaryElement.getAttribute('data-salary-from') || 
+                             salaryElement.textContent?.replace(/[^\d.]/g, '') || '0';
+            salaryFrom = parseFloat(salaryText) || 0;
+        }
+        
+        const benchmark = {
+            grade__name: grade,
+            vacancy__name: vacancy,
+            location: location,
+            type: type,
+            salary_from: salaryFrom
+        };
+        
+        originalBenchmarksData.push(benchmark);
+        
+        if (index < 3) { // Логируем первые 3 для отладки
+            console.log(`Бенчмарк ${index + 1}:`, benchmark);
+        }
+    });
+    
+    console.log('Инициализированы данные бенчмарков:', originalBenchmarksData.length, 'записей');
+    
+    // Если данных нет, создаем тестовые данные
+    if (originalBenchmarksData.length === 0) {
+        console.log('Создаем тестовые данные...');
+        originalBenchmarksData = [
+            { grade__name: 'Junior', vacancy__name: 'Developer', location: 'Минск', type: 'candidate', salary_from: 1000 },
+            { grade__name: 'Senior', vacancy__name: 'Developer', location: 'Минск', type: 'vacancy', salary_from: 2000 },
+            { grade__name: 'Junior', vacancy__name: 'Designer', location: 'Москва', type: 'candidate', salary_from: 1500 }
+        ];
+    }
+}
+
+// Универсальная функция инициализации tokenfield
+function initializeTokenField(type, selectedArray) {
+    const tagInput = document.getElementById(`${type}-tag-input`);
+    const tagDropdown = document.getElementById(`${type}-tag-dropdown`);
+    const selectedTagsContainer = document.getElementById(`selected-${type}-tags`);
+    const hiddenInputsContainer = document.getElementById(`hidden-${type}-inputs`);
+    
+    if (!tagInput || !tagDropdown || !selectedTagsContainer || !hiddenInputsContainer) {
+        console.error(`Не найдены элементы для ${type} tokenfield`);
+        return;
+    }
+    
+    // Функция позиционирования выпадающего списка
+    function positionDropdown() {
+        const inputRect = tagInput.getBoundingClientRect();
+        tagDropdown.style.top = (inputRect.bottom + window.scrollY + 2) + 'px';
+        tagDropdown.style.left = inputRect.left + 'px';
+        tagDropdown.style.width = inputRect.width + 'px';
+        tagDropdown.style.zIndex = '9999';
+        tagDropdown.style.position = 'absolute';
+    }
+    
+    // Добавление тега
+    function addTag(tagId, tagName) {
+        // Проверяем, не выбран ли уже этот тег
+        if (selectedArray.some(tag => tag.id === tagId)) {
+            return;
+        }
+        
+        // Добавляем в массив
+        selectedArray.push({ id: tagId, name: tagName });
+        
+        // Создаем визуальный элемент тега
+        const tagElement = document.createElement('span');
+        tagElement.className = 'tag-token';
+        tagElement.setAttribute('data-tag-id', tagId);
+        
+        // Определяем цвет бейджа в зависимости от типа
+        let badgeClass = 'badge me-1';
+        if (type === 'grade') badgeClass += ' bg-primary';
+        else if (type === 'vacancy') badgeClass += ' bg-info';
+        else if (type === 'location') badgeClass += ' bg-success';
+        
+        tagElement.innerHTML = `
+            <span class="${badgeClass}">${tagName}</span>
+            <button type="button" class="btn-close" aria-label="Удалить"></button>
+        `;
+        
+        // Добавляем обработчик удаления
+        const removeBtn = tagElement.querySelector('.btn-close');
+        removeBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            removeTag(tagId);
+        });
+        
+        // Добавляем в контейнер перед полем ввода
+        tagInput.parentNode.insertBefore(tagElement, tagInput);
+        
+        // Обновляем скрытые поля
+        updateHiddenInputs();
+        
+        // Очищаем поле ввода
+        tagInput.value = '';
+        
+        // Скрываем выпадающий список
+        tagDropdown.style.display = 'none';
+        
+        // НЕ вызываем applyMainFilters автоматически - это приводит к бесконечной перезагрузке
+        console.log(`🏷️ Добавлен тег ${tagName} (${tagId}) в ${type} фильтр`);
+    }
+    
+    // Удаление тега
+    function removeTag(tagId) {
+        // Удаляем из массива
+        const index = selectedArray.findIndex(tag => tag.id === tagId);
+        if (index > -1) {
+            selectedArray.splice(index, 1);
+        }
+        
+        // Находим и удаляем визуальный элемент
+        const tagElement = selectedTagsContainer.querySelector(`[data-tag-id="${tagId}"]`);
+        if (tagElement) {
+            tagElement.classList.add('removing');
+            setTimeout(() => {
+                tagElement.remove();
+            }, 300);
+        }
+        
+        // Обновляем скрытые поля
+        updateHiddenInputs();
+        
+        // НЕ вызываем applyMainFilters автоматически - это приводит к бесконечной перезагрузке
+        console.log(`🗑️ Удален тег ${tagId} из ${type} фильтра`);
+    }
+    
+    // Обновление скрытых полей
+    function updateHiddenInputs() {
+        // Очищаем существующие скрытые поля
+        hiddenInputsContainer.innerHTML = '';
+        
+        // Добавляем новые скрытые поля для каждого выбранного тега
+        selectedArray.forEach(tag => {
+            const hiddenInput = document.createElement('input');
+            hiddenInput.type = 'hidden';
+            hiddenInput.name = `${type}_filters`;
+            hiddenInput.value = tag.id;
+            hiddenInputsContainer.appendChild(hiddenInput);
+        });
+    }
+    
+    // Обновление выпадающего списка
+    function updateDropdown() {
+        const options = tagDropdown.querySelectorAll('.tag-option');
+        options.forEach(option => {
+            const tagId = option.getAttribute('data-tag-id');
+            if (tagId && selectedArray.some(tag => tag.id === tagId)) {
+                option.style.display = 'none';
+            } else {
+                option.style.display = 'block';
+            }
+        });
+    }
+    
+    // Обработка клика по опции в выпадающем списке
+    tagDropdown.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const option = e.target.closest('.tag-option');
+        if (option && option.getAttribute('data-tag-id')) {
+            const tagId = option.getAttribute('data-tag-id');
+            const tagName = option.getAttribute('data-tag-name');
+            addTag(tagId, tagName);
+        }
+    });
+    
+    // Обработка ввода в поле поиска
+    tagInput.addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase();
+        const options = tagDropdown.querySelectorAll('.tag-option');
+        
+        // Показываем список при вводе
+        positionDropdown();
+        tagDropdown.style.display = 'block';
+        
+        options.forEach(option => {
+            if (option.getAttribute('data-tag-name')) {
+                const tagId = option.getAttribute('data-tag-id');
+                const tagName = option.getAttribute('data-tag-name').toLowerCase();
+                
+                // Проверяем, не выбран ли уже этот тег
+                const isSelected = selectedArray.some(tag => tag.id === tagId);
+                
+                // Показываем только если тег не выбран И соответствует поиску
+                if (!isSelected && tagName.includes(searchTerm)) {
+                    option.style.display = 'block';
+                } else {
+                    option.style.display = 'none';
+                }
+            }
+        });
+    });
+    
+    // Обработка фокуса на поле ввода
+    tagInput.addEventListener('focus', function() {
+        positionDropdown();
+        tagDropdown.style.display = 'block';
+        updateDropdown();
+    });
+    
+    // Скрытие выпадающего списка при клике вне его
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest(`#selected-${type}-tags`)) {
+            tagDropdown.style.display = 'none';
+        }
+    });
+    
+    // Обработка нажатия клавиш
+    tagInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const searchTerm = this.value.trim();
+            if (searchTerm) {
+                // Ищем первый подходящий тег
+                const options = tagDropdown.querySelectorAll('.tag-option');
+                for (let option of options) {
+                    const tagId = option.getAttribute('data-tag-id');
+                    const tagName = option.getAttribute('data-tag-name').toLowerCase();
+                    
+                    const isSelected = selectedArray.some(tag => tag.id === tagId);
+                    
+                    if (!isSelected && tagName.includes(searchTerm.toLowerCase()) && option.style.display !== 'none') {
+                        addTag(tagId, option.getAttribute('data-tag-name'));
+                        break;
+                    }
+                }
+            }
+        } else if (e.key === 'Backspace' && this.value === '') {
+            // Если поле ввода пустое и нажат Backspace, удаляем последний тег
+            e.preventDefault();
+            if (selectedArray.length > 0) {
+                const lastTag = selectedArray[selectedArray.length - 1];
+                removeTag(lastTag.id);
+            }
+        }
+    });
+    
+    // Показываем выпадающий список при наведении на контейнер
+    const tokenfieldContainer = selectedTagsContainer.closest('.tokenfield-container');
+    tokenfieldContainer.addEventListener('mouseenter', function() {
+        positionDropdown();
+        tagDropdown.style.display = 'block';
+        updateDropdown();
+    });
+    
+    tokenfieldContainer.addEventListener('mouseleave', function() {
+        tagDropdown.style.display = 'none';
+    });
+}
+
+// Применение основных фильтров (токен-филды) - используем ту же логику, что и первый фильтр
+function applyMainFilters() {
+    console.log('🔧 applyMainFilters вызвана!');
+    console.log('📊 Текущие фильтры:', {
+        grades: selectedGrades,
+        vacancies: selectedVacancies,
+        locations: selectedLocations
+    });
+    
+    // Собираем ID выбранных элементов (как в первом фильтре)
+    const selectedGradeIds = selectedGrades.map(tag => tag.id).filter(v => v);
+    const selectedVacancyIds = selectedVacancies.map(tag => tag.id).filter(v => v);
+    const selectedLocationIds = selectedLocations.map(tag => tag.id).filter(v => v);
+    
+    console.log('🎯 ID выбранных элементов:', {
+        grades: selectedGradeIds,
+        vacancies: selectedVacancyIds,
+        locations: selectedLocationIds
+    });
+    
+    // Создаем URL с параметрами фильтров (как в первом фильтре)
+    const url = new URL(window.location);
+    
+    // Очищаем ВСЕ старые параметры фильтров (и старые, и новые)
+    url.searchParams.delete('grade');
+    url.searchParams.delete('vacancy');
+    url.searchParams.delete('location');
+    url.searchParams.delete('grades');
+    url.searchParams.delete('vacancies');
+    url.searchParams.delete('locations');
+    
+    selectedGradeIds.forEach(grade => url.searchParams.append('grades', grade));
+    selectedVacancyIds.forEach(vacancy => url.searchParams.append('vacancies', vacancy));
+    selectedLocationIds.forEach(location => url.searchParams.append('locations', location));
+    
+    console.log('🌐 Переходим на URL:', url.toString());
+    
+    // Переходим на новую страницу с фильтрами (как в первом фильтре)
+    window.location.href = url.toString();
+}
+
+// Обновление статистики на основе фильтров
+function updateStatisticsWithFilters(filters) {
+    console.log('Обновляем статистику с фильтрами:', filters);
+    console.log('Исходные данные бенчмарков:', originalBenchmarksData.length);
+    
+    // Если нет исходных данных, пытаемся их инициализировать
+    if (!originalBenchmarksData || originalBenchmarksData.length === 0) {
+        initializeBenchmarksData();
+    }
+    
+    // Фильтруем данные для статистики
+    let filteredBenchmarks = [...originalBenchmarksData] || [];
+    console.log('До фильтрации:', filteredBenchmarks.length);
+    
+    // Применяем фильтры по грейдам
+    if (filters.grades && filters.grades.length > 0) {
+        filteredBenchmarks = filteredBenchmarks.filter(benchmark => 
+            benchmark.grade__name && filters.grades.includes(benchmark.grade__name)
+        );
+        console.log('После фильтрации по грейдам:', filteredBenchmarks.length);
+    }
+    
+    // Применяем фильтры по вакансиям
+    if (filters.vacancies && filters.vacancies.length > 0) {
+        filteredBenchmarks = filteredBenchmarks.filter(benchmark => 
+            benchmark.vacancy__name && filters.vacancies.includes(benchmark.vacancy__name)
+        );
+        console.log('После фильтрации по вакансиям:', filteredBenchmarks.length);
+    }
+    
+    // Применяем фильтры по локациям
+    if (filters.locations && filters.locations.length > 0) {
+        filteredBenchmarks = filteredBenchmarks.filter(benchmark => 
+            benchmark.location && filters.locations.includes(benchmark.location)
+        );
+        console.log('После фильтрации по локациям:', filteredBenchmarks.length);
+    }
+    
+    // Применяем фильтры по типам данных
+    if (filters.dataTypes && filters.dataTypes.length > 0) {
+        filteredBenchmarks = filteredBenchmarks.filter(benchmark => 
+            benchmark.type && filters.dataTypes.includes(benchmark.type)
+        );
+        console.log('После фильтрации по типам данных:', filteredBenchmarks.length);
+    }
+    
+    // Обновляем статистические карточки
+    const totalCount = filteredBenchmarks.length;
+    const candidateCount = filteredBenchmarks.filter(b => b.type === 'candidate').length;
+    const vacancyCount = filteredBenchmarks.filter(b => b.type === 'vacancy').length;
+    
+    updateStatCard('total-benchmarks', totalCount);
+    updateStatCard('candidate-count', candidateCount);
+    updateStatCard('vacancy-count', vacancyCount);
+    
+    // Вычисляем среднюю зарплату
+    const salaries = filteredBenchmarks.map(b => b.salary_from || 0).filter(s => s > 0);
+    const avgSalary = salaries.length > 0 ? salaries.reduce((a, b) => a + b, 0) / salaries.length : 0;
+    updateStatCard('avg-amount', Math.round(avgSalary));
+    
+    console.log('Обновленная статистика:', { totalCount, candidateCount, vacancyCount, avgSalary: Math.round(avgSalary) });
+}
+
+// Обновление карточки статистики
+function updateStatCard(cardId, value) {
+    const card = document.querySelector(`[data-stat="${cardId}"]`);
+    if (card) {
+        const numberElement = card.querySelector('.stat-number');
+        if (numberElement) {
+            numberElement.textContent = value;
+        }
+    }
+}
+
+// Обновление таблицы бенчмарков на основе фильтров
+function updateBenchmarksTableWithFilters(filters) {
+    console.log('Обновляем таблицу бенчмарков с фильтрами:', filters);
+    
+    // Получаем все строки таблицы
+    const tableRows = document.querySelectorAll('.benchmark-item');
+    
+    tableRows.forEach(row => {
+        let showRow = true;
+        
+        // Получаем данные из строки
+        const gradeElement = row.querySelector('[data-grade]');
+        const vacancyElement = row.querySelector('[data-vacancy]');
+        const locationElement = row.querySelector('[data-location]');
+        const typeElement = row.querySelector('[data-type]');
+        
+        // Применяем фильтры по грейдам
+        if (filters.grades.length > 0 && gradeElement) {
+            const grade = gradeElement.getAttribute('data-grade');
+            if (!filters.grades.includes(grade)) {
+                showRow = false;
+            }
+        }
+        
+        // Применяем фильтры по вакансиям
+        if (filters.vacancies.length > 0 && vacancyElement) {
+            const vacancy = vacancyElement.getAttribute('data-vacancy');
+            if (!filters.vacancies.includes(vacancy)) {
+                showRow = false;
+            }
+        }
+        
+        // Применяем фильтры по локациям
+        if (filters.locations.length > 0 && locationElement) {
+            const location = locationElement.getAttribute('data-location');
+            if (!filters.locations.includes(location)) {
+                showRow = false;
+            }
+        }
+        
+        // Применяем фильтры по типам данных
+        if (filters.dataTypes.length > 0 && typeElement) {
+            const type = typeElement.getAttribute('data-type');
+            if (!filters.dataTypes.includes(type)) {
+                showRow = false;
+            }
+        }
+        
+        // Показываем или скрываем строку
+        if (showRow) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+
+// Сохранение фильтров в URL
+function saveFiltersToURL(filters) {
+    const url = new URL(window.location);
+    
+    // Очищаем старые параметры фильтров
+    url.searchParams.delete('grade');
+    url.searchParams.delete('vacancy');
+    url.searchParams.delete('location');
+    
+    // Добавляем новые параметры
+    if (filters.grades.length > 0) {
+        filters.grades.forEach(grade => {
+            url.searchParams.append('grade', grade);
+        });
+    }
+    
+    if (filters.vacancies.length > 0) {
+        filters.vacancies.forEach(vacancy => {
+            url.searchParams.append('vacancy', vacancy);
+        });
+    }
+    
+    if (filters.locations.length > 0) {
+        filters.locations.forEach(location => {
+            url.searchParams.append('location', location);
+        });
+    }
+    
+    // Обновляем URL без перезагрузки страницы
+    window.history.replaceState({}, '', url);
+}
+
+// Очистка основных фильтров
+function clearMainFilters() {
+    console.log('🧹 Очищаем все фильтры токен-филдов...');
+    
+    // Очищаем URL от параметров фильтров (как в первом фильтре)
+    const url = new URL(window.location);
+    
+    // Очищаем ВСЕ старые параметры фильтров (и старые, и новые)
+    url.searchParams.delete('grade');
+    url.searchParams.delete('vacancy');
+    url.searchParams.delete('location');
+    url.searchParams.delete('grades');
+    url.searchParams.delete('vacancies');
+    url.searchParams.delete('locations');
+    
+    console.log('🌐 Переходим на очищенный URL:', url.toString());
+    
+    // Переходим на новую страницу без фильтров (как в первом фильтре)
+    window.location.href = url.toString();
+}
+</script>
+{% endblock %}
+

@@ -1,0 +1,2970 @@
+import requests
+from typing import Dict, Any, List, Optional
+from django.conf import settings
+from apps.google_oauth.cache_service import HuntflowAPICache
+from .token_service import HuntflowTokenService
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+class HuntflowService:
+    """Сервис для работы с Huntflow API с поддержкой токенной аутентификации"""
+    
+    def __init__(self, user):
+        """
+        Инициализация сервиса с данными пользователя
+        
+        Args:
+            user: Пользователь с настройками Huntflow
+        """
+        from apps.accounts.models import User
+        
+        # Проверяем, что user является объектом пользователя
+        if not user:
+            raise ValueError("Пользователь не указан для HuntflowService")
+        
+        if isinstance(user, str):
+            # Если user является строкой, получаем объект пользователя
+            try:
+                user = User.objects.get(username=user)
+                logger.info(f"🔍 HUNTFLOW_SERVICE: Преобразована строка в объект пользователя: {user.username}")
+            except User.DoesNotExist:
+                raise ValueError(f"Пользователь с username '{user}' не найден")
+        elif not isinstance(user, User):
+            logger.error(f"❌ HUNTFLOW_SERVICE: Неверный тип user: {type(user)}, значение: {user}")
+            raise ValueError(f"Ожидается объект User, получен {type(user)}")
+        
+        self.user = user
+        self.token_service = HuntflowTokenService(user)
+    
+    def _get_base_url(self) -> str:
+        """Получает базовый URL для API запросов"""
+        if self.user.active_system == 'prod':
+            return self.user.huntflow_prod_url
+        else:
+            return self.user.huntflow_sandbox_url
+    
+    def _get_api_key(self) -> Optional[str]:
+        """Получает API ключ для аутентификации (только для sandbox)"""
+        # Для PROD не используем API ключи, только токены
+        if self.user.active_system == 'prod':
+            return None
+        else:
+            # Для sandbox используем API ключ, если он есть
+            return getattr(self.user, 'huntflow_sandbox_api_key', None)
+    
+    def _get_headers(self):
+        """Получает заголовки для API запросов с валидным токеном"""
+        # Если активная система - prod, используем только токены
+        if self.user.active_system == 'prod':
+            if not self.user.huntflow_access_token:
+                raise Exception("Для PROD системы необходимо настроить токены Huntflow в профиле пользователя")
+            # Получаем валидный токен
+            access_token = self.token_service.ensure_valid_token()
+            if access_token:
+                return {
+                    'Authorization': f'Bearer {access_token}',
+                    'Content-Type': 'application/json'
+                }
+            else:
+                raise Exception("Не удалось получить валидный токен для PROD системы. Проверьте настройки токенов в профиле.")
+        
+        # Если активная система - sandbox, используем API ключ (fallback)
+        api_key = self._get_api_key()
+        if api_key:
+            return {
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json'
+            }
+        
+        # Если ничего не работает, выбрасываем исключение
+        raise Exception("Не настроена аутентификация для текущей системы")
+    
+    def _extract_name_from_task_title(self, task_name: str) -> Dict[str, str]:
+        """
+        Извлекает имя, фамилию и отчество из названия задачи ClickUp
+        
+        Args:
+            task_name: Название задачи
+            
+        Returns:
+            Словарь с ключами 'first_name', 'last_name', 'middle_name'
+        """
+        if not task_name:
+            return {'first_name': '', 'last_name': '', 'middle_name': ''}
+        
+        # Очищаем название от лишних символов и приводим к нормальному виду
+        import re
+        cleaned_name = re.sub(r'[^\w\s\-\.]', ' ', task_name)  # Убираем спецсимволы кроме пробелов, дефисов и точек
+        cleaned_name = re.sub(r'\s+', ' ', cleaned_name).strip()  # Убираем лишние пробелы
+        
+        # Разбиваем на слова
+        words = cleaned_name.split()
+        
+        if len(words) == 0:
+            return {'first_name': '', 'last_name': '', 'middle_name': ''}
+        elif len(words) == 1:
+            # Только одно слово - считаем его фамилией
+            return {'first_name': '', 'last_name': words[0], 'middle_name': ''}
+        elif len(words) == 2:
+            # Два слова - фамилия и имя
+            return {'first_name': words[1], 'last_name': words[0], 'middle_name': ''}
+        elif len(words) == 3:
+            # Три слова - фамилия, имя, отчество
+            return {'first_name': words[1], 'last_name': words[0], 'middle_name': words[2]}
+        else:
+            # Больше трех слов - пытаемся определить, где заканчивается имя
+            # Ищем паттерны типа "Имя Фамилия - Должность" или "Фамилия Имя - Должность"
+            first_word = words[0]
+            second_word = words[1]
+            
+            # Если первое слово начинается с заглавной буквы и второе тоже - это скорее всего "Имя Фамилия"
+            if first_word[0].isupper() and second_word[0].isupper():
+                # Проверяем, есть ли дефис или тире в названии (указывает на должность)
+                if '-' in task_name or '–' in task_name:
+                    # Оставляем только имя и фамилию, остальное игнорируем
+                    return {'first_name': first_word, 'last_name': second_word, 'middle_name': ''}
+                else:
+                    # Нет дефиса - возможно это "Фамилия Имя Отчество"
+                    return {'first_name': second_word, 'last_name': first_word, 'middle_name': ' '.join(words[2:])}
+            else:
+                # Стандартная логика - фамилия, имя, все остальное в отчество
+                middle_name = ' '.join(words[2:])
+                return {'first_name': words[1], 'last_name': words[0], 'middle_name': middle_name}
+    
+    def _extract_google_sheets_links_from_comments(self, task_comments: List[Dict[str, Any]]) -> List[str]:
+        """
+        Извлекает ссылки на Google Sheets из комментариев ClickUp
+        
+        Args:
+            task_comments: Список комментариев к задаче ClickUp
+            
+        Returns:
+            Список найденных ссылок на Google Sheets
+        """
+        import re
+        
+        google_sheets_patterns = [
+            r'https://docs\.google\.com/spreadsheets/[^\s]+',
+            r'https://sheets\.google\.com/[^\s]+',
+            r'https://docs\.google\.com/spreadsheets/d/[a-zA-Z0-9_-]+[^\s]*',
+            r'https://docs\.google\.com/spreadsheets/d/[a-zA-Z0-9_-]+/edit[^\s]*',
+            r'https://docs\.google\.com/spreadsheets/d/[a-zA-Z0-9_-]+/edit#gid=\d+[^\s]*',
+        ]
+        
+        found_links = []
+        
+        if not task_comments:
+            return found_links
+        
+        for comment in task_comments:
+            # Проверяем все текстовые поля комментария
+            text_fields = ['comment', 'comment_text', 'text', 'content', 'message']
+            for field in text_fields:
+                if field in comment and comment[field]:
+                    comment_text = comment[field]
+                    
+                    for pattern in google_sheets_patterns:
+                        matches = re.findall(pattern, comment_text, re.IGNORECASE)
+                        found_links.extend(matches)
+        
+        # Убираем дубликаты, сохраняя порядок
+        unique_links = []
+        seen = set()
+        for link in found_links:
+            if link not in seen:
+                unique_links.append(link)
+                seen.add(link)
+        
+        if unique_links:
+            print(f"🔍 Найдены ссылки на Google Sheets: {unique_links}")
+        
+        return unique_links
+    
+    def _create_clickup_comment(self, task_description: str = None, task_comments: List[Dict[str, Any]] = None, task_status: str = None, task_id: str = None) -> str:
+        """
+        Создает личные заметки для Huntflow на основе данных из ClickUp
+        
+        Args:
+            task_description: Описание задачи ClickUp
+            task_comments: Комментарии к задаче ClickUp
+            task_status: Статус задачи ClickUp
+            task_id: ID задачи ClickUp для создания ссылки
+            
+        Returns:
+            Форматированные личные заметки для Huntflow
+        """
+        import re
+        
+        print(f"🔍 Создаем личные заметки из ClickUp:")
+        print(f"  - Описание: {task_description[:100] if task_description else 'Нет описания'}...")
+        print(f"  - Комментарии: {len(task_comments) if task_comments else 0}")
+        print(f"  - Статус: {task_status if task_status else 'Нет статуса'}")
+        
+        comment_parts = []
+        
+        # Добавляем ссылку на задачу ClickUp, если есть task_id
+        if task_id:
+            clickup_task_url = f"https://app.clickup.com/t/{task_id}"
+            comment_parts.append("🔗 Ссылка на задачу ClickUp:")
+            comment_parts.append(clickup_task_url)
+            comment_parts.append("")  # Пустая строка
+        
+        # Добавляем статус задачи, если есть
+        if task_status:
+            # task_status может быть строкой или словарем
+            if isinstance(task_status, dict):
+                status_name = task_status.get('status', '')
+            else:
+                status_name = str(task_status).strip()
+            
+            if status_name:
+                comment_parts.append("📊 Статус задачи:")
+                comment_parts.append(status_name)
+                comment_parts.append("")  # Пустая строка
+        
+        # Добавляем описание задачи, если есть
+        if task_description and task_description.strip():
+            # Очищаем описание от HTML тегов и лишних символов
+            clean_description = re.sub(r'<[^>]+>', '', task_description)  # Убираем HTML теги
+            clean_description = re.sub(r'\s+', ' ', clean_description).strip()  # Убираем лишние пробелы
+            
+            if clean_description:
+                comment_parts.append("📋 Описание задачи:")
+                comment_parts.append(clean_description)
+                comment_parts.append("")  # Пустая строка
+        
+        # Добавляем комментарии, если есть
+        if task_comments and len(task_comments) > 0:
+            comment_parts.append("💬 Комментарии:")
+            
+            for comment in task_comments:
+                # Извлекаем дату комментария - проверяем различные возможные поля
+                comment_date = None
+                date_fields = ['date', 'date_added', 'created', 'datetime', 'timestamp']
+                for field in date_fields:
+                    if field in comment and comment[field]:
+                        comment_date = comment[field]
+                        break
+                
+                if comment_date:
+                    try:
+                        from datetime import datetime
+                        # Пытаемся распарсить дату в разных форматах
+                        if isinstance(comment_date, str):
+                            # Если это строка, пытаемся распарсить
+                            try:
+                                dt = datetime.fromisoformat(comment_date.replace('Z', '+00:00'))
+                                formatted_date = dt.strftime('%d.%m.%Y %H:%M')
+                            except Exception as e:
+                                formatted_date = str(comment_date)
+                        elif isinstance(comment_date, (int, float)):
+                            # Если это timestamp (число)
+                            try:
+                                # Проверяем, в миллисекундах ли timestamp
+                                if comment_date > 1e12:  # Больше 1 триллиона = миллисекунды
+                                    comment_date = comment_date / 1000
+                                
+                                dt = datetime.fromtimestamp(comment_date)
+                                formatted_date = dt.strftime('%d.%m.%Y %H:%M')
+                            except Exception as e:
+                                formatted_date = str(comment_date)
+                        else:
+                            formatted_date = str(comment_date)
+                    except Exception as e:
+                        formatted_date = str(comment_date)
+                else:
+                    formatted_date = 'Дата неизвестна'
+                
+                # Извлекаем текст комментария - проверяем различные возможные поля
+                comment_text = ''
+                text_fields = ['comment', 'comment_text', 'text', 'content', 'message']
+                for field in text_fields:
+                    if field in comment and comment[field]:
+                        comment_text = comment[field]
+                        break
+                
+                if comment_text:
+                    # Очищаем текст от HTML тегов
+                    clean_text = re.sub(r'<[^>]+>', '', comment_text)
+                    clean_text = re.sub(r'\s+', ' ', clean_text).strip()
+                    
+                    if clean_text:
+                        comment_parts.append(f"{formatted_date}: {clean_text}")
+                        comment_parts.append("")  # Пустая строка после каждого комментария
+        
+        # Объединяем все части
+        if comment_parts:
+            result = '\n'.join(comment_parts)
+            print(f"✅ Созданы личные заметки из ClickUp ({len(result)} символов):")
+            print(f"  {result[:200]}...")
+            return result
+        else:
+            print("⚠️ Личные заметки из ClickUp пустые")
+            return ""
+    
+    def _create_notion_comment(self, page_title: str = None, page_content: str = None, page_status: str = None, page_priority: str = None, assignees: List[str] = None, tags: List[str] = None, custom_properties: Dict[str, Any] = None, attachments: List[Dict[str, Any]] = None, due_date: str = None, comments: List[Dict[str, Any]] = None) -> str:
+        """
+        Создает личные заметки для Huntflow на основе данных из Notion
+        
+        Args:
+            page_title: Название страницы Notion
+            page_content: Содержимое страницы Notion
+            page_status: Статус страницы Notion
+            page_priority: Приоритет страницы Notion
+            assignees: Исполнители страницы Notion
+            tags: Теги страницы Notion
+            custom_properties: Дополнительные свойства страницы Notion
+            attachments: Вложения страницы Notion
+            due_date: Срок выполнения страницы Notion
+            
+        Returns:
+            Форматированные личные заметки для Huntflow
+        """
+        import re
+        from datetime import datetime
+        
+        print(f"🔍 Создаем личные заметки из Notion:")
+        print(f"  - Название: {page_title[:100] if page_title else 'Нет названия'}...")
+        print(f"  - Содержимое: {len(page_content) if page_content else 0} символов")
+        print(f"  - Статус: {page_status if page_status else 'Нет статуса'}")
+        print(f"  - Приоритет: {page_priority if page_priority else 'Нет приоритета'}")
+        print(f"  - Исполнители: {len(assignees) if assignees else 0}")
+        print(f"  - Теги: {len(tags) if tags else 0}")
+        print(f"  - Дополнительные свойства: {len(custom_properties) if custom_properties else 0}")
+        print(f"  - Вложения: {len(attachments) if attachments else 0}")
+        
+        comment_parts = []
+        
+        # Добавляем заголовок
+        comment_parts.append("📄 ИНФОРМАЦИЯ ИЗ NOTION")
+        comment_parts.append("=" * 50)
+        comment_parts.append("")
+        
+        # Добавляем основную информацию
+        if page_title and page_title.strip():
+            comment_parts.append("📋 Название страницы:")
+            comment_parts.append(page_title.strip())
+            comment_parts.append("")
+        
+        # Добавляем статус и приоритет
+        if page_status and page_status.strip():
+            comment_parts.append("📊 Статус:")
+            comment_parts.append(page_status.strip())
+            comment_parts.append("")
+        
+        if page_priority and page_priority.strip():
+            comment_parts.append("⚡ Приоритет:")
+            comment_parts.append(page_priority.strip())
+            comment_parts.append("")
+        
+        # Добавляем срок выполнения
+        if due_date and due_date.strip():
+            comment_parts.append("📅 Срок выполнения:")
+            comment_parts.append(due_date.strip())
+            comment_parts.append("")
+        
+        # Добавляем исполнителей
+        if assignees and len(assignees) > 0:
+            comment_parts.append("👥 Исполнители:")
+            for assignee in assignees:
+                comment_parts.append(f"  • {assignee}")
+            comment_parts.append("")
+        
+        # Добавляем теги
+        if tags and len(tags) > 0:
+            comment_parts.append("🏷️ Теги:")
+            for tag in tags:
+                comment_parts.append(f"  • {tag}")
+            comment_parts.append("")
+        
+        # Добавляем содержимое страницы
+        if page_content and page_content.strip():
+            print(f"🔍 Обрабатываем содержимое страницы Notion: {len(page_content)} символов")
+            # Очищаем содержимое от HTML тегов и лишних символов
+            clean_content = re.sub(r'<[^>]+>', '', page_content)  # Убираем HTML теги
+            clean_content = re.sub(r'\s+', ' ', clean_content).strip()  # Убираем лишние пробелы
+            
+            print(f"🔍 Очищенное содержимое: {len(clean_content)} символов")
+            
+            if clean_content:
+                comment_parts.append("📝 Содержимое страницы:")
+                # Ограничиваем длину содержимого
+                if len(clean_content) > 2000:
+                    clean_content = clean_content[:2000] + "... (содержимое обрезано)"
+                comment_parts.append(clean_content)
+                comment_parts.append("")
+                print(f"✅ Содержимое страницы добавлено в заметки: {len(clean_content)} символов")
+            else:
+                print("⚠️ Содержимое страницы пустое после очистки")
+        else:
+            print("⚠️ Содержимое страницы Notion пустое или отсутствует")
+        
+        # Добавляем комментарии к странице
+        if comments and len(comments) > 0:
+            print(f"🔍 Обрабатываем комментарии Notion: {len(comments)} комментариев")
+            comment_parts.append("💬 Комментарии к странице:")
+            for comment in comments:
+                author = comment.get('author', 'Неизвестно')
+                text = comment.get('text', '')
+                created_time = comment.get('created_time', '')
+                
+                if text.strip():
+                    comment_parts.append(f"  • {author}: {text.strip()}")
+                    if created_time:
+                        comment_parts.append(f"    (дата: {created_time})")
+            comment_parts.append("")
+            print(f"✅ Комментарии добавлены в заметки: {len(comments)} комментариев")
+        else:
+            print("⚠️ Комментарии к странице Notion отсутствуют")
+        
+        # Добавляем дополнительные свойства
+        if custom_properties and len(custom_properties) > 0:
+            comment_parts.append("🔧 Дополнительные свойства:")
+            for key, value in custom_properties.items():
+                if value:  # Показываем только непустые значения
+                    if isinstance(value, (list, dict)):
+                        value_str = str(value)
+                    else:
+                        value_str = str(value)
+                    comment_parts.append(f"  • {key}: {value_str}")
+            comment_parts.append("")
+        
+        # Добавляем информацию о вложениях
+        if attachments and len(attachments) > 0:
+            comment_parts.append("📎 Вложения:")
+            for attachment in attachments:
+                name = attachment.get('name', 'Неизвестный файл')
+                file_type = attachment.get('type', 'unknown')
+                size = attachment.get('size', 0)
+                if size > 0:
+                    size_mb = size / (1024 * 1024)
+                    comment_parts.append(f"  • {name} ({file_type}, {size_mb:.1f} MB)")
+                else:
+                    comment_parts.append(f"  • {name} ({file_type})")
+            comment_parts.append("")
+        
+        # Добавляем дату создания заметки
+        current_time = datetime.now().strftime("%d.%m.%Y %H:%M")
+        comment_parts.append(f"🕒 Заметка создана: {current_time}")
+        
+        # Объединяем все части
+        result = "\n".join(comment_parts)
+        
+        if result.strip():
+            print(f"✅ Созданы личные заметки из Notion ({len(result)} символов)")
+            print(f"  {result[:200]}...")
+            return result
+        else:
+            print("⚠️ Личные заметки из Notion пустые")
+            return ""
+    
+    def _make_request(self, method: str, endpoint: str, **kwargs) -> Optional[Dict[str, Any]]:
+        """
+        Выполняет HTTP запрос к Huntflow API с автоматическим обновлением токенов
+        
+        Args:
+            method: HTTP метод (GET, POST, etc.)
+            endpoint: Endpoint API
+            **kwargs: Дополнительные параметры запроса
+            
+        Returns:
+            Ответ API или None в случае ошибки
+        """
+        try:
+            # Получаем актуальные заголовки
+            headers = self._get_headers()
+            kwargs['headers'] = headers
+            
+            # Формируем URL
+            base_url = self._get_base_url()
+            if base_url.endswith('/v2'):
+                url = f"{base_url}{endpoint}"
+            else:
+                url = f"{base_url}/v2{endpoint}"
+                
+            print(f"🔍 API запрос: {method} {url}")
+            if 'json' in kwargs:
+                print(f"📤 JSON данные: {kwargs['json']}")
+            if 'data' in kwargs:
+                print(f"📤 Form данные: {kwargs['data']}")
+            
+            # Подготавливаем данные для логирования
+            request_data = {}
+            if 'json' in kwargs:
+                request_data = kwargs['json']
+            elif 'data' in kwargs:
+                request_data = kwargs['data']
+            
+            # Выполняем запрос
+            response = requests.request(
+                method=method,
+                url=url,
+                timeout=30,
+                **kwargs
+            )
+            
+            # Если получили 401 и используем токенную систему, пробуем обновить токен
+            if response.status_code == 401 and self.user.huntflow_access_token:
+                logger.warning("Получен 401, пробуем обновить токен")
+                
+                if self.token_service.refresh_access_token():
+                    # Обновляем заголовки с новым токеном
+                    headers = self._get_headers()
+                    kwargs['headers'] = headers
+                    
+                    # Повторяем запрос
+                    response = requests.request(
+                        method=method,
+                        url=url,
+                        timeout=30,
+                        **kwargs
+                    )
+            
+            print(f"📥 Ответ API: {response.status_code}")
+            print(f"📥 Тело ответа: {response.text[:500]}...")
+            
+            # Логируем запрос в базу данных
+            self._log_request(method, endpoint, response.status_code, request_data, response.text)
+            
+            # Обрабатываем ответ
+            if response.status_code in [200, 201]:
+                try:
+                    return response.json()
+                except ValueError as e:
+                    print(f"❌ Ошибка парсинга JSON: {e}")
+                    print(f"📥 Сырой ответ: {response.text}")
+                    return None
+            else:
+                logger.error(f"Ошибка API: {response.status_code} - {response.text}")
+                return None
+                
+        except requests.RequestException as e:
+            print(f"❌ Ошибка запроса к Huntflow: {e}")
+            # Логируем ошибку
+            self._log_request(method, endpoint, None, request_data, str(e), is_error=True)
+            return None
+        except Exception as e:
+            logger.error(f"Ошибка запроса: {e}")
+            return None
+    
+    def get_accounts(self) -> Optional[List[Dict[str, Any]]]:
+        """
+        Получает список доступных организаций
+        
+        Returns:
+            Список организаций или None
+        """
+        return self._make_request('GET', '/accounts')
+    
+    def get_vacancies(self, account_id: int, **params) -> Optional[Dict[str, Any]]:
+        """
+        Получает список вакансий
+        
+        Args:
+            account_id: ID организации
+            **params: Дополнительные параметры (count, page, state, etc.)
+            
+        Returns:
+            Список вакансий или None
+        """
+        query_params = '&'.join([f"{k}={v}" for k, v in params.items() if v is not None])
+        endpoint = f"/accounts/{account_id}/vacancies"
+        if query_params:
+            endpoint += f"?{query_params}"
+        
+        return self._make_request('GET', endpoint)
+    
+    def get_vacancy(self, account_id: int, vacancy_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Получает информацию о конкретной вакансии
+        
+        Args:
+            account_id: ID организации
+            vacancy_id: ID вакансии
+            
+        Returns:
+            Информация о вакансии или None
+        """
+        # Сначала проверяем кэш
+        user_id = self.user.id
+        cached_vacancy = HuntflowAPICache.get_vacancy(user_id, account_id, vacancy_id)
+        
+        if cached_vacancy is not None:
+            print(f"📦 Получены данные вакансии из кэша: {vacancy_id}")
+            return cached_vacancy
+        
+        # Если в кэше нет, получаем из API
+        vacancy_data = self._make_request('GET', f"/accounts/{account_id}/vacancies/{vacancy_id}")
+        
+        if vacancy_data:
+            # Сохраняем в кэш
+            HuntflowAPICache.set_vacancy(user_id, vacancy_data, account_id, vacancy_id)
+            print(f"💾 Сохранены данные вакансии в кэш: {vacancy_id}")
+        
+        return vacancy_data
+    
+    def get_vacancy_statuses(self, account_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Получает список статусов вакансий
+        
+        Args:
+            account_id: ID организации
+            
+        Returns:
+            Список статусов или None
+        """
+        return self._make_request('GET', f"/accounts/{account_id}/vacancies/statuses")
+    
+    def get_rejection_reasons(self, account_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Получает список причин отказа
+        
+        Args:
+            account_id: ID организации
+            
+        Returns:
+            Список причин отказа или None
+        """
+        return self._make_request('GET', f"/accounts/{account_id}/rejection_reasons")
+    
+    def get_vacancy_additional_fields(self, account_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Получает схему дополнительных полей вакансий
+        
+        Args:
+            account_id: ID организации
+            
+        Returns:
+            Схема полей или None
+        """
+        return self._make_request('GET', f"/accounts/{account_id}/vacancies/additional_fields")
+    
+    def update_vacancy(self, account_id: int, vacancy_id: int, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        Обновляет данные вакансии
+        
+        Args:
+            account_id: ID организации
+            vacancy_id: ID вакансии
+            data: Данные для обновления
+            
+        Returns:
+            Обновленные данные вакансии или None
+        """
+        # Обновляем данные через API
+        result = self._make_request('PATCH', f"/accounts/{account_id}/vacancies/{vacancy_id}", json=data)
+        
+        if result:
+            # Сбрасываем кэш для этой вакансии
+            user_id = self.user.id
+            HuntflowAPICache.clear_vacancy(user_id, account_id, vacancy_id)
+            print(f"🗑️ Сброшен кэш для вакансии: {vacancy_id}")
+            
+            # Получаем обновленные данные и сохраняем в кэш
+            updated_data = self._make_request('GET', f"/accounts/{account_id}/vacancies/{vacancy_id}")
+            if updated_data:
+                HuntflowAPICache.set_vacancy(user_id, updated_data, account_id, vacancy_id)
+                print(f"💾 Обновлены данные вакансии в кэше: {vacancy_id}")
+                return updated_data
+        
+        return result
+    
+    def get_applicant_questionary_schema(self, account_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Получает схему анкеты кандидата
+        
+        Args:
+            account_id: ID организации
+            
+        Returns:
+            Схема анкеты или None
+        """
+        return self._make_request('GET', f"/accounts/{account_id}/applicants/questionary")
+    
+    def get_applicants(self, account_id: int, **params) -> Optional[Dict[str, Any]]:
+        """
+        Получает список кандидатов
+        
+        Args:
+            account_id: ID организации
+            **params: Дополнительные параметры (count, page, status, vacancy, etc.)
+            
+        Returns:
+            Список кандидатов или None
+        """
+        query_params = '&'.join([f"{k}={v}" for k, v in params.items() if v is not None])
+        endpoint = f"/accounts/{account_id}/applicants"
+        if query_params:
+            endpoint += f"?{query_params}"
+        
+        return self._make_request('GET', endpoint)
+    
+    def get_applicant(self, account_id: int, applicant_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Получает информацию о конкретном кандидате
+        
+        Args:
+            account_id: ID организации
+            applicant_id: ID кандидата
+            
+        Returns:
+            Информация о кандидате или None
+        """
+        # Сначала проверяем кэш
+        user_id = self.user.id
+        cached_candidate = HuntflowAPICache.get_candidate(user_id, account_id, applicant_id)
+        
+        if cached_candidate is not None:
+            print(f"📦 Получены данные кандидата из кэша: {applicant_id}")
+            return cached_candidate
+        
+        # Если в кэше нет, получаем из API
+        candidate_data = self._make_request('GET', f"/accounts/{account_id}/applicants/{applicant_id}")
+        
+        if candidate_data:
+            # Сохраняем в кэш
+            HuntflowAPICache.set_candidate(user_id, candidate_data, account_id, applicant_id)
+            print(f"💾 Сохранены данные кандидата в кэш: {applicant_id}")
+        
+        return candidate_data
+
+    def find_applicant_by_hh_resume_id(
+        self, account_id: int, resume_id: str, max_pages: int = 50
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Ищет кандидата в Huntflow по ID резюме HH.ru (поле externals[].data.hh_id).
+        Возвращает словарь с ключами applicant_id, account_id, applicant (данные кандидата) или None.
+        """
+        resume_id = (resume_id or "").strip()
+        if not resume_id:
+            return None
+        page = 1
+        while page <= max_pages:
+            data = self.get_applicants(account_id=account_id, count=30, page=page)
+            if not data or "items" not in data:
+                break
+            for applicant in data.get("items", []):
+                externals = applicant.get("externals") or []
+                for ext in externals:
+                    ext_data = ext.get("data") or {}
+                    if isinstance(ext_data, dict) and ext_data.get("hh_id") == resume_id:
+                        return {
+                            "applicant_id": applicant.get("id"),
+                            "account_id": account_id,
+                            "applicant": applicant,
+                        }
+            total_pages = data.get("pages", 1)
+            if page >= total_pages:
+                break
+            page += 1
+        return None
+
+    def get_applicant_questionary(self, account_id: int, applicant_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Получает анкету конкретного кандидата
+        
+        Args:
+            account_id: ID организации
+            applicant_id: ID кандидата
+            
+        Returns:
+            Анкета кандидата или None
+        """
+        return self._make_request('GET', f"/accounts/{account_id}/applicants/{applicant_id}/questionary")
+    
+    def get_applicant_responses(self, account_id: int, applicant_id: int, count: int = 30, next_page_cursor: str = None) -> Optional[Dict[str, Any]]:
+        """
+        Получает отклики кандидата из Huntflow
+        
+        Args:
+            account_id: ID организации
+            applicant_id: ID кандидата
+            count: Количество результатов на странице (макс 100)
+            next_page_cursor: Курсор для следующей страницы
+            
+        Returns:
+            Список откликов кандидата или None
+        """
+        params = {'count': min(count, 100)}
+        if next_page_cursor:
+            params['next_page_cursor'] = next_page_cursor
+        
+        query_params = '&'.join([f"{k}={v}" for k, v in params.items()])
+        endpoint = f"/accounts/{account_id}/applicants/{applicant_id}/responses"
+        if query_params:
+            endpoint += f"?{query_params}"
+        
+        return self._make_request('GET', endpoint)
+    
+    def get_vacancy_responses(self, account_id: int, vacancy_id: int, count: int = 30, page: int = 1) -> Optional[Dict[str, Any]]:
+        """
+        Получает отклики (responses) по вакансии из Huntflow
+        
+        ВАЖНО: Получает именно responses (отклики), а не кандидатов на вакансии.
+        Responses - это отдельная сущность, которая может быть у кандидатов,
+        которые еще не привязаны к вакансии или находятся в статусе "отклик".
+        
+        Args:
+            account_id: ID организации
+            vacancy_id: ID вакансии
+            count: Количество откликов на странице (для пагинации)
+            page: Номер страницы (для пагинации отображения)
+            
+        Returns:
+            Словарь с откликами или None
+        """
+        try:
+            all_responses = []
+            processed_applicant_ids = set()  # Чтобы не обрабатывать одного кандидата дважды
+            processed_response_ids = set()  # Чтобы не дублировать отклики
+            
+            # Получаем источники для поиска кандидатов из HH.ru
+            sources_data = self._make_request('GET', f"/accounts/{account_id}/applicants/sources")
+            hh_source_id = None
+            if sources_data and 'items' in sources_data:
+                for source in sources_data['items']:
+                    source_name = source.get('name', '').lower()
+                    if 'hh' in source_name or 'headhunter' in source_name or 'хедхантер' in source_name:
+                        hh_source_id = source.get('id')
+                        break
+            
+            if not hh_source_id:
+                hh_source_id = 2  # Стандартный ID для HH.ru
+            
+            logger.info(f"Поиск откликов для вакансии {vacancy_id}, источник HH.ru: {hh_source_id}")
+            
+            # Стратегия: получаем кандидатов, которые уже на вакансии (они точно имеют responses)
+            # и также получаем кандидатов из HH.ru источника, которые могут иметь responses на эту вакансию
+            
+            # Шаг 1: Получаем кандидатов, которые уже на вакансии
+            logger.info(f"Шаг 1: Получение кандидатов на вакансии {vacancy_id}")
+            vacancy_applicants_page = 1
+            max_vacancy_pages = 100  # Лимит страниц для кандидатов на вакансии
+            
+            while vacancy_applicants_page <= max_vacancy_pages:
+                vacancy_applicants_data = self.get_applicants(
+                    account_id=account_id,
+                    vacancy=vacancy_id,
+                    count=30,
+                    page=vacancy_applicants_page
+                )
+                
+                if not vacancy_applicants_data or 'items' not in vacancy_applicants_data:
+                    break
+                
+                vacancy_applicants = vacancy_applicants_data.get('items', [])
+                if not vacancy_applicants:
+                    break
+                
+                logger.info(f"Обработка страницы {vacancy_applicants_page} кандидатов на вакансии, получено {len(vacancy_applicants)} кандидатов")
+                
+                for applicant in vacancy_applicants:
+                    applicant_id = applicant.get('id')
+                    if not applicant_id or applicant_id in processed_applicant_ids:
+                        continue
+                    
+                    processed_applicant_ids.add(applicant_id)
+                    
+                    # Получаем все отклики кандидата с пагинацией
+                    next_cursor = None
+                    while True:
+                        responses_data = self.get_applicant_responses(
+                            account_id, 
+                            applicant_id, 
+                            count=100,
+                            next_page_cursor=next_cursor
+                        )
+                        
+                        if not responses_data or 'items' not in responses_data:
+                            break
+                        
+                        # Фильтруем отклики по вакансии
+                        for response in responses_data['items']:
+                            response_id = response.get('id')
+                            if response_id in processed_response_ids:
+                                continue
+                            
+                            response_vacancy = response.get('vacancy', {})
+                            if isinstance(response_vacancy, dict):
+                                response_vacancy_id = response_vacancy.get('id')
+                            elif isinstance(response_vacancy, int):
+                                response_vacancy_id = response_vacancy
+                            else:
+                                response_vacancy_id = None
+                            
+                            # Добавляем только отклики для данной вакансии
+                            if response_vacancy_id == vacancy_id:
+                                processed_response_ids.add(response_id)
+                                # Получаем полные данные кандидата (только если их нет)
+                                if 'applicant' not in response or not response.get('applicant'):
+                                    applicant_full = self.get_applicant(account_id, applicant_id)
+                                    response['applicant'] = applicant_full or applicant
+                                else:
+                                    response['applicant'] = applicant
+                                all_responses.append(response)
+                                
+                                # Логируем каждые 100 откликов
+                                if len(all_responses) % 100 == 0:
+                                    logger.info(f"Найдено {len(all_responses)} откликов для вакансии {vacancy_id}")
+                        
+                        # Проверяем, есть ли следующая страница
+                        next_cursor = responses_data.get('next_page_cursor')
+                        if not next_cursor:
+                            break
+                
+                # Проверяем, есть ли еще страницы
+                total_pages_vacancy = vacancy_applicants_data.get('pages', 1)
+                if vacancy_applicants_page >= total_pages_vacancy:
+                    break
+                
+                vacancy_applicants_page += 1
+                
+                # Логируем прогресс каждые 10 страниц
+                if vacancy_applicants_page % 10 == 0:
+                    logger.info(f"Обработано {vacancy_applicants_page} страниц кандидатов на вакансии, найдено {len(all_responses)} откликов")
+            
+            logger.info(f"Шаг 1 завершен: найдено {len(all_responses)} откликов из кандидатов на вакансии")
+            
+            # Шаг 2: Получаем кандидатов из HH.ru источника, которые могут иметь responses на эту вакансию
+            # (но еще не привязаны к вакансии)
+            # ВАЖНО: Этот шаг может быть очень медленным, поэтому ограничиваем его
+            # Если уже нашли достаточно откликов на шаге 1, пропускаем шаг 2
+            if len(all_responses) > 0:
+                logger.info(f"Шаг 2 пропущен: уже найдено {len(all_responses)} откликов на шаге 1")
+            else:
+                logger.info(f"Шаг 2: Поиск откликов у кандидатов из HH.ru источника")
+                search_page = 1
+                max_search_pages = 20  # Ограничиваем для производительности (уменьшено с 50)
+                
+                while search_page <= max_search_pages and len(all_responses) < 5000:
+                    # Получаем кандидатов (без фильтра по вакансии)
+                    search_applicants_data = self.get_applicants(
+                        account_id=account_id,
+                        count=30,
+                        page=search_page
+                    )
+                    
+                    if not search_applicants_data or 'items' not in search_applicants_data:
+                        break
+                    
+                    search_applicants = search_applicants_data.get('items', [])
+                    if not search_applicants:
+                        break
+                    
+                    logger.info(f"Обработка страницы {search_page} всех кандидатов, получено {len(search_applicants)} кандидатов")
+                    
+                    for applicant in search_applicants:
+                        applicant_id = applicant.get('id')
+                        if not applicant_id or applicant_id in processed_applicant_ids:
+                            continue
+                        
+                        # Проверяем, есть ли у кандидата источник HH.ru
+                        externals = applicant.get('externals', [])
+                        has_hh_source = False
+                        for external in externals:
+                            if external.get('account_source') == hh_source_id:
+                                has_hh_source = True
+                                break
+                        
+                        # Если кандидат не из HH.ru, пропускаем
+                        if not has_hh_source:
+                            continue
+                        
+                        processed_applicant_ids.add(applicant_id)
+                        
+                        # Получаем все отклики кандидата с пагинацией
+                        next_cursor = None
+                        while True:
+                            responses_data = self.get_applicant_responses(
+                                account_id, 
+                                applicant_id, 
+                                count=100,
+                                next_page_cursor=next_cursor
+                            )
+                            
+                            if not responses_data or 'items' not in responses_data:
+                                break
+                            
+                            # Фильтруем отклики по вакансии
+                            for response in responses_data['items']:
+                                response_id = response.get('id')
+                                if response_id in processed_response_ids:
+                                    continue
+                                
+                                response_vacancy = response.get('vacancy', {})
+                                if isinstance(response_vacancy, dict):
+                                    response_vacancy_id = response_vacancy.get('id')
+                                elif isinstance(response_vacancy, int):
+                                    response_vacancy_id = response_vacancy
+                                else:
+                                    response_vacancy_id = None
+                                
+                                # Добавляем только отклики для данной вакансии
+                                if response_vacancy_id == vacancy_id:
+                                    processed_response_ids.add(response_id)
+                                    # Получаем полные данные кандидата (только если их нет)
+                                    if 'applicant' not in response or not response.get('applicant'):
+                                        applicant_full = self.get_applicant(account_id, applicant_id)
+                                        response['applicant'] = applicant_full or applicant
+                                    else:
+                                        response['applicant'] = applicant
+                                    all_responses.append(response)
+                                    
+                                    # Логируем каждые 100 откликов
+                                    if len(all_responses) % 100 == 0:
+                                        logger.info(f"Найдено {len(all_responses)} откликов для вакансии {vacancy_id}")
+                            
+                            # Проверяем, есть ли следующая страница
+                            next_cursor = responses_data.get('next_page_cursor')
+                            if not next_cursor:
+                                break
+                    
+                    # Проверяем, есть ли еще страницы
+                    total_pages_search = search_applicants_data.get('pages', 1)
+                    if search_page >= total_pages_search:
+                        break
+                    
+                    search_page += 1
+                    
+                    # Логируем прогресс каждые 10 страниц
+                    if search_page % 10 == 0:
+                        logger.info(f"Обработано {search_page} страниц всех кандидатов, найдено {len(all_responses)} откликов")
+                    
+                    # Если нашли достаточно откликов, останавливаемся
+                    if len(all_responses) >= 100:  # Если нашли хотя бы 100, останавливаемся для производительности
+                        logger.info(f"Найдено достаточно откликов ({len(all_responses)}), останавливаем поиск")
+                        break
+            
+            logger.info(f"Всего получено откликов для вакансии {vacancy_id}: {len(all_responses)} (обработано кандидатов: {len(processed_applicant_ids)})")
+            
+            if not all_responses:
+                logger.warning(f"Не найдено откликов для вакансии {vacancy_id}. Обработано кандидатов: {len(processed_applicant_ids)}, источник HH.ru ID: {hh_source_id}")
+                return {
+                    'items': [],
+                    'total': 0,
+                    'page': page,
+                    'count': count,
+                    'total_applicants': len(processed_applicant_ids)
+                }
+            
+            # Применяем пагинацию для отображения
+            total_responses = len(all_responses)
+            start_idx = (page - 1) * count
+            end_idx = start_idx + count
+            paginated_responses = all_responses[start_idx:end_idx]
+            
+            total_pages = max(1, (total_responses + count - 1) // count) if total_responses > 0 else 1
+            
+            logger.info(f"Получено откликов для вакансии {vacancy_id}: {len(paginated_responses)} из {total_responses} (страница {page} из {total_pages})")
+            
+            return {
+                'items': paginated_responses,
+                'total': total_responses,
+                'page': page,
+                'count': count,
+                'total_pages': total_pages,
+                'total_applicants': len(processed_applicant_ids)
+            }
+            
+        except Exception as e:
+            logger.error(f"Ошибка при получении откликов по вакансии: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+    
+    def get_applicant_logs(self, account_id: int, applicant_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Получает логи кандидата (включая комментарии)
+        
+        Args:
+            account_id: ID организации
+            applicant_id: ID кандидата
+            
+        Returns:
+            Логи кандидата или None
+        """
+        return self._make_request('GET', f"/accounts/{account_id}/applicants/{applicant_id}/logs")
+    
+    def get_tags(self, account_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Получает список меток организации
+        
+        Args:
+            account_id: ID организации
+            
+        Returns:
+            Список меток или None
+        """
+        return self._make_request('GET', f"/accounts/{account_id}/tags")
+    
+    def update_applicant(self, account_id: int, applicant_id: int, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        Обновляет данные кандидата
+        
+        Args:
+            account_id: ID организации
+            applicant_id: ID кандидата
+            data: Данные для обновления
+            
+        Returns:
+            Обновленные данные кандидата или None
+        """
+        # Обновляем данные через API
+        result = self._make_request('PATCH', f"/accounts/{account_id}/applicants/{applicant_id}", json=data)
+        
+        if result:
+            # Сбрасываем кэш для этого кандидата
+            user_id = self.user.id
+            HuntflowAPICache.clear_candidate(user_id, account_id, applicant_id)
+            print(f"🗑️ Сброшен кэш для кандидата: {applicant_id}")
+            
+            # Получаем обновленные данные и сохраняем в кэш
+            updated_data = self._make_request('GET', f"/accounts/{account_id}/applicants/{applicant_id}")
+            if updated_data:
+                HuntflowAPICache.set_candidate(user_id, updated_data, account_id, applicant_id)
+                print(f"💾 Обновлены данные кандидата в кэше: {applicant_id}")
+                return updated_data
+        
+        return result
+    
+    def update_applicant_status(self, account_id: int, applicant_id: int, status_id: int, comment: str = None, vacancy_id: int = None, rejection_reason_id: int = None) -> Optional[Dict[str, Any]]:
+        """
+        Обновляет статус кандидата через добавление на вакансию с привязкой к вакансии и статусу
+        
+        Args:
+            account_id: ID организации
+            applicant_id: ID кандидата
+            status_id: ID нового статуса
+            comment: Комментарий к изменению статуса
+            vacancy_id: ID вакансии (если не указан, получаем из данных кандидата)
+            rejection_reason_id: ID причины отказа (опционально)
+            
+        Returns:
+            Результат обновления или None
+        """
+        # Получаем информацию о кандидате для получения вакансии
+        applicant_data = self._make_request('GET', f"/accounts/{account_id}/applicants/{applicant_id}")
+        if not applicant_data:
+            print(f"DEBUG: Не удалось получить данные кандидата {applicant_id}")
+            return None
+        
+        # Определяем вакансию
+        if not vacancy_id and applicant_data.get('links'):
+            vacancy_id = applicant_data['links'][0].get('vacancy')
+        
+        if not vacancy_id:
+            print(f"DEBUG: У кандидата {applicant_id} нет привязанной вакансии ({vacancy_id})")
+            return None
+        
+        print(f"DEBUG: Обновляем статус кандидата {applicant_id} на статус {status_id} для вакансии {vacancy_id} с комментарием: {comment}, rejection_reason_id: {rejection_reason_id}")
+        
+        # Используем проверенный эндпоинт с множественным числом
+        endpoint = f"/accounts/{account_id}/applicants/{applicant_id}/vacancy"
+        
+        # Формируем данные для обновления статуса
+        data = {
+            'vacancy': vacancy_id,
+            'status': status_id
+        }
+        
+        if comment:
+            data['comment'] = comment
+        
+        # Добавляем rejection_reason_id если указан
+        if rejection_reason_id:
+            data['rejection_reason'] = rejection_reason_id
+            print(f"DEBUG: Добавляем rejection_reason={rejection_reason_id} в запрос")
+        
+        print(f"DEBUG: Пробуем эндпоинт {endpoint} с данными {data}")
+        
+        result = self._make_request('POST', endpoint, json=data)
+        if result:
+            print(f"DEBUG: Статус успешно обновлен через {endpoint}")
+            
+            # Сбрасываем кэш для этого кандидата
+            user_id = self.user.id
+            HuntflowAPICache.clear_candidate(user_id, account_id, applicant_id)
+            print(f"🗑️ Сброшен кэш для кандидата: {applicant_id}")
+            
+            return result
+        
+        print(f"DEBUG: Не удалось обновить статус через {endpoint}")
+        return None
+    
+    def update_applicant_tags(self, account_id: int, applicant_id: int, tag_ids: List[int]) -> Optional[Dict[str, Any]]:
+        """
+        Обновляет метки кандидата
+        
+        Args:
+            account_id: ID организации
+            applicant_id: ID кандидата
+            tag_ids: Список ID меток
+            
+        Returns:
+            Результат обновления или None
+        """
+        # Пробуем разные эндпоинты и форматы для меток
+        endpoints = [
+            f"/accounts/{account_id}/applicants/{applicant_id}/tags",  # Специальный эндпоинт для меток
+            f"/accounts/{account_id}/applicants/{applicant_id}",  # Основной эндпоинт
+        ]
+        
+        data_variants = [
+            {'tags': tag_ids},  # Простой массив ID
+            {'tag_ids': tag_ids},  # Альтернативное поле
+            {'tags': [{'id': tag_id} for tag_id in tag_ids]},  # Массив объектов с id
+            {'tags': [{'tag': tag_id} for tag_id in tag_ids]},  # Массив объектов с tag
+            {'tags': [{'tag_id': tag_id} for tag_id in tag_ids]},  # Массив объектов с tag_id
+            tag_ids,  # Прямая передача массива
+        ]
+        
+        for endpoint in endpoints:
+            for data in data_variants:
+                print(f"DEBUG: Пробуем обновить метки через {endpoint} с данными {data}")
+                result = self._make_request('PATCH', endpoint, json=data)
+                if result:
+                    # Сбрасываем кэш для этого кандидата
+                    user_id = self.user.id
+                    HuntflowAPICache.clear_candidate(user_id, account_id, applicant_id)
+                    print(f"🗑️ Сброшен кэш для кандидата: {applicant_id}")
+                    return result
+                    
+                # Также пробуем POST для специального эндпоинта
+                if endpoint.endswith('/tags'):
+                    result = self._make_request('POST', endpoint, json=data)
+                    if result:
+                        # Сбрасываем кэш для этого кандидата
+                        user_id = self.user.id
+                        HuntflowAPICache.clear_candidate(user_id, account_id, applicant_id)
+                        print(f"🗑️ Сброшен кэш для кандидата: {applicant_id}")
+                        return result
+        
+        return None
+    
+    def update_applicant_questionary(self, account_id: int, applicant_id: int, questionary_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        Обновляет анкету кандидата
+        
+        Args:
+            account_id: ID организации
+            applicant_id: ID кандидата
+            questionary_data: Данные анкеты для обновления
+            
+        Returns:
+            Результат обновления или None
+        """
+        # Пробуем разные эндпоинты и форматы для анкеты
+        endpoints = [
+            f"/accounts/{account_id}/applicants/{applicant_id}/questionary",  # Специальный эндпоинт для анкеты
+            f"/accounts/{account_id}/applicants/{applicant_id}",  # Основной эндпоинт
+        ]
+        
+        data_variants = [
+            questionary_data,  # Прямая передача данных
+            {'questionary': questionary_data},  # Стандартный формат
+            {'additional_fields': questionary_data},  # Альтернативное поле
+            {'questionary_fields': questionary_data},  # Другой вариант
+        ]
+        
+        for endpoint in endpoints:
+            for data in data_variants:
+                print(f"DEBUG: Пробуем обновить анкету через {endpoint} с данными {data}")
+                result = self._make_request('PATCH', endpoint, json=data)
+                # Проверяем, что результат не None (даже пустой dict считается успешным)
+                if result is not None:
+                    # Сбрасываем кэш для этого кандидата
+                    user_id = self.user.id
+                    HuntflowAPICache.clear_candidate(user_id, account_id, applicant_id)
+                    print(f"✅ Анкета успешно обновлена через {endpoint}")
+                    print(f"🗑️ Сброшен кэш для кандидата: {applicant_id}")
+                    return result
+                    
+                # Также пробуем POST для специального эндпоинта
+                if endpoint.endswith('/questionary'):
+                    result = self._make_request('POST', endpoint, json=data)
+                    # Проверяем, что результат не None
+                    if result is not None:
+                        # Сбрасываем кэш для этого кандидата
+                        user_id = self.user.id
+                        HuntflowAPICache.clear_candidate(user_id, account_id, applicant_id)
+                        print(f"✅ Анкета успешно обновлена через POST {endpoint}")
+                        print(f"🗑️ Сброшен кэш для кандидата: {applicant_id}")
+                        return result
+        
+        print(f"❌ Не удалось обновить анкету ни одним из способов")
+        return None
+    
+    def update_applicant_scorecard_field(self, account_id: int, applicant_id: int, scorecard_url: str) -> Optional[Dict[str, Any]]:
+        """
+        Обновляет поле "Scorecard" кандидата ссылкой на scorecard
+        
+        Args:
+            account_id: ID организации
+            applicant_id: ID кандидата
+            scorecard_url: Ссылка на scorecard файл
+            
+        Returns:
+            Результат обновления или None
+        """
+        # Получаем схему анкеты для поиска поля Scorecard
+        questionary_schema = self.get_applicant_questionary_schema(account_id)
+        if not questionary_schema:
+            print(f"❌ Не удалось получить схему анкеты для организации {account_id}")
+            return None
+        
+        # Ищем поле Scorecard в схеме анкеты
+        scorecard_field_id = None
+        for field_id, field_info in questionary_schema.items():
+            field_title = field_info.get('title', '').lower()
+            field_type = field_info.get('type', '')
+            
+            # Ищем поле с названием "scorecard" или "scorecard" в названии
+            if 'scorecard' in field_title or (field_type == 'url' and 'scorecard' in field_title):
+                scorecard_field_id = field_id
+                print(f"🔍 Найдено поле Scorecard в схеме: {field_id} = {field_info.get('title')} (тип: {field_type})")
+                break
+        
+        if not scorecard_field_id:
+            print(f"❌ Не найдено поле Scorecard в схеме анкеты для организации {account_id}")
+            print(f"📋 Доступные поля в схеме: {[(k, v.get('title', '')) for k, v in questionary_schema.items()]}")
+            return None
+        
+        # Обновляем поле Scorecard со ссылкой
+        questionary_data = {
+            scorecard_field_id: scorecard_url
+        }
+        
+        print(f"📝 Обновляем поле Scorecard {scorecard_field_id} со ссылкой: {scorecard_url}")
+        result = self.update_applicant_questionary(account_id, applicant_id, questionary_data)
+        
+        if result:
+            print(f"✅ Поле Scorecard обновлено со ссылкой на scorecard")
+        else:
+            print(f"❌ Не удалось обновить поле Scorecard со ссылкой на scorecard")
+        
+        return result
+    
+    def create_applicant_comment(self, account_id: int, applicant_id: int, comment: str, vacancy_id: int = None, status_id: int = None) -> Optional[Dict[str, Any]]:
+        """
+        Создает комментарий для кандидата с привязкой к вакансии и статусу
+        
+        Args:
+            account_id: ID организации
+            applicant_id: ID кандидата
+            comment: Текст комментария
+            vacancy_id: ID вакансии (если не указан, получаем из данных кандидата)
+            status_id: ID статуса (если не указан, получаем из данных кандидата)
+            
+        Returns:
+            Созданный комментарий или None
+        """
+        # Очищаем комментарий от лишних символов
+        clean_comment = comment.strip()
+        if not clean_comment:
+            return None
+        
+        # Получаем информацию о кандидате для получения вакансии и статуса
+        applicant_data = self._make_request('GET', f"/accounts/{account_id}/applicants/{applicant_id}")
+        if not applicant_data:
+            print(f"DEBUG: Не удалось получить данные кандидата {applicant_id} для создания комментария")
+            return None
+        
+        # Определяем вакансию и статус
+        if not vacancy_id and applicant_data.get('links'):
+            vacancy_id = applicant_data['links'][0].get('vacancy')
+        
+        if not status_id and applicant_data.get('links'):
+            status_id = applicant_data['links'][0].get('status')
+        
+        if not vacancy_id or not status_id:
+            print(f"DEBUG: У кандидата {applicant_id} нет привязанной вакансии ({vacancy_id}) или статуса ({status_id}) для создания комментария")
+            return None
+        
+        print(f"DEBUG: Создаем комментарий для кандидата {applicant_id}, вакансия {vacancy_id}, статус {status_id}")
+        
+        # Используем эндпоинт для обновления статуса с комментарием
+        # Это обеспечивает консистентность данных
+        data = {
+            'vacancy': vacancy_id,
+            'status': status_id,
+            'comment': clean_comment
+        }
+        
+        endpoint = f"/accounts/{account_id}/applicants/{applicant_id}/vacancy"
+        print(f"DEBUG: Создаем комментарий через {endpoint} с данными {data}")
+        
+        result = self._make_request('POST', endpoint, json=data)
+        if result:
+            print(f"DEBUG: Комментарий успешно создан через обновление статуса")
+            
+            # Сбрасываем кэш для этого кандидата
+            user_id = self.user.id
+            HuntflowAPICache.clear_candidate(user_id, account_id, applicant_id)
+            print(f"🗑️ Сброшен кэш для кандидата: {applicant_id}")
+            
+            return result
+        
+        # Если не получилось через обновление статуса, пробуем обычные эндпоинты
+        print(f"DEBUG: Пробуем альтернативные эндпоинты для комментария")
+        data_variants = [
+            {'comment': clean_comment},  # Стандартный формат
+            {'text': clean_comment},  # Альтернативное поле
+            {'message': clean_comment},  # Другой вариант
+            {'body': clean_comment},  # Еще один вариант
+        ]
+        
+        endpoints = [
+            f"/accounts/{account_id}/applicants/{applicant_id}/logs",  # Основной эндпоинт для логов/комментариев
+            f"/accounts/{account_id}/applicants/{applicant_id}/comments",  # Альтернативный
+            f"/accounts/{account_id}/applicants/{applicant_id}/notes",  # Еще один вариант
+        ]
+        
+        for endpoint in endpoints:
+            for data in data_variants:
+                print(f"DEBUG: Пробуем создать комментарий через {endpoint} с данными {data}")
+                result = self._make_request('POST', endpoint, json=data)
+                if result:
+                    # Сбрасываем кэш для этого кандидата
+                    user_id = self.user.id
+                    HuntflowAPICache.clear_candidate(user_id, account_id, applicant_id)
+                    print(f"🗑️ Сброшен кэш для кандидата: {applicant_id}")
+                    return result
+        
+        return None
+    
+    def test_connection(self) -> bool:
+        """
+        Тестирует подключение к Huntflow API
+        
+        Returns:
+            True если подключение успешно, False иначе
+        """
+        try:
+            # Пробуем получить информацию о текущем пользователе
+            response = self._make_request('GET', '/me')
+            if response:
+                print(f"✅ Подключение к Huntflow успешно!")
+                print(f"👤 Пользователь: {response.get('name', 'Неизвестно')}")
+                print(f"📧 Email: {response.get('email', 'Неизвестно')}")
+                return True
+            else:
+                print("❌ Не удалось подключиться к Huntflow API")
+                return False
+        except Exception as e:
+            print(f"❌ Ошибка при тестировании подключения: {e}")
+            return False
+    
+    def _log_request(self, method: str, endpoint: str, status_code: int, request_data: dict, response_text: str, is_error: bool = False):
+        """
+        Логирует запрос к Huntflow API в базу данных
+        """
+        try:
+            from .models import HuntflowLog
+            
+            # Определяем тип лога
+            log_type = 'ERROR' if is_error else method
+            
+            # Парсим ответ если это JSON
+            response_data = {}
+            if response_text and not is_error:
+                try:
+                    import json
+                    response_data = json.loads(response_text)
+                except:
+                    response_data = {'raw_response': response_text[:1000]}  # Ограничиваем размер
+            
+            # Создаем лог
+            HuntflowLog.objects.create(
+                log_type=log_type,
+                endpoint=endpoint,
+                method=method,
+                status_code=status_code,
+                request_data=request_data,
+                response_data=response_data,
+                error_message=response_text if is_error else '',
+                user=self.user
+            )
+        except Exception as e:
+            print(f"⚠️ Не удалось сохранить лог: {e}")
+    
+    def upload_file(self, account_id: int, file_data: bytes, file_name: str, parse_file: bool = True) -> Optional[Dict[str, Any]]:
+        """
+        Загружает файл в Huntflow и парсит его для извлечения данных кандидата
+        
+        Args:
+            account_id: ID организации
+            file_data: Данные файла резюме
+            file_name: Имя файла резюме
+            parse_file: Парсить ли файл для извлечения данных (по умолчанию True)
+            
+        Returns:
+            Результат загрузки с распарсенными данными или None
+        """
+        try:
+            # Определяем MIME тип файла
+            import mimetypes
+            mime_type, _ = mimetypes.guess_type(file_name)
+            if not mime_type:
+                # Определяем по расширению
+                if file_name.lower().endswith('.pdf'):
+                    mime_type = 'application/pdf'
+                elif file_name.lower().endswith(('.doc', '.docx')):
+                    mime_type = 'application/msword' if file_name.lower().endswith('.doc') else 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                elif file_name.lower().endswith('.txt'):
+                    mime_type = 'text/plain'
+                else:
+                    mime_type = 'application/pdf'  # По умолчанию
+            
+            # Подготавливаем файл
+            files = {
+                'file': (file_name, file_data, mime_type)
+            }
+            
+            # Подготавливаем заголовки
+            headers = self._get_headers()
+            # Убираем Content-Type для multipart/form-data
+            headers = {k: v for k, v in headers.items() if k.lower() != 'content-type'}
+            if parse_file:
+                headers['X-File-Parse'] = 'true'
+            
+            # Формируем URL
+            base_url = self._get_base_url()
+            if base_url.endswith('/v2'):
+                url = f"{base_url}/accounts/{account_id}/upload"
+            else:
+                url = f"{base_url}/v2/accounts/{account_id}/upload"
+            
+            print(f"🔍 API запрос: POST {url}")
+            print(f"📤 Файл: {file_name} ({len(file_data)} байт)")
+            
+            response = requests.post(
+                url=url,
+                headers=headers,
+                files=files,
+                timeout=60  # Увеличиваем таймаут для парсинга
+            )
+            
+            print(f"📥 Ответ API: {response.status_code}")
+            print(f"📥 Тело ответа: {response.text[:500]}...")
+            
+            if response.status_code in [200, 201]:
+                try:
+                    result = response.json()
+                    if result and isinstance(result, dict):
+                        return result
+                    else:
+                        print(f"⚠️ Ответ API не является словарем: {type(result)}")
+                        return None
+                except Exception as e:
+                    print(f"❌ Ошибка парсинга JSON ответа: {e}")
+                    print(f"📥 Тело ответа: {response.text[:500]}")
+                    return None
+            else:
+                print(f"❌ Ошибка загрузки файла: {response.status_code} - {response.text}")
+                return None
+                
+        except Exception as e:
+            print(f"❌ Ошибка при загрузке файла: {e}")
+            return None
+    
+    def create_applicant_manual(self, account_id: int, candidate_data: Dict[str, Any], vacancy_id: int = None) -> Optional[Dict[str, Any]]:
+        """
+        Создает кандидата в Huntflow вручную (для фронтенда)
+        
+        Args:
+            account_id: ID организации
+            candidate_data: Данные кандидата (простой словарь)
+            vacancy_id: ID вакансии для привязки (опционально)
+            
+        Returns:
+            Созданный кандидат или None
+        """
+        try:
+            print(f"🔍 Создаем кандидата вручную: {candidate_data}")
+            
+            # Подготавливаем данные кандидата
+            applicant_data = {
+                'first_name': candidate_data.get('first_name', ''),
+                'last_name': candidate_data.get('last_name', ''),
+                'externals': [
+                    {
+                        'auth_type': 'NATIVE',
+                        'data': {
+                            'body': candidate_data.get('resume_text', '')
+                        },
+                        'account_source': 2  # ID источника HH.ru в Huntflow
+                    }
+                ]
+            }
+            
+            # Добавляем дополнительные поля если они есть
+            if candidate_data.get('middle_name'):
+                applicant_data['middle_name'] = candidate_data.get('middle_name')
+            
+            if candidate_data.get('email'):
+                applicant_data['email'] = candidate_data.get('email')
+            
+            if candidate_data.get('phone'):
+                applicant_data['phone'] = candidate_data.get('phone')
+            
+            if candidate_data.get('position'):
+                applicant_data['position'] = candidate_data.get('position')
+            
+            if candidate_data.get('company'):
+                applicant_data['company'] = candidate_data.get('company')
+            
+            if candidate_data.get('salary'):
+                applicant_data['money'] = candidate_data.get('salary')
+            
+            print(f"📤 Отправляем данные кандидата: {applicant_data}")
+            
+            # Создаем кандидата
+            result = self._make_request('POST', f'/accounts/{account_id}/applicants', json=applicant_data)
+            
+            if result:
+                print(f"✅ Кандидат создан: {result.get('id')}")
+                
+                # Привязываем к вакансии если указана
+                if vacancy_id:
+                    print(f"🔗 Привязываем к вакансии {vacancy_id}")
+                    vacancy_result = self._bind_applicant_to_vacancy(account_id, result.get('id'), vacancy_id)
+                    if vacancy_result:
+                        print("✅ Кандидат привязан к вакансии")
+                    else:
+                        print("❌ Не удалось привязать к вакансии")
+                
+                return result
+            else:
+                print("❌ Кандидат не создан")
+                return None
+                
+        except Exception as e:
+            print(f"❌ Ошибка создания кандидата: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+
+    def create_applicant_from_parsed_data(self, account_id: int, parsed_data: Dict[str, Any], vacancy_id: int = None, task_name: str = None, task_description: str = None, task_comments: List[Dict[str, Any]] = None, assignees: List[Dict[str, Any]] = None, task_status: str = None, notion_data: Dict[str, Any] = None, task_data: Dict[str, Any] = None) -> Optional[Dict[str, Any]]:
+        """
+        Создает кандидата в Huntflow на основе распарсенных данных
+        
+        Args:
+            account_id: ID организации
+            parsed_data: Распарсенные данные из файла
+            vacancy_id: ID вакансии для привязки (опционально)
+            task_name: Название задачи ClickUp для извлечения имени (опционально)
+            task_description: Описание задачи ClickUp (опционально)
+            task_comments: Комментарии к задаче ClickUp (опционально)
+            assignees: Исполнители задачи ClickUp для создания метки (опционально)
+            task_status: Статус задачи ClickUp (опционально)
+            notion_data: Данные из Notion для создания заметок (опционально)
+            task_data: Полные данные задачи для извлечения custom fields (опционально)
+            
+        Returns:
+            Созданный кандидат или None
+        """
+        try:
+            print(f"🔍 Начинаем создание кандидата из данных: {parsed_data}")
+            
+            # Проверяем, что parsed_data - это словарь
+            if isinstance(parsed_data, str):
+                print(f"❌ parsed_data является строкой, а не словарем: {parsed_data}")
+                return None
+            
+            # Подготавливаем данные кандидата согласно официальной документации Huntflow API
+            # Безопасно извлекаем данные имени
+            name_data = parsed_data.get('fields', {}).get('name') or {}
+            
+            # ПРИОРИТЕТ: Сначала пытаемся извлечь имя из названия задачи ClickUp
+            first_name = ''
+            last_name = ''
+            middle_name = ''
+            
+            if task_name:
+                print(f"🔍 Извлекаем ФИО из названия задачи: '{task_name}'")
+                task_name_data = self._extract_name_from_task_title(task_name)
+                first_name = task_name_data['first_name']
+                last_name = task_name_data['last_name']
+                middle_name = task_name_data['middle_name']
+                print(f"✅ ФИО из названия задачи: {last_name} {first_name} {middle_name}")
+            
+            # Fallback: Если из названия задачи ничего не извлекли, пытаемся из резюме
+            if not first_name and not last_name:
+                print("🔍 ФИО из названия задачи не найдены, пытаемся извлечь из резюме")
+                
+                # Пытаемся извлечь имя из полей резюме
+                name_data = parsed_data.get('fields', {}).get('name') or {}
+                first_name = name_data.get('first', '')
+                last_name = name_data.get('last', '')
+                middle_name = name_data.get('middle', '')
+                
+                # Если имя не извлечено из полей, пытаемся извлечь из текста резюме
+                if not first_name and not last_name:
+                    text = parsed_data.get('text', '')
+                    if text:
+                        lines = text.split('\n')
+                        if lines:
+                            first_line = lines[0].strip()
+                            # Умное извлечение имени (первая строка должна содержать только имя)
+                            if first_line and len(first_line.split()) >= 2:
+                                name_parts = first_line.split()
+                                # Проверяем, что первая строка не содержит служебных слов
+                                service_words = ['this', 'is', 'a', 'resume', 'cv', 'curriculum', 'vitae', 'the', 'document']
+                                if not any(word.lower() in service_words for word in name_parts[:2]):
+                                    first_name = name_parts[0]
+                                    last_name = name_parts[1]
+                                    if len(name_parts) >= 3:
+                                        middle_name = name_parts[2]
+                                    print(f"✅ ФИО из резюме: {last_name} {first_name} {middle_name}")
+            
+            # Если имя все еще не найдено, используем значения по умолчанию
+            if not first_name:
+                first_name = 'Из ClickUp'
+            if not last_name:
+                last_name = 'Кандидат'
+            
+            # Создаем личные заметки из данных ClickUp
+            task_id = task_data.get('id') if task_data else None
+            clickup_notes = self._create_clickup_comment(task_description, task_comments, task_status, task_id)
+            
+            # Создаем личные заметки из данных Notion, если они переданы
+            notion_notes = ""
+            if notion_data:
+                notion_notes = self._create_notion_comment(
+                    page_title=notion_data.get('title'),
+                    page_content=notion_data.get('content'),
+                    page_status=notion_data.get('status'),
+                    page_priority=notion_data.get('priority'),
+                    assignees=notion_data.get('assignees'),
+                    tags=notion_data.get('tags'),
+                    custom_properties=notion_data.get('custom_properties'),
+                    attachments=notion_data.get('attachments'),
+                    due_date=notion_data.get('due_date'),
+                    comments=notion_data.get('comments')
+                )
+            
+            # Объединяем заметки ClickUp и Notion
+            combined_notes = ""
+            if clickup_notes and notion_notes:
+                combined_notes = f"{clickup_notes}\n\n{notion_notes}"
+            elif clickup_notes:
+                combined_notes = clickup_notes
+            elif notion_notes:
+                combined_notes = notion_notes
+            
+            # Текст резюме остается в externals
+            resume_text = parsed_data.get('text', '')
+            
+            applicant_data = {
+                'last_name': last_name,
+                'first_name': first_name,
+                'externals': [
+                    {
+                        'auth_type': 'NATIVE',
+                        'data': {
+                            'body': resume_text
+                        }
+                    }
+                ]
+            }
+            
+            # Сохраняем объединенные заметки для добавления после создания кандидата
+            # (Huntflow API позволяет только 1 элемент в externals)
+            print(f"📝 Подготовлены объединенные заметки для добавления после создания кандидата ({len(combined_notes) if combined_notes else 0} символов)")
+            
+            print(f"🔍 Базовые данные кандидата: {applicant_data}")
+            
+            # Добавляем дополнительные поля согласно документации Huntflow API
+            if middle_name:
+                applicant_data['middle_name'] = middle_name
+            
+            if parsed_data.get('fields', {}).get('email'):
+                applicant_data['email'] = parsed_data.get('fields', {}).get('email')
+            
+            if parsed_data.get('fields', {}).get('phones') and len(parsed_data.get('fields', {}).get('phones', [])) > 0:
+                applicant_data['phone'] = parsed_data.get('fields', {}).get('phones')[0]
+            
+            if parsed_data.get('fields', {}).get('position'):
+                applicant_data['position'] = parsed_data.get('fields', {}).get('position')
+            
+            if parsed_data.get('fields', {}).get('salary'):
+                applicant_data['money'] = parsed_data.get('fields', {}).get('salary')
+            
+            # Обработка даты рождения (должна быть в формате YYYY-MM-DD)
+            birthdate = parsed_data.get('fields', {}).get('birthdate')
+            if birthdate and birthdate.get('year') and birthdate.get('month') and birthdate.get('day'):
+                try:
+                    birthday = f"{birthdate['year']:04d}-{birthdate['month']:02d}-{birthdate['day']:02d}"
+                    applicant_data['birthday'] = birthday
+                except (ValueError, TypeError):
+                    pass  # Пропускаем некорректные даты
+            
+            # Skype (deprecated, но добавляем если есть)
+            if parsed_data.get('fields', {}).get('skype'):
+                applicant_data['skype'] = parsed_data.get('fields', {}).get('skype')
+            
+            # Telegram через social (рекомендуемый способ)
+            if parsed_data.get('fields', {}).get('telegram'):
+                if 'social' not in applicant_data:
+                    applicant_data['social'] = []
+                applicant_data['social'].append({
+                    'social_type': 'TELEGRAM',
+                    'value': parsed_data.get('fields', {}).get('telegram')
+                })
+            
+            # Дополнительные поля из ClickUp custom fields
+            clickup_custom_fields = {}
+            if task_data and task_data.get('custom_fields'):
+                clickup_custom_fields = task_data.get('custom_fields', {})
+                # Проверяем тип данных - может быть список или словарь
+                if isinstance(clickup_custom_fields, list):
+                    print(f"🔍 Найдены custom fields ClickUp (список): {len(clickup_custom_fields)} полей")
+                    # Преобразуем список в словарь для удобства
+                    fields_dict = {}
+                    for field in clickup_custom_fields:
+                        if isinstance(field, dict) and 'name' in field:
+                            fields_dict[field.get('name', '')] = field
+                    clickup_custom_fields = fields_dict
+                else:
+                    print(f"🔍 Найдены custom fields ClickUp (словарь): {list(clickup_custom_fields.keys()) if clickup_custom_fields else []}")
+            
+            # Извлекаем телефон из ClickUp custom fields
+            if not applicant_data.get('phone') and clickup_custom_fields:
+                phone_from_clickup = self._extract_field_from_clickup_custom_fields(clickup_custom_fields, ['phone', 'телефон', 'телефон кандидата', 'контактный телефон'])
+                if phone_from_clickup:
+                    applicant_data['phone'] = phone_from_clickup
+                    print(f"📞 Телефон из ClickUp custom fields: {phone_from_clickup}")
+            
+            # Извлекаем email из ClickUp custom fields
+            if not applicant_data.get('email') and clickup_custom_fields:
+                email_from_clickup = self._extract_field_from_clickup_custom_fields(clickup_custom_fields, ['email', 'электронная почта', 'e-mail', 'почта', 'email кандидата'])
+                if email_from_clickup:
+                    applicant_data['email'] = email_from_clickup
+                    print(f"📧 Email из ClickUp custom fields: {email_from_clickup}")
+            
+            # Извлекаем Telegram из ClickUp custom fields
+            if not applicant_data.get('social') and clickup_custom_fields:
+                telegram_from_clickup = self._extract_field_from_clickup_custom_fields(clickup_custom_fields, ['telegram', 'telegram кандидата', 'tg', '@'])
+                if telegram_from_clickup:
+                    if 'social' not in applicant_data:
+                        applicant_data['social'] = []
+                    applicant_data['social'].append({
+                        'social_type': 'TELEGRAM',
+                        'value': telegram_from_clickup
+                    })
+                    print(f"💬 Telegram из ClickUp custom fields: {telegram_from_clickup}")
+            
+            # Извлекаем Salary из ClickUp custom fields в поле money (зарплатные ожидания)
+            if not applicant_data.get('money') and clickup_custom_fields:
+                salary_from_clickup = self._extract_field_from_clickup_custom_fields(clickup_custom_fields, ['salary', 'зарплата', 'зарплатные ожидания', 'ожидания по зарплате'])
+                if salary_from_clickup:
+                    applicant_data['money'] = salary_from_clickup
+                    print(f"💰 Salary из ClickUp custom fields: {salary_from_clickup}")
+            
+            # Фото (ID файла)
+            if parsed_data.get('photo', {}).get('id'):
+                applicant_data['photo'] = parsed_data.get('photo', {}).get('id')
+            
+            # Файлы (список ID файлов)
+            if parsed_data.get('id'):  # ID загруженного файла
+                if 'files' not in applicant_data:
+                    applicant_data['files'] = []
+                applicant_data['files'].append(parsed_data.get('id'))
+            
+            # Убираем пустые поля
+            applicant_data = {k: v for k, v in applicant_data.items() if v is not None and v != ''}
+            
+            # Сохраняем vacancy_id для отдельной привязки после создания кандидата
+            target_vacancy_id = None
+            if vacancy_id and vacancy_id != '' and str(vacancy_id).lower() != 'none':
+                try:
+                    target_vacancy_id = int(vacancy_id) if isinstance(vacancy_id, str) and vacancy_id.isdigit() else vacancy_id
+                    print(f"🔍 Сохраняем vacancy_id для отдельной привязки: {target_vacancy_id}")
+                except (ValueError, TypeError):
+                    print(f"⚠️ Неверный формат vacancy_id: {vacancy_id}")
+                    target_vacancy_id = None
+            else:
+                print(f"⚠️ Вакансия не указана: vacancy_id='{vacancy_id}'")
+            
+            # НЕ добавляем vacancy в данные создания кандидата, так как это может не работать
+            # Будем привязывать отдельным запросом после создания
+            
+            # Сохраняем информацию об исполнителе для добавления тега после создания кандидата
+            assignee_info = None
+            if assignees and len(assignees) > 0:
+                # Берем первого исполнителя
+                assignee = assignees[0]
+                
+                # Обрабатываем разные форматы данных исполнителя
+                if isinstance(assignee, dict):
+                    assignee_name = assignee.get('username', assignee.get('email', 'Неизвестно'))
+                elif isinstance(assignee, str):
+                    assignee_name = assignee
+                else:
+                    assignee_name = str(assignee)
+                
+                assignee_info = assignee_name
+                print(f"🏷️ Сохранили информацию об исполнителе для добавления тега: {assignee_name}")
+            
+            print(f"📤 Финальные данные кандидата: {applicant_data}")
+            print(f"📝 External источник: {applicant_data.get('externals', [{}])[0].get('data', {}).get('body', '')[:100]}...")
+            print(f"🔗 Вакансия в финальных данных: {applicant_data.get('vacancy', 'НЕ УКАЗАНА')}")
+            
+            # Создаем кандидата
+            print(f"🔍 Отправляем запрос на создание кандидата с данными: {applicant_data}")
+            result = self._make_request('POST', f"/accounts/{account_id}/applicants", json=applicant_data)
+            print(f"🔍 Результат _make_request: {result}")
+            
+            if result:
+                print(f"✅ Кандидат успешно создан: {result}")
+                applicant_id = result.get('id')
+                # Сохраняем данные кандидата для возврата
+                applicant_data_result = result
+                
+                # Привязываем кандидата к вакансии, если указана
+                if applicant_id and target_vacancy_id:
+                    print(f"🔗 Привязываем кандидата {applicant_id} к вакансии {target_vacancy_id}")
+                    binding_result = self._bind_applicant_to_vacancy(account_id, applicant_id, target_vacancy_id, task_status)
+                    if binding_result:
+                        print(f"✅ Кандидат успешно привязан к вакансии")
+                    else:
+                        print(f"❌ Не удалось привязать кандидата к вакансии")
+                
+                # Добавляем теги
+                if applicant_id:
+                    # Собираем все метки для добавления
+                    tags_to_add = []
+                    
+                    # Добавляем тег с исполнителем, если есть
+                    if assignee_info:
+                        executor_tag_id = self._find_tag_by_name(account_id, assignee_info)
+                        if executor_tag_id:
+                            tags_to_add.append(executor_tag_id)
+                            print(f"🏷️ Добавляем тег для исполнителя: {assignee_info} (ID: {executor_tag_id})")
+                        else:
+                            print(f"❌ Не удалось найти тег для исполнителя: {assignee_info}")
+                    
+                    # Добавляем все метки одновременно
+                    if tags_to_add:
+                        print(f"🏷️ Добавляем все метки одновременно: {tags_to_add}")
+                        tag_data = {'tags': tags_to_add}
+                        result = self._make_request('POST', f"/accounts/{account_id}/applicants/{applicant_id}/tags", json=tag_data)
+                        
+                        if result:
+                            print(f"✅ Все метки успешно добавлены к кандидату")
+                            # Очищаем кэш для этого кандидата после добавления меток
+                            HuntflowAPICache.clear_candidate(self.user.id, account_id, applicant_id)
+                            print(f"🗑️ Кэш очищен для кандидата {applicant_id}")
+                        else:
+                            print(f"❌ Не удалось добавить метки к кандидату")
+                    else:
+                        print(f"⚠️ Нет меток для добавления")
+                
+                # Добавляем комментарий с объединенными данными, если есть
+                if combined_notes and applicant_id:
+                    print(f"🔍 Добавляем комментарий с объединенными данными к кандидату {applicant_id}")
+                    
+                    comment_result = self.add_applicant_comment(
+                        account_id=account_id,
+                        applicant_id=applicant_id,
+                        comment=combined_notes,
+                        vacancy_id=vacancy_id
+                    )
+                    
+                    if comment_result:
+                        print(f"✅ Комментарий с объединенными данными успешно добавлен")
+                    else:
+                        print(f"⚠️ Кандидат создан, но не удалось добавить комментарий с объединенными данными")
+                
+                # Проверяем комментарии на наличие ссылок на Google Sheets и обновляем поле Scorecard
+                if task_comments and applicant_id:
+                    google_sheets_links = self._extract_google_sheets_links_from_comments(task_comments)
+                    if google_sheets_links:
+                        # Берем первую найденную ссылку для поля Scorecard
+                        scorecard_url = google_sheets_links[0]
+                        print(f"📊 Обновляем поле Scorecard кандидата {applicant_id} ссылкой: {scorecard_url}")
+                        
+                        scorecard_result = self.update_applicant_scorecard_field(
+                            account_id=account_id,
+                            applicant_id=applicant_id,
+                            scorecard_url=scorecard_url
+                        )
+                        
+                        if scorecard_result:
+                            print(f"✅ Поле Scorecard успешно обновлено")
+                        else:
+                            print(f"⚠️ Не удалось обновить поле Scorecard")
+                
+                return applicant_data_result
+            else:
+                print(f"❌ _make_request вернул None для создания кандидата")
+                return None
+            
+        except Exception as e:
+            print(f"❌ Ошибка при создании кандидата: {e}")
+            import traceback
+            print(f"❌ Traceback: {traceback.format_exc()}")
+            return None
+    
+    def _extract_field_from_clickup_custom_fields(self, custom_fields: Dict, field_names: List[str]) -> Optional[str]:
+        """
+        Извлекает значение поля из ClickUp custom fields по названию
+        
+        Args:
+            custom_fields: Словарь custom fields из ClickUp (ключи - названия полей)
+            field_names: Список возможных названий поля
+            
+        Returns:
+            Значение поля или None если не найдено
+        """
+        try:
+            # Сначала ищем точное совпадение названий полей
+            for search_name in field_names:
+                search_name_lower = search_name.lower()
+                for field_name, field_data in custom_fields.items():
+                    if search_name_lower in field_name.lower() or field_name.lower() in search_name_lower:
+                        if isinstance(field_data, dict):
+                            field_value = field_data.get('value', '')
+                        else:
+                            field_value = str(field_data)
+                        
+                        if field_value and str(field_value).strip():
+                            print(f"✅ Найдено поле '{field_name}' со значением: {field_value}")
+                            return str(field_value).strip()
+            
+            # Если точное совпадение не найдено, ищем в данных полей
+            for field_name, field_data in custom_fields.items():
+                if isinstance(field_data, dict):
+                    field_name_inner = field_data.get('name', '').lower()
+                    field_value = field_data.get('value', '')
+                    
+                    # Проверяем, совпадает ли название поля с одним из искомых
+                    for search_name in field_names:
+                        if search_name.lower() in field_name_inner or field_name_inner in search_name.lower():
+                            if field_value and str(field_value).strip():
+                                print(f"✅ Найдено поле '{field_name_inner}' со значением: {field_value}")
+                                return str(field_value).strip()
+                
+                elif isinstance(field_data, str) and field_data.strip():
+                    # Если данные в простом формате, проверяем по ключу
+                    for search_name in field_names:
+                        if search_name.lower() in field_name.lower() or field_name.lower() in search_name.lower():
+                            print(f"✅ Найдено простое поле '{field_name}' со значением: {field_data}")
+                            return str(field_data).strip()
+            
+            return None
+            
+        except Exception as e:
+            print(f"❌ Ошибка при извлечении поля из ClickUp custom fields: {e}")
+            return None
+    
+    def add_applicant_comment(self, account_id: int, applicant_id: int, comment: str, vacancy_id: int = None) -> Optional[Dict[str, Any]]:
+        """
+        Добавляет комментарий к кандидату в Huntflow
+        
+        Args:
+            account_id: ID организации
+            applicant_id: ID кандидата
+            comment: Текст комментария
+            vacancy_id: ID вакансии (опционально, если не указан - добавляется в личные заметки)
+            
+        Returns:
+            Результат добавления комментария или None
+        """
+        try:
+            print(f"🔍 Добавляем комментарий к кандидату {applicant_id}")
+            
+            comment_data = {
+                'comment': comment
+            }
+            
+            # Если указана вакансия, добавляем её
+            if vacancy_id and vacancy_id != '':
+                comment_data['vacancy'] = vacancy_id
+                print(f"📝 Комментарий будет добавлен к вакансии {vacancy_id}")
+            else:
+                print(f"📝 Комментарий будет добавлен в личные заметки")
+            
+            print(f"📤 Данные комментария: {comment_data}")
+            
+            result = self._make_request('POST', f"/accounts/{account_id}/applicants/{applicant_id}/logs", json=comment_data)
+            
+            if result:
+                print(f"✅ Комментарий успешно добавлен: {result}")
+                return result
+            else:
+                print(f"❌ Не удалось добавить комментарий")
+                return None
+                
+        except Exception as e:
+            print(f"❌ Ошибка при добавлении комментария: {e}")
+            return None
+    
+    def create_linkedin_profile_data(self, linkedin_url: str, task_name: str = None, task_description: str = None) -> Optional[Dict[str, Any]]:
+        """
+        Создает данные профиля на основе LinkedIn ссылки
+        
+        Args:
+            linkedin_url: Ссылка на LinkedIn профиль
+            task_name: Название задачи из ClickUp
+            task_description: Описание задачи из ClickUp
+            
+        Returns:
+            Данные профиля в формате Huntflow или None
+        """
+        try:
+            print(f"🔍 Создаем данные LinkedIn профиля для: {linkedin_url}")
+            
+            # Извлекаем имя из названия задачи
+            name_data = self._extract_name_from_task_title(task_name) if task_name else {}
+            
+            # Создаем базовые данные профиля в формате Huntflow
+            profile_data = {
+                'id': None,  # Будет создан Huntflow
+                'url': linkedin_url,
+                'content_type': 'text/html',
+                'name': 'LinkedIn Profile',
+                'text': f"LinkedIn профиль: {linkedin_url}",
+                'fields': {
+                    'name': {
+                        'first': name_data.get('first_name', ''),
+                        'last': name_data.get('last_name', ''),
+                        'middle': name_data.get('middle_name', '')
+                    },
+                    'email': '',
+                    'phones': [],
+                    'position': '',
+                    'experience': [],
+                    'skills': [],
+                    'education': []
+                },
+                'parsing_meta': {
+                    'last_names_ignored': False,
+                    'emails_ignored': False,
+                    'phones_ignored': False
+                }
+            }
+            
+            # Если есть описание задачи, пытаемся извлечь дополнительную информацию
+            if task_description:
+                # Простой парсинг описания для извлечения email и телефона
+                import re
+                
+                # Ищем email
+                email_match = re.search(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', task_description)
+                if email_match:
+                    profile_data['fields']['email'] = email_match.group()
+                
+                # Ищем телефоны
+                phone_patterns = [
+                    r'\+?[1-9]\d{1,14}',  # Международный формат
+                    r'\+?7\s?\(?\d{3}\)?\s?\d{3}[- ]?\d{2}[- ]?\d{2}',  # Российский формат
+                    r'\+?375\s?\(?\d{2}\)?\s?\d{3}[- ]?\d{2}[- ]?\d{2}',  # Белорусский формат
+                ]
+                
+                phones = []
+                for pattern in phone_patterns:
+                    matches = re.findall(pattern, task_description)
+                    phones.extend(matches)
+                
+                if phones:
+                    profile_data['fields']['phones'] = list(set(phones))  # Убираем дубликаты
+            
+            print(f"✅ Созданы данные LinkedIn профиля:")
+            print(f"  - Имя: {profile_data['fields']['name']['first']} {profile_data['fields']['name']['last']}")
+            print(f"  - Email: {profile_data['fields']['email']}")
+            print(f"  - Телефоны: {profile_data['fields']['phones']}")
+            
+            return profile_data
+            
+        except Exception as e:
+            print(f"❌ Ошибка создания данных LinkedIn профиля: {e}")
+            return None
+    
+    def create_rabota_by_profile_data(self, rabota_url: str, task_name: str = None, task_description: str = None) -> Optional[Dict[str, Any]]:
+        """
+        Создает данные профиля на основе rabota.by ссылки
+        
+        Args:
+            rabota_url: Ссылка на rabota.by профиль
+            task_name: Название задачи из ClickUp
+            task_description: Описание задачи из ClickUp
+            
+        Returns:
+            Данные профиля в формате Huntflow или None
+        """
+        try:
+            print(f"🔍 Создаем данные rabota.by профиля для: {rabota_url}")
+            
+            # Извлекаем имя из названия задачи
+            name_data = self._extract_name_from_task_title(task_name) if task_name else {}
+            
+            # Создаем базовые данные профиля в формате Huntflow
+            profile_data = {
+                'id': None,  # Будет создан Huntflow
+                'url': rabota_url,
+                'content_type': 'text/html',
+                'name': 'Rabota.by Profile',
+                'text': f"Rabota.by профиль: {rabota_url}",
+                'fields': {
+                    'name': {
+                        'first': name_data.get('first_name', ''),
+                        'last': name_data.get('last_name', ''),
+                        'middle': name_data.get('middle_name', '')
+                    },
+                    'email': '',
+                    'phones': [],
+                    'position': '',
+                    'experience': [],
+                    'skills': [],
+                    'education': []
+                },
+                'parsing_meta': {
+                    'last_names_ignored': False,
+                    'emails_ignored': False,
+                    'phones_ignored': False
+                }
+            }
+            
+            print(f"✅ Созданы данные rabota.by профиля:")
+            print(f"  - Имя: {name_data.get('first_name', '')} {name_data.get('last_name', '')}")
+            print(f"  - Email: {profile_data['fields']['email']}")
+            print(f"  - Телефоны: {profile_data['fields']['phones']}")
+            
+            return profile_data
+            
+        except Exception as e:
+            print(f"❌ Ошибка создания данных rabota.by профиля: {e}")
+            return None
+    
+    def _get_or_create_tag(self, account_id: int, tag_name: str) -> Optional[int]:
+        """
+        Получает существующий тег или создает новый
+        
+        Args:
+            account_id: ID организации
+            tag_name: Название тега
+            
+        Returns:
+            ID тега или None
+        """
+        try:
+            print(f"🔍 Ищем тег: {tag_name}")
+            
+            # Сначала пытаемся найти существующий тег
+            tags_response = self._make_request('GET', f"/accounts/{account_id}/tags")
+            
+            if tags_response and 'items' in tags_response:
+                for tag in tags_response['items']:
+                    if tag.get('name') == tag_name:
+                        print(f"✅ Найден существующий тег: {tag_name} (ID: {tag['id']})")
+                        return tag['id']
+            
+            # Если тег не найден, создаем новый
+            print(f"🔍 Создаем новый тег: {tag_name}")
+            tag_data = {
+                'name': tag_name,
+                'color': '30b25b'  # Зеленый цвет по умолчанию
+            }
+            new_tag = self._make_request('POST', f"/accounts/{account_id}/tags", json=tag_data)
+            
+            if new_tag and 'id' in new_tag:
+                print(f"✅ Создан новый тег: {tag_name} (ID: {new_tag['id']})")
+                return new_tag['id']
+            else:
+                print(f"❌ Не удалось создать тег: {tag_name}")
+                return None
+                
+        except Exception as e:
+            print(f"❌ Ошибка при работе с тегами: {e}")
+            return None
+    
+    def _find_tag_by_name(self, account_id: int, assignee_name: str) -> Optional[int]:
+        """
+        Ищет существующий тег по имени исполнителя
+        
+        Args:
+            account_id: ID организации
+            assignee_name: Имя исполнителя из ClickUp
+            
+        Returns:
+            ID найденного тега или None
+        """
+        try:
+            print(f"🔍 Ищем тег для исполнителя: {assignee_name}")
+            
+            # Получаем все теги из Huntflow
+            tags_response = self._make_request('GET', f"/accounts/{account_id}/tags")
+            
+            if tags_response and 'items' in tags_response:
+                print(f"📋 Найдено тегов: {len(tags_response['items'])}")
+                
+                # Ищем тег по точному совпадению имени
+                for tag in tags_response['items']:
+                    tag_name = tag.get('name', '')
+                    print(f"  - Проверяем тег: '{tag_name}'")
+                    
+                    if tag_name == assignee_name:
+                        print(f"✅ Найден точный тег: {tag_name} (ID: {tag['id']})")
+                        return tag['id']
+                
+                # Если точного совпадения нет, ищем по частичному совпадению
+                print(f"🔍 Точного совпадения нет, ищем частичное совпадение...")
+                for tag in tags_response['items']:
+                    tag_name = tag.get('name', '')
+                    
+                    # Проверяем, содержит ли имя тега имя исполнителя
+                    if assignee_name.lower() in tag_name.lower() or tag_name.lower() in assignee_name.lower():
+                        print(f"✅ Найден частичный тег: {tag_name} (ID: {tag['id']})")
+                        return tag['id']
+                
+                # Если это тег clickup-new, пытаемся создать его
+                if assignee_name == "clickup-new":
+                    print(f"🔍 Тег clickup-new не найден, создаем его...")
+                    return self._create_tag(account_id, "clickup-new", "FF5733")  # Оранжевый цвет для ClickUp
+                
+                print(f"❌ Тег для исполнителя '{assignee_name}' не найден")
+                return None
+            else:
+                print(f"❌ Не удалось получить список тегов")
+                return None
+                
+        except Exception as e:
+            print(f"❌ Ошибка при поиске тега: {e}")
+            return None
+    
+    def _create_tag(self, account_id: int, tag_name: str, color: str = "007BFF") -> Optional[int]:
+        """
+        Создает новый тег в Huntflow
+        
+        Args:
+            account_id: ID организации
+            tag_name: Название тега
+            color: Цвет тега в формате HEX (без символа #)
+            
+        Returns:
+            ID созданного тега или None
+        """
+        try:
+            # Убираем символ # если он есть
+            if color.startswith('#'):
+                color = color[1:]
+            
+            print(f"🔍 Создаем тег: {tag_name} (цвет: {color})")
+            
+            tag_data = {
+                'name': tag_name,
+                'color': color
+            }
+            
+            result = self._make_request('POST', f"/accounts/{account_id}/tags", json=tag_data)
+            
+            if result and 'id' in result:
+                print(f"✅ Тег {tag_name} создан с ID: {result['id']}")
+                return result['id']
+            else:
+                print(f"❌ Не удалось создать тег {tag_name}")
+                return None
+                
+        except Exception as e:
+            print(f"❌ Ошибка при создании тега {tag_name}: {e}")
+            return None
+    
+    def _bind_applicant_to_vacancy(self, account_id: int, applicant_id: int, vacancy_id: int, task_status: str = None) -> bool:
+        """
+        Привязывает кандидата к вакансии
+        
+        Args:
+            account_id: ID организации
+            applicant_id: ID кандидата
+            vacancy_id: ID вакансии
+            task_status: Статус задачи ClickUp (для обработки reject)
+            
+        Returns:
+            True если привязка успешна, False иначе
+        """
+        try:
+            print(f"🔗 Привязываем кандидата {applicant_id} к вакансии {vacancy_id}")
+            
+            # Сначала получаем информацию о вакансии для получения статуса по умолчанию
+            vacancy_data = self.get_vacancy(account_id, vacancy_id)
+            if not vacancy_data:
+                print(f"❌ Не удалось получить данные вакансии {vacancy_id}")
+                return False
+            
+            # Получаем статусы вакансии
+            statuses = self.get_vacancy_statuses(account_id)
+            if not statuses or 'items' not in statuses:
+                print(f"❌ Не удалось получить статусы вакансии")
+                return False
+            
+            # Определяем статус на основе статуса задачи ClickUp
+            target_status = None
+            
+            # Если статус задачи "reject", ищем статус "Отказ":"По другой причине"
+            if task_status and task_status.lower() == 'reject':
+                print(f"🔍 Статус задачи ClickUp: {task_status}, ищем статус 'Отказ' в Huntflow")
+                for status in statuses['items']:
+                    status_name = status.get('name', '').lower()
+                    status_type = status.get('type', '').lower()
+                    
+                    # Ищем статус отказа (может быть типа 'trash' или содержать 'отказ'/'reject')
+                    if ('отказ' in status_name or 'reject' in status_name) or status_type == 'trash':
+                        # Проверяем подстатусы (reject_reasons)
+                        if 'reject_reasons' in status and status['reject_reasons']:
+                            for reason in status['reject_reasons']:
+                                reason_name = reason.get('name', '').lower()
+                                if 'по другой причине' in reason_name or 'other reason' in reason_name:
+                                    target_status = reason['id']
+                                    print(f"✅ Найден подстатус отказа: {reason['name']} (ID: {reason['id']})")
+                                    break
+                        else:
+                            # Если нет подстатусов, используем основной статус отказа
+                            target_status = status['id']
+                            print(f"✅ Найден статус отказа: {status['name']} (ID: {status['id']}) типа '{status_type}'")
+                            break
+                
+                if not target_status:
+                    print(f"⚠️ Статус отказа не найден, используем статус по умолчанию")
+            
+            # Если статус отказа не найден или задача не reject, используем статус по умолчанию
+            if not target_status:
+                for status in statuses['items']:
+                    if status.get('order', 0) == 1 or status.get('name', '').lower() in ['новая', 'new', 'отклик', 'response']:
+                        target_status = status['id']
+                        print(f"✅ Используем статус по умолчанию: {status['name']} (ID: {status['id']})")
+                        break
+                
+                if not target_status and statuses['items']:
+                    target_status = statuses['items'][0]['id']  # Берем первый статус
+                    print(f"✅ Используем первый доступный статус: {statuses['items'][0]['name']} (ID: {target_status})")
+            
+            if not target_status:
+                print(f"❌ Не удалось найти статус для привязки к вакансии")
+                return False
+            
+            print(f"🎯 Используем статус {target_status} для привязки к вакансии")
+            
+            # Привязываем кандидата к вакансии с статусом
+            endpoint = f"/accounts/{account_id}/applicants/{applicant_id}/vacancy"
+            data = {
+                'vacancy': vacancy_id,
+                'status': target_status
+            }
+            
+            result = self._make_request('POST', endpoint, json=data)
+            
+            if result:
+                print(f"✅ Кандидат {applicant_id} успешно привязан к вакансии {vacancy_id} со статусом {target_status}")
+                return True
+            else:
+                print(f"❌ Не удалось привязать кандидата к вакансии")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Ошибка при привязке кандидата к вакансии: {e}")
+            return False
+
+    def add_applicant_to_vacancy(self, account_id: int, applicant_id: int, vacancy_id: int) -> bool:
+        """
+        Добавляет кандидата на вакансию (публичный метод для API).
+        Использует начальный статус вакансии (new/отклик).
+
+        Args:
+            account_id: ID организации
+            applicant_id: ID кандидата
+            vacancy_id: ID вакансии
+
+        Returns:
+            True если добавление успешно, False иначе
+        """
+        return self._bind_applicant_to_vacancy(
+            account_id=account_id,
+            applicant_id=applicant_id,
+            vacancy_id=vacancy_id,
+            task_status=None
+        )
+
+    def _add_tag_to_applicant(self, account_id: int, applicant_id: int, assignee_name: str) -> bool:
+        """
+        Добавляет тег к кандидату после его создания
+        
+        Args:
+            account_id: ID организации
+            applicant_id: ID кандидата
+            assignee_name: Имя исполнителя из ClickUp
+            
+        Returns:
+            True если тег добавлен успешно, False иначе
+        """
+        try:
+            print(f"🔍 Добавляем тег к кандидату {applicant_id} для исполнителя: {assignee_name}")
+            
+            # Ищем существующий тег по имени исполнителя
+            tag_id = self._find_tag_by_name(account_id, assignee_name)
+            
+            if not tag_id:
+                print(f"❌ Тег для исполнителя '{assignee_name}' не найден")
+                return False
+            
+            # Добавляем тег к кандидату через специальный эндпоинт
+            tag_data = {'tags': [tag_id]}
+            result = self._make_request('POST', f"/accounts/{account_id}/applicants/{applicant_id}/tags", json=tag_data)
+            
+            if result:
+                print(f"✅ Тег {tag_id} успешно добавлен к кандидату {applicant_id}")
+                
+                # Очищаем кэш для этого кандидата после добавления метки
+                HuntflowAPICache.clear_candidate(self.user.id, account_id, applicant_id)
+                print(f"🗑️ Кэш очищен для кандидата {applicant_id}")
+                
+                return True
+            else:
+                print(f"❌ Не удалось добавить тег к кандидату")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Ошибка при добавлении тега к кандидату: {e}")
+            return False
+    
+    def create_applicant_from_clickup_task(self, clickup_task) -> Dict[str, Any]:
+        """
+        Создает кандидата в Huntflow из задачи ClickUp
+        Работает точно так же, как transfer_to_huntflow в views.py
+        
+        Args:
+            clickup_task: Объект ClickUpTask
+            
+        Returns:
+            Результат создания кандидата
+        """
+        try:
+            print(f"🔄 Создаем кандидата в Huntflow из задачи {clickup_task.task_id}")
+            
+            # Получаем account_id
+            accounts = self.get_accounts()
+            if not accounts or not accounts.get('items'):
+                return {
+                    'success': False,
+                    'error': 'Не удалось получить список организаций'
+                }
+            account_id = accounts['items'][0]['id']
+            
+            # Получаем вложения и комментарии через ClickUp API
+            from apps.clickup_int.services import ClickUpService
+            clickup_service = ClickUpService(clickup_task.user.clickup_api_key)
+            attachments = clickup_service.get_task_attachments(clickup_task.task_id)
+            comments = clickup_service.get_task_comments(clickup_task.task_id)
+            
+            print(f"🔍 Данные задачи для переноса:")
+            print(f"  - Название: {clickup_task.name}")
+            print(f"  - Описание: {clickup_task.description[:100] if clickup_task.description else 'Нет описания'}...")
+            print(f"  - Комментарии: {len(comments) if comments else 0}")
+            print(f"  - Вложения: {len(attachments) if attachments else 0}")
+            
+            # Проверяем, есть ли PDF файлы для парсинга
+            pdf_attachments = [att for att in attachments if att.get('extension', '').lower() == 'pdf']
+            linkedin_url = None
+            rabota_url = None
+            
+            if not pdf_attachments:
+                # Если нет PDF файлов, ищем LinkedIn ссылку в custom fields
+                custom_fields = clickup_task.get_custom_fields_display()
+                for field in custom_fields:
+                    field_name = field.get('name', '').lower()
+                    field_value = field.get('value', '')
+                    
+                    # Ищем LinkedIn ссылки
+                    if field_name in ['linkedin', 'linkedin profile', 'linkedin url']:
+                        linkedin_url = field_value
+                        break
+                    
+                    # Ищем rabota.by ссылки
+                    if field_name in ['rabota', 'rabota.by', 'rabota url', 'resume', 'резюме'] or 'rabota.by' in field_value.lower():
+                        rabota_url = field_value
+                        break
+                
+                # Если не нашли ни LinkedIn, ни rabota.by
+                if not linkedin_url and not rabota_url:
+                    return {
+                        'success': False,
+                        'error': 'У задачи нет PDF файлов, LinkedIn или rabota.by ссылок для переноса'
+                    }
+            
+            parsed_data = None
+            
+            if pdf_attachments:
+                # Обрабатываем PDF файлы
+                # Сортируем по дате (самый старый первый)
+                oldest_attachment = min(pdf_attachments, key=lambda x: x.get('date', 0))
+                
+                # Скачиваем файл
+                import requests
+                file_response = requests.get(oldest_attachment['url'], timeout=30)
+                if file_response.status_code != 200:
+                    return {
+                        'success': False,
+                        'error': 'Не удалось скачать файл из ClickUp'
+                    }
+                
+                # Загружаем файл в Huntflow с парсингом
+                parsed_data = self.upload_file(
+                    account_id=account_id,
+                    file_data=file_response.content,
+                    file_name=oldest_attachment.get('title', 'resume.pdf'),
+                    parse_file=True
+                )
+                
+                if not parsed_data:
+                    return {
+                        'success': False,
+                        'error': 'Не удалось загрузить файл в Huntflow'
+                    }
+            
+            elif linkedin_url:
+                # Обрабатываем LinkedIn ссылку
+                print(f"🔍 Обрабатываем LinkedIn ссылку: {linkedin_url}")
+                
+                # Создаем данные для LinkedIn профиля
+                parsed_data = self.create_linkedin_profile_data(
+                    linkedin_url=linkedin_url,
+                    task_name=clickup_task.name,
+                    task_description=clickup_task.description
+                )
+                
+                if not parsed_data:
+                    return {
+                        'success': False,
+                        'error': 'Не удалось обработать LinkedIn профиль'
+                    }
+            
+            elif rabota_url:
+                # Обрабатываем rabota.by ссылку
+                print(f"🔍 Обрабатываем rabota.by ссылку: {rabota_url}")
+                
+                # Создаем данные для rabota.by профиля
+                parsed_data = self.create_rabota_by_profile_data(
+                    rabota_url=rabota_url,
+                    task_name=clickup_task.name,
+                    task_description=clickup_task.description
+                )
+                
+                if not parsed_data:
+                    return {
+                        'success': False,
+                        'error': 'Не удалось обработать rabota.by профиль'
+                    }
+            
+            # Подготавливаем данные задачи для передачи в create_applicant_from_parsed_data
+            task_data_for_huntflow = {
+                'name': clickup_task.name,
+                'description': clickup_task.description,
+                'status': clickup_task.status,
+                'assignees': clickup_task.assignees,
+                'attachments': attachments,
+                'comments': comments,
+                'custom_fields': clickup_task.get_custom_fields_display()
+            }
+            
+            # Создаем кандидата на основе распарсенных данных
+            print(f"🔍 Создаем кандидата с данными: account_id={account_id}, task_name='{clickup_task.name}'")
+            applicant = self.create_applicant_from_parsed_data(
+                account_id=account_id,
+                parsed_data=parsed_data,
+                vacancy_id=None,  # Без привязки к вакансии
+                task_name=clickup_task.name,
+                task_description=clickup_task.description,
+                task_comments=comments,
+                assignees=clickup_task.assignees,
+                task_status=clickup_task.status,
+                task_data=task_data_for_huntflow
+            )
+            print(f"🔍 Результат создания кандидата: {applicant}")
+            
+            if not applicant:
+                return {
+                    'success': False,
+                    'error': 'Не удалось создать кандидата в Huntflow'
+                }
+            
+            return {
+                'success': True,
+                'applicant_id': applicant.get('id'),
+                'message': f'Кандидат успешно создан в Huntflow (ID: {applicant.get("id")})'
+            }
+            
+        except Exception as e:
+            print(f"❌ Ошибка при создании кандидата из задачи ClickUp: {e}")
+            import traceback
+            traceback.print_exc()
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def update_candidate_field(self, candidate_id: str, field_data: Dict[str, Any]) -> bool:
+        """
+        Обновляет поле кандидата в Huntflow
+        
+        Args:
+            candidate_id: ID кандидата в Huntflow
+            field_data: Словарь с данными для обновления
+            
+        Returns:
+            bool: True если обновление прошло успешно, False в противном случае
+        """
+        try:
+            # Получаем account_id
+            accounts = self.get_accounts()
+            if not accounts or 'items' not in accounts or not accounts['items']:
+                print("❌ Не удалось получить список аккаунтов")
+                return False
+            
+            account_id = accounts['items'][0]['id']
+            
+            # Определяем, какие поля являются дополнительными (string_field_*, custom_field_*)
+            additional_fields = {}
+            main_fields = {}
+            
+            for field_name, field_value in field_data.items():
+                if field_name.startswith('string_field_') or field_name.startswith('custom_field_'):
+                    additional_fields[field_name] = field_value
+                else:
+                    main_fields[field_name] = field_value
+            
+            success = True
+            
+            # Обновляем основные поля
+            if main_fields:
+                url = f"{self._get_base_url()}/v2/accounts/{account_id}/applicants/{candidate_id}"
+                print(f"🔍 Обновляем основные поля кандидата {candidate_id}")
+                print(f"📤 Данные для обновления: {main_fields}")
+                
+                response = requests.patch(
+                    url,
+                    headers=self.headers,
+                    json=main_fields,
+                    timeout=30
+                )
+                
+                print(f"📥 Ответ API: {response.status_code}")
+                
+                if response.status_code == 200:
+                    print(f"✅ Основные поля кандидата {candidate_id} успешно обновлены")
+                else:
+                    print(f"❌ Ошибка при обновлении основных полей: {response.status_code}")
+                    print(f"📥 Тело ответа: {response.text}")
+                    success = False
+            
+            # Обновляем дополнительные поля
+            if additional_fields:
+                url = f"{self._get_base_url()}/v2/accounts/{account_id}/applicants/{candidate_id}/questionary"
+                print(f"🔍 Обновляем дополнительные поля кандидата {candidate_id}")
+                print(f"📤 Данные для обновления: {additional_fields}")
+                
+                response = requests.patch(
+                    url,
+                    headers=self.headers,
+                    json=additional_fields,
+                    timeout=30
+                )
+                
+                print(f"📥 Ответ API: {response.status_code}")
+                
+                if response.status_code == 200:
+                    print(f"✅ Дополнительные поля кандидата {candidate_id} успешно обновлены")
+                else:
+                    print(f"❌ Ошибка при обновлении дополнительных полей: {response.status_code}")
+                    print(f"📥 Тело ответа: {response.text}")
+                    success = False
+            
+            return success
+                
+        except Exception as e:
+            print(f"❌ Ошибка при обновлении поля кандидата: {e}")
+            return False
+    
+    def _get_account_source_id(self, account_id: int, source_type: str) -> Optional[int]:
+        """
+        Получает ID источника (account_source) для указанного типа
+        
+        Args:
+            account_id: ID организации в Huntflow
+            source_type: 'HH' для hh.ru, 'RABOTABY' для rabota.by
+            
+        Returns:
+            ID источника или None
+        """
+        try:
+            sources_data = self._make_request('GET', f"/accounts/{account_id}/applicants/sources")
+            if sources_data and 'items' in sources_data:
+                for source in sources_data['items']:
+                    source_name = source.get('name', '').lower()
+                    if source_type == 'HH':
+                        if 'hh' in source_name or 'headhunter' in source_name or 'хедхантер' in source_name:
+                            return source.get('id')
+                    elif source_type == 'RABOTABY':
+                        if 'rabota' in source_name or 'работа' in source_name or 'rabota.by' in source_name:
+                            return source.get('id')
+            
+            # Fallback значения
+            if source_type == 'HH':
+                return 2  # Стандартный ID для HH.ru
+            return None
+        except Exception as e:
+            print(f"❌ Ошибка получения account_source для {source_type}: {e}")
+            return None
+    
+    def _extract_resume_url(self, text: str) -> Optional[Dict[str, str]]:
+        """
+        Извлекает ссылку на резюме из текста (hh.ru или rabota.by)
+        
+        Args:
+            text: Текст сообщения
+            
+        Returns:
+            Словарь с ключами: 'url', 'source_type' ('HH' или 'RABOTABY'), 'resume_id'
+            или None если ссылка не найдена
+        """
+        import re
+        
+        # Паттерны для hh.ru
+        hh_patterns = [
+            r'https?://(?:www\.)?(?:hh\.ru|headhunter\.ru)/resume/([a-f0-9]+)',
+            r'https?://(?:www\.)?(?:hh\.ru|headhunter\.ru)/applicants/resume\?id=([a-f0-9]+)',
+        ]
+        
+        # Паттерны для rabota.by (ID резюме может содержать буквы и цифры)
+        rabota_patterns = [
+            r'https?://(?:www\.)?rabota\.by/resume/([a-f0-9]+)',
+            r'https?://(?:www\.)?rabota\.by/applicants/resume\?id=([a-f0-9]+)',
+        ]
+        
+        # Проверяем hh.ru
+        for pattern in hh_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                resume_id = match.group(1)
+                url = match.group(0)
+                return {
+                    'url': url,
+                    'source_type': 'HH',
+                    'resume_id': resume_id
+                }
+        
+        # Проверяем rabota.by
+        for pattern in rabota_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                resume_id = match.group(1)
+                url = match.group(0)
+                return {
+                    'url': url,
+                    'source_type': 'RABOTABY',
+                    'resume_id': resume_id
+                }
+        
+        return None
+    
+    def create_applicant_from_url(self, account_id: int, resume_url: str, vacancy_id: int = None, 
+                                   source_type: str = None, resume_id: str = None) -> Optional[Dict[str, Any]]:
+        """
+        Создает кандидата в Huntflow только по ссылке на резюме (hh.ru или rabota.by)
+        
+        Args:
+            account_id: ID организации
+            resume_url: Ссылка на резюме
+            vacancy_id: ID вакансии для привязки (опционально)
+            source_type: 'HH' или 'RABOTABY' (опционально, определяется автоматически)
+            resume_id: ID резюме в источнике (опционально, извлекается из URL)
+            
+        Returns:
+            Созданный кандидат или None
+        """
+        try:
+            # Определяем тип источника, если не указан
+            if not source_type:
+                if 'hh.ru' in resume_url or 'headhunter.ru' in resume_url:
+                    source_type = 'HH'
+                elif 'rabota.by' in resume_url:
+                    source_type = 'RABOTABY'
+                else:
+                    print(f"❌ Неизвестный тип источника для URL: {resume_url}")
+                    return None
+            
+            # Извлекаем ID резюме, если не указан
+            if not resume_id:
+                url_info = self._extract_resume_url(resume_url)
+                if url_info:
+                    resume_id = url_info.get('resume_id')
+                else:
+                    print(f"⚠️ Не удалось извлечь ID резюме из URL: {resume_url}")
+            
+            # Получаем account_source
+            account_source = self._get_account_source_id(account_id, source_type)
+            if not account_source:
+                print(f"⚠️ Не удалось получить account_source для {source_type}, создаем без него")
+            
+            # Определяем auth_type
+            auth_type = 'HH' if source_type == 'HH' else 'RABOTABY'
+            
+            # Формируем данные для создания кандидата
+            # API Huntflow требует минимум first_name или last_name даже при создании по ссылке
+            applicant_data = {
+                'first_name': 'Кандидат',  # Временное имя, будет заменено после парсинга резюме
+                'last_name': 'из внешнего источника',  # Временная фамилия
+                'externals': [
+                    {
+                        'auth_type': auth_type,
+                        'source_url': resume_url,
+                    }
+                ]
+            }
+            
+            # Добавляем account_source, если найден
+            if account_source:
+                applicant_data['externals'][0]['account_source'] = account_source
+            
+            # Добавляем ID резюме в data, если есть
+            if resume_id:
+                if 'data' not in applicant_data['externals'][0]:
+                    applicant_data['externals'][0]['data'] = {}
+                if source_type == 'HH':
+                    applicant_data['externals'][0]['data']['hh_id'] = resume_id
+                    applicant_data['externals'][0]['data']['hh_url'] = resume_url
+                elif source_type == 'RABOTABY':
+                    applicant_data['externals'][0]['data']['rabota_id'] = resume_id
+                    applicant_data['externals'][0]['data']['rabota_url'] = resume_url
+            
+            print(f"📤 Создаем кандидата по ссылке: {resume_url}")
+            print(f"📤 Данные: {applicant_data}")
+            
+            # Создаем кандидата
+            result = self._make_request('POST', f'/accounts/{account_id}/applicants', json=applicant_data)
+            
+            if result and result.get('id'):
+                applicant_id = result['id']
+                print(f"✅ Кандидат создан по ссылке: {applicant_id}")
+                
+                # Привязываем к вакансии, если указана
+                if vacancy_id:
+                    print(f"🔗 Привязываем к вакансии {vacancy_id}")
+                    vacancy_result = self._bind_applicant_to_vacancy(account_id, applicant_id, vacancy_id)
+                    if vacancy_result:
+                        print("✅ Кандидат привязан к вакансии")
+                    else:
+                        print("❌ Не удалось привязать к вакансии")
+                
+                return result
+            
+            print(f"❌ Кандидат не создан: {result}")
+            return None
+                
+        except Exception as e:
+            print(f"❌ Ошибка создания кандидата по ссылке: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+    

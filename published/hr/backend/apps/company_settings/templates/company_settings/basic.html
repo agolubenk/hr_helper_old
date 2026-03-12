@@ -1,0 +1,359 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Настройки компании - Базовые настройки{% endblock %}
+
+{% block page_title %}Базовые настройки компании{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Навигация по разделам -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <ul class="nav nav-tabs">
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'company_settings:overview' %}">
+                        <i class="fas fa-home me-2"></i>Обзор
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link active" href="{% url 'company_settings:basic' %}">
+                        <i class="fas fa-cog me-2"></i>Базовые настройки
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'company_settings:grades' %}">
+                        <i class="fas fa-layer-group me-2"></i>Настройки грейдов
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'company_settings:templates' %}">
+                        <i class="fas fa-file-alt me-2"></i>Настройки ответов
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'company_settings:vacancy_prompt' %}">
+                        <i class="fas fa-comment-dots me-2"></i>Единый промпт
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Форма редактирования -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-edit me-2"></i>
+                        Редактирование базовых настроек
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="company-settings-form">
+                        {% csrf_token %}
+                        
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <h6 class="border-bottom pb-2 mb-3">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    Основная информация
+                                </h6>
+                                
+                                <div class="mb-3">
+                                    <label for="{{ form.company_name.id_for_label }}" class="form-label">
+                                        {{ form.company_name.label }}
+                                    </label>
+                                    {{ form.company_name }}
+                                    {% if form.company_name.help_text %}
+                                        <small class="form-text text-muted">{{ form.company_name.help_text }}</small>
+                                    {% endif %}
+                                    {% if form.company_name.errors %}
+                                        <div class="text-danger small">{{ form.company_name.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="{{ form.theme.id_for_label }}" class="form-label">
+                                        {{ form.theme.label }}
+                                    </label>
+                                    {{ form.theme }}
+                                    {% if form.theme.help_text %}
+                                        <small class="form-text text-muted">{{ form.theme.help_text }}</small>
+                                    {% endif %}
+                                    {% if form.theme.errors %}
+                                        <div class="text-danger small">{{ form.theme.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <h6 class="border-bottom pb-2 mb-3">
+                                    <i class="fas fa-calendar-alt me-2"></i>
+                                    Календарь
+                                </h6>
+                                
+                                <div class="mb-3">
+                                    <div class="form-check form-switch">
+                                        <input type="checkbox" class="form-check-input" name="ignore_non_accepted_meetings" id="{{ form.ignore_non_accepted_meetings.id_for_label }}"
+                                               {% if form.ignore_non_accepted_meetings.value %}checked{% endif %}>
+                                        <label class="form-check-label" for="{{ form.ignore_non_accepted_meetings.id_for_label }}">
+                                            {{ form.ignore_non_accepted_meetings.label }}
+                                        </label>
+                                    </div>
+                                    {% if form.ignore_non_accepted_meetings.help_text %}
+                                        <small class="form-text text-muted">{{ form.ignore_non_accepted_meetings.help_text }}</small>
+                                    {% endif %}
+                                    {% if form.ignore_non_accepted_meetings.errors %}
+                                        <div class="text-danger small">{{ form.ignore_non_accepted_meetings.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="mb-3">
+                                    <label for="{{ form.main_calendar_id.id_for_label }}" class="form-label">
+                                        {{ form.main_calendar_id.label }}
+                                    </label>
+                                    {% if available_calendars %}
+                                        <select class="form-select" name="main_calendar_id" id="{{ form.main_calendar_id.id_for_label }}">
+                                            <option value="">-- Выберите календарь --</option>
+                                            {% for calendar in available_calendars %}
+                                                <option value="{{ calendar.id }}" {% if settings.main_calendar_id == calendar.id %}selected{% endif %}>
+                                                    {{ calendar.name }}
+                                                    {% if calendar.description %} - {{ calendar.description }}{% endif %}
+                                                </option>
+                                            {% endfor %}
+                                            <option value="custom" data-toggle="custom-input">Указать вручную</option>
+                                        </select>
+                                        <input type="text" 
+                                               class="form-control mt-2" 
+                                               name="main_calendar_id_custom" 
+                                               id="main_calendar_id_custom"
+                                               placeholder="Введите ID календаря"
+                                               style="display: {% if settings.main_calendar_id and not calendar_id_in_list %}block{% else %}none{% endif %};"
+                                               value="{% if settings.main_calendar_id and not calendar_id_in_list %}{{ settings.main_calendar_id }}{% endif %}">
+                                    {% else %}
+                                        {{ form.main_calendar_id }}
+                                    {% endif %}
+                                    {% if form.main_calendar_id.help_text %}
+                                        <small class="form-text text-muted">{{ form.main_calendar_id.help_text }}</small>
+                                    {% endif %}
+                                    {% if form.main_calendar_id.errors %}
+                                        <div class="text-danger small">{{ form.main_calendar_id.errors }}</div>
+                                    {% endif %}
+                                    {% if not available_calendars %}
+                                        <small class="form-text text-warning">
+                                            <i class="fas fa-exclamation-triangle me-1"></i>
+                                            Для выбора календаря необходимо подключить Google OAuth
+                                        </small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="border-bottom pb-2 mb-3">
+                                    <i class="fas fa-clock me-2"></i>
+                                    Базовые часы работы компании
+                                </h6>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="{{ form.work_start_time.id_for_label }}" class="form-label">
+                                                {{ form.work_start_time.label }}
+                                            </label>
+                                            {{ form.work_start_time }}
+                                            <div class="form-text">Время начала рабочего дня для планирования интервью</div>
+                                            {% if form.work_start_time.errors %}
+                                                <div class="text-danger small mt-1">{{ form.work_start_time.errors.0 }}</div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="{{ form.work_end_time.id_for_label }}" class="form-label">
+                                                {{ form.work_end_time.label }}
+                                            </label>
+                                            {{ form.work_end_time }}
+                                            <div class="form-text">Время окончания рабочего дня для планирования интервью</div>
+                                            {% if form.work_end_time.errors %}
+                                                <div class="text-danger small mt-1">{{ form.work_end_time.errors.0 }}</div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="border-bottom pb-2 mb-3">
+                                    <i class="fas fa-map-marker-alt me-2"></i>
+                                    Адрес офиса компании
+                                </h6>
+                                
+                                <div class="mb-3">
+                                    <label for="{{ form.office_address.id_for_label }}" class="form-label">
+                                        {{ form.office_address.label }}
+                                    </label>
+                                    {{ form.office_address }}
+                                    {% if form.office_address.help_text %}
+                                        <small class="form-text text-muted">{{ form.office_address.help_text }}</small>
+                                    {% endif %}
+                                    {% if form.office_address.errors %}
+                                        <div class="text-danger small">{{ form.office_address.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="{{ form.office_map_link.id_for_label }}" class="form-label">
+                                        {{ form.office_map_link.label }}
+                                        <i class="fas fa-external-link-alt ms-1" style="font-size: 0.8em;"></i>
+                                    </label>
+                                    {{ form.office_map_link }}
+                                    {% if form.office_map_link.help_text %}
+                                        <small class="form-text text-muted">{{ form.office_map_link.help_text }}</small>
+                                    {% endif %}
+                                    {% if form.office_map_link.errors %}
+                                        <div class="text-danger small">{{ form.office_map_link.errors }}</div>
+                                    {% endif %}
+                                    {% if settings.office_map_link %}
+                                        <div class="mt-2">
+                                            <a href="{{ settings.office_map_link }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-map-marked-alt me-1"></i>
+                                                Открыть на карте
+                                            </a>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="{{ form.office_directions.id_for_label }}" class="form-label">
+                                        {{ form.office_directions.label }}
+                                    </label>
+                                    {{ form.office_directions }}
+                                    {% if form.office_directions.help_text %}
+                                        <small class="form-text text-muted">{{ form.office_directions.help_text }}</small>
+                                    {% endif %}
+                                    {% if form.office_directions.errors %}
+                                        <div class="text-danger small">{{ form.office_directions.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="{{ form.office_interview_instructions.id_for_label }}" class="form-label">
+                                        <i class="fas fa-clipboard-list me-1"></i>
+                                        {{ form.office_interview_instructions.label }}
+                                    </label>
+                                    {{ form.office_interview_instructions }}
+                                    {% if form.office_interview_instructions.help_text %}
+                                        <small class="form-text text-muted">{{ form.office_interview_instructions.help_text }}</small>
+                                    {% endif %}
+                                    {% if form.office_interview_instructions.errors %}
+                                        <div class="text-danger small">{{ form.office_interview_instructions.errors }}</div>
+                                    {% endif %}
+                                    <small class="form-text text-info">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        Эти инструкции будут отображаться кандидатам при выборе офисного формата интервью
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="border-bottom pb-2 mb-3">
+                                    <i class="fas fa-sitemap me-2"></i>
+                                    Оргструктура организации
+                                </h6>
+                                
+                                <div class="mb-3">
+                                    <label for="{{ form.org_structure.id_for_label }}" class="form-label">
+                                        {{ form.org_structure.label }}
+                                    </label>
+                                    <textarea class="form-control font-monospace" 
+                                              name="org_structure" 
+                                              id="{{ form.org_structure.id_for_label }}" 
+                                              rows="15"
+                                              placeholder='{"departments": [], "employees": []}'>{{ org_structure_json }}</textarea>
+                                    {% if form.org_structure.help_text %}
+                                        <small class="form-text text-muted">{{ form.org_structure.help_text }}</small>
+                                    {% endif %}
+                                    {% if form.org_structure.errors %}
+                                        <div class="text-danger small">{{ form.org_structure.errors }}</div>
+                                    {% endif %}
+                                    <small class="form-text text-info">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        Оргструктура хранится в формате JSON. Пример структуры:
+                                        <code>{"departments": [{"name": "IT", "head": "Иван Иванов"}], "employees": []}</code>
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between align-items-center">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>
+                                Сохранить настройки
+                            </button>
+                            <a href="{% url 'company_settings:overview' %}" class="btn btn-secondary">
+                                <i class="fas fa-times me-2"></i>
+                                Отмена
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Обработка выбора календаря
+    const calendarSelect = document.querySelector('select[name="main_calendar_id"]');
+    const customInput = document.getElementById('main_calendar_id_custom');
+    
+    if (calendarSelect && customInput) {
+        calendarSelect.addEventListener('change', function() {
+            if (this.value === 'custom') {
+                customInput.style.display = 'block';
+                customInput.required = true;
+                this.value = '';
+            } else {
+                customInput.style.display = 'none';
+                customInput.required = false;
+            }
+        });
+        
+        // При отправке формы, если выбран "custom", берем значение из input
+        const form = document.getElementById('company-settings-form');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                if (customInput.style.display !== 'none' && customInput.value) {
+                    calendarSelect.value = customInput.value;
+                }
+            });
+        }
+    }
+    
+    // Валидация JSON перед отправкой
+    const orgStructureTextarea = document.getElementById('{{ form.org_structure.id_for_label }}');
+    if (orgStructureTextarea) {
+        const form = document.getElementById('company-settings-form');
+        form.addEventListener('submit', function(e) {
+            try {
+                JSON.parse(orgStructureTextarea.value);
+            } catch (error) {
+                e.preventDefault();
+                alert('Ошибка: Неверный формат JSON в поле "Оргструктура".\n\n' + error.message);
+                orgStructureTextarea.focus();
+                return false;
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
+
+

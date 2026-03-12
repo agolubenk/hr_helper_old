@@ -1,0 +1,56 @@
+{% extends 'common/base.html' %}
+{% block title %}Тест Google OAuth{% endblock %}
+{% block page_title %}Тест Google OAuth{% endblock %}
+{% block auth_content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fab fa-google me-2"></i>
+                    Тест Google OAuth
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <h6 class="text-muted">Тестирование прямого Google OAuth</h6>
+                    <a href="{% url 'accounts:google_oauth_redirect' %}" class="btn btn-danger btn-lg">
+                        <i class="fab fa-google me-2"></i>
+                        Войти через Google (прямой OAuth)
+                    </a>
+                </div>
+                
+                <hr class="my-4">
+                
+                <div class="text-center mb-4">
+                    <h6 class="text-muted">Сравнение с django-allauth</h6>
+                    <a href="{% url 'account_login' %}" class="btn btn-outline-secondary btn-lg">
+                        <i class="fas fa-sign-in-alt me-2"></i>
+                        Стандартный вход (allauth)
+                    </a>
+                </div>
+                
+                <hr class="my-4">
+                
+                <div class="alert alert-info">
+                    <h6><i class="fas fa-info-circle me-2"></i>Информация:</h6>
+                    <ul class="mb-0">
+                        <li><strong>Прямой OAuth:</strong> Переход сразу на Google без промежуточных страниц</li>
+                        <li><strong>Callback URL:</strong> <code>/profile/google-oauth-callback/</code></li>
+                        <li><strong>Авторизация:</strong> Автоматическое создание/вход пользователя</li>
+                    </ul>
+                </div>
+                
+                <div class="alert alert-warning">
+                    <h6><i class="fas fa-exclamation-triangle me-2"></i>Важно:</h6>
+                    <p class="mb-0">Убедитесь, что в Google Console добавлен redirect URI: <code>http://localhost:8000/profile/google-oauth-callback/</code></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+
+

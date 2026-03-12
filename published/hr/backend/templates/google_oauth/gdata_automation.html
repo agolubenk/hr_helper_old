@@ -1,0 +1,1164 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}G-данные и автоматизация{% endblock %}
+
+{% block extra_css %}
+<link href="{% static 'css/google-oauth.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Заголовок страницы -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="h3 mb-0 text-gray-800">
+                <i class="fas fa-robot text-primary me-2"></i>
+                G-данные и автоматизация
+            </h1>
+            <p class="text-muted">Управление Google-сервисами и автоматизация HR-процессов</p>
+        </div>
+    </div>
+
+    <!-- Селектор вакансии -->
+    <div class="vacancy-selector">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h3 class="mb-0">
+                    <i class="fas fa-briefcase me-2"></i>
+                    Выберите вакансию для работы
+                </h3>
+                    <!-- Информация о выбранной вакансии -->
+    {% if selected_vacancy %}
+    <div class="automation-card">
+        <div class="row align-items-center">
+            <div class="col-12">
+                <!-- Кнопки копирования вопросов и слотов -->
+                <div class="copy-buttons">
+                    <div class="d-flex gap-2 flex-wrap">
+                        <!-- Кнопки копирования для Беларуси -->
+                        <button class="btn-copy btn-copy-vacancy-link-belarus position-relative" 
+                                onclick="window.copyVacancyLink('belarus')"
+                                {% if not selected_vacancy.vacancy_link_belarus %}disabled{% endif %}
+                                title="Скопировать ссылку на вакансию (Беларусь)">
+                            <i class="fas fa-link"></i>
+                            <div class="position-absolute top-0 start-100 translate-middle">
+                                <span class="flag-emoji">🇧🇾</span>
+                            </div>
+                            <div class="copy-tooltip">Скопировать ссылку на вакансию (Беларусь)</div>
+                        </button>
+                        
+                        <button class="btn-copy btn-copy-belarus position-relative" 
+                                onclick="copyQuestions('belarus')"
+                                {% if not selected_vacancy.questions_belarus %}disabled{% endif %}
+                                title="Скопировать вопросы для Беларуси">
+                            <i class="fas fa-question"></i>
+                            <div class="position-absolute top-0 start-100 translate-middle">
+                                <span class="flag-emoji">🇧🇾</span>
+                            </div>
+                            <div class="copy-tooltip">Скопировать вопросы для Беларуси</div>
+                        </button>
+                        
+                        <!-- Кнопки копирования для Польши -->
+                        <button class="btn-copy btn-copy-vacancy-link-poland position-relative" 
+                                onclick="window.copyVacancyLink('poland')"
+                                {% if not selected_vacancy.vacancy_link_poland %}disabled{% endif %}
+                                title="Скопировать ссылку на вакансию (Польша)">
+                            <i class="fas fa-link"></i>
+                            <div class="position-absolute top-0 start-100 translate-middle">
+                                <span class="flag-emoji">🇵🇱</span>
+                            </div>
+                            <div class="copy-tooltip">Скопировать ссылку на вакансию (Польша)</div>
+                        </button>
+                        
+                        <button class="btn-copy btn-copy-poland position-relative" 
+                                onclick="copyQuestions('poland')"
+                                {% if not selected_vacancy.questions_poland %}disabled{% endif %}
+                                title="Скопировать вопросы для Польши">
+                            <i class="fas fa-question"></i>
+                            <div class="position-absolute top-0 start-100 translate-middle">
+                                <span class="flag-emoji">🇵🇱</span>
+                            </div>
+                            <div class="copy-tooltip">Скопировать вопросы для Польши</div>
+                        </button>
+                        
+                        <!-- Кнопки копирования слотов -->
+                        <button class="btn-copy btn-copy-current-week" 
+                                onclick="window.copyWeekSlots('current')"
+                                title="Скопировать слоты текущей недели">
+                            <i class="fas fa-calendar-week"></i>
+                            <div class="copy-tooltip">Скопировать слоты текущей недели</div>
+                        </button>
+                        
+                        <button class="btn-copy btn-copy-next-week" 
+                                onclick="window.copyWeekSlots('next')"
+                                title="Скопировать слоты следующей недели">
+                            <i class="fas fa-calendar-plus"></i>
+                            <div class="copy-tooltip">Скопировать слоты следующей недели</div>
+                        </button>
+                        
+                        <button class="btn-copy btn-copy-all-slots" 
+                                onclick="window.copyAllSlots()"
+                                title="Скопировать все слоты">
+                            <i class="fas fa-copy"></i>
+                            <div class="copy-tooltip">Скопировать все слоты</div>
+                        </button>
+                        
+                        <button class="btn-copy btn-refresh-slots" 
+                                onclick="window.refreshSlots()"
+                                title="Обновить слоты">
+                            <i class="fas fa-sync-alt"></i>
+                            <div class="copy-tooltip">Обновить слоты</div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+            </div>
+            <div class="col-md-4">
+                <form method="GET" id="vacancyForm">
+                    <select name="vacancy_id" style="margin-top: 40px!important;" class="form-select" onchange="this.form.submit()">
+                        <option value="">-- Выберите вакансию --</option>
+                        {% for vacancy in active_vacancies %}
+                            <option value="{{ vacancy.id }}" 
+                                    {% if selected_vacancy and vacancy.id == selected_vacancy.id %}selected{% endif %}>
+                                {{ vacancy.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </form>
+                {% if selected_vacancy %}
+                <div class="mt-2 text-end">
+                    <span class="badge bg-success fs-6">
+                        <i class="fas fa-check-circle me-1"></i>
+                        Активна
+                    </span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+
+
+    <!-- Свободные слоты -->
+    {% if selected_vacancy %}
+    <div class="row">
+        <div class="col-12">
+            <div class="general-card">
+
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-clock text-success me-2"></i>
+                        Свободные слоты
+                        <button class="btn btn-sm btn-outline-secondary ms-2 btn-collapse" type="button" data-bs-toggle="collapse" data-bs-target="#slotsCardBody" aria-expanded="false" aria-controls="slotsCardBody">
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                    </h5>
+                    <small class="text-muted" id="last-update-time">
+                        Обновлено: <span id="update-timestamp">загрузка...</span>
+                    </small>
+                </div>
+                <small class="text-muted d-block">Кнопки копирования находятся в карточке вакансии выше</small>
+            </div>
+        </div>
+                
+                <div class="collapse" id="slotsCardBody">
+                    <!-- Текущая неделя -->
+                    <div class="week-section current-week mb-4">
+                        <h6 class="text-primary mb-3">
+                            <i class="fas fa-calendar-week me-2"></i>
+                            Текущая неделя
+                            <button class="btn btn-sm btn-outline-primary float-end btn-collapse" type="button" data-bs-toggle="collapse" data-bs-target="#currentWeekSlots" aria-expanded="true" aria-controls="currentWeekSlots">
+                                <i class="fas fa-chevron-up"></i>
+                            </button>
+                        </h6>
+                        <div class="collapse show" id="currentWeekSlots">
+                            <div class="row">
+                                <!-- Слоты будут добавлены через JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Следующая неделя -->
+                    <div class="week-section next-week">
+                        <h6 class="text-info mb-3">
+                            <i class="fas fa-calendar-plus me-2"></i>
+                            Следующая неделя
+                            <button class="btn btn-sm btn-outline-info float-end btn-collapse" type="button" data-bs-toggle="collapse" data-bs-target="#nextWeekSlots" aria-expanded="true" aria-controls="nextWeekSlots">
+                                <i class="fas fa-chevron-up"></i>
+                            </button>
+                        </h6>
+                        <div class="collapse show" id="nextWeekSlots">
+                            <div class="row">
+                                <!-- Слоты будут добавлены через JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Карточки автоматизации -->
+    <div class="row">
+        <div class="col-12">
+            <div class="general-card">
+                <div class="row">
+                    <!-- Google Calendar -->
+                    <div class="col-lg-6 col-xl-3">
+                        <div class="feature-icon icon-calendar">
+                            <i class="fas fa-calendar-alt"></i>
+                        </div>
+                        <h5>Google Calendar</h5>
+                        <p class="text-muted mb-3">Управление событиями календаря и синхронизация встреч</p>
+                        <div class="d-grid gap-2">
+                            <a href="{% url 'google_oauth:calendar_events' %}" class="btn btn-primary btn-automation">
+                                <i class="fas fa-calendar me-1"></i>
+                                Открыть календарь
+                            </a>
+                            <a href="{% url 'google_oauth:sync_calendar' %}" class="btn btn-outline-primary btn-automation">
+                                <i class="fas fa-sync me-1"></i>
+                                Синхронизировать
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Google Drive -->
+                    <div class="col-lg-6 col-xl-3">
+                        <div class="feature-icon icon-drive">
+                            <i class="fas fa-cloud"></i>
+                        </div>
+                        <h5>Google Drive</h5>
+                        <p class="text-muted mb-3">Управление файлами и документами в облачном хранилище</p>
+                        <div class="d-grid gap-2">
+                            <a href="{% url 'google_oauth:sync_drive' %}" class="btn btn-outline-primary btn-automation">
+                                <i class="fas fa-sync me-1"></i>
+                                Синхронизировать
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Google Sheets -->
+                    <div class="col-lg-6 col-xl-3">
+                        <div class="feature-icon icon-sheets">
+                            <i class="fas fa-table"></i>
+                        </div>
+                        <h5>Google Sheets</h5>
+                        <p class="text-muted mb-3">Работа с таблицами и автоматизация отчетности</p>
+                        <div class="d-grid gap-2">
+                            <a href="{% url 'google_oauth:sheets' %}" class="btn btn-primary btn-automation">
+                                <i class="fas fa-table me-1"></i>
+                                Открыть Sheets
+                            </a>
+                            <a href="{% url 'google_oauth:sync_sheets' %}" class="btn btn-outline-primary btn-automation">
+                                <i class="fas fa-sync me-1"></i>
+                                Синхронизировать
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- AI и автоматизация -->
+                    <div class="col-lg-6 col-xl-3">
+                        <div class="feature-icon icon-ai">
+                            <i class="fas fa-brain"></i>
+                        </div>
+                        <h5>AI Автоматизация</h5>
+                        <p class="text-muted mb-3">Искусственный интеллект для анализа и обработки данных</p>
+                        <div class="d-grid gap-2">
+                            <a href="{% url 'google_oauth:invite_dashboard' %}" class="btn btn-outline-primary btn-automation">
+                                <i class="fas fa-envelope me-1"></i>
+                                Инвайты
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Дополнительные инструменты -->
+    <div class="row">
+        <div class="col-12">
+            <div class="general-card">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="d-grid">
+                            <a href="{% url 'google_oauth:scorecard_path_settings' %}" class="btn btn-outline-secondary btn-automation">
+                                <i class="fas fa-cog me-1"></i>
+                                Настройки папок
+                            </a>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="d-grid">
+                            <a href="{% url 'google_oauth:check_integration' %}" class="btn btn-outline-info btn-automation">
+                                <i class="fas fa-check-circle me-1"></i>
+                                Проверить интеграцию
+                            </a>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="d-grid">
+                            <a href="{% url 'google_oauth:debug_cache' %}" class="btn btn-outline-warning btn-automation">
+                                <i class="fas fa-bug me-1"></i>
+                                Отладка кэша
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Статистика (если выбрана вакансия) -->
+    {% if selected_vacancy %}
+    <div class="row">
+        <div class="col-12">
+            <div class="general-card">
+                <h5 class="mb-4">
+                    <i class="fas fa-chart-bar text-primary me-2"></i>
+                    Статистика по вакансии "{{ selected_vacancy.name }}"
+                </h5>
+                <div class="row text-center">
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light rounded">
+                            <h4 class="text-primary mb-1">0</h4>
+                            <small class="text-muted">События календаря</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light rounded">
+                            <h4 class="text-success mb-1">0</h4>
+                            <small class="text-muted">Файлы в Drive</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light rounded">
+                            <h4 class="text-info mb-1">0</h4>
+                            <small class="text-muted">HR-скрининги</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light rounded">
+                            <h4 class="text-warning mb-1">0</h4>
+                            <small class="text-muted">Отправленные инвайты</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+{{ calendar_events_data|json_script:"calendar-events" }}
+
+<script>
+// Данные событий из Django контекста (как на странице календаря)
+console.log('🔍 DEBUG: Начинаем загрузку событий...');
+console.log('🔍 DEBUG: Количество событий в контексте:', {{ calendar_events_data|length|default:"0" }});
+
+// Загружаем реальные данные событий
+const calendarEvents = JSON.parse(document.getElementById('calendar-events').textContent);
+console.log('🔍 DEBUG: Загружены реальные события, количество:', calendarEvents.length);
+
+// Настройки слотов из Django контекста
+let slotsSettings = {{ slots_settings.to_dict|default:"{}"|safe }};
+console.log('🔍 DEBUG: Настройки слотов:', slotsSettings);
+
+console.log('📊 Загружено событий календаря:', calendarEvents.length);
+console.log('🔍 DEBUG: Первое событие:', calendarEvents[0]);
+console.log('🔍 DEBUG: Все события:', calendarEvents);
+
+// Настройки пользователя для рабочих часов
+window.userWorkHours = {
+    startHour: {{ user.interview_start_time.hour|default:10 }},
+    endHour: {{ user.interview_end_time.hour|default:18 }}
+};
+
+// Автоматическое обновление формы при изменении селектора
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('vacancyForm');
+    const select = form.querySelector('select[name="vacancy_id"]');
+    
+    select.addEventListener('change', function() {
+        // Добавляем индикатор загрузки
+        const submitBtn = document.createElement('button');
+        submitBtn.type = 'submit';
+        submitBtn.style.display = 'none';
+        form.appendChild(submitBtn);
+        submitBtn.click();
+    });
+    
+    // Настраиваем обработчики для кнопок сворачивания
+    setupCollapseButtons();
+    
+    // Инициализируем слоты
+    initializeSlots();
+});
+
+// Настройка обработчиков для кнопок сворачивания
+function setupCollapseButtons() {
+    console.log('🔧 Настройка кнопок сворачивания...');
+    
+    // Обработчики для всех кнопок сворачивания
+    const collapseButtons = document.querySelectorAll('.btn-collapse');
+    collapseButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const targetId = this.getAttribute('data-bs-target');
+            const targetElement = document.querySelector(targetId);
+            
+            if (targetElement) {
+                // Обновляем aria-expanded при изменении состояния
+                const isExpanded = targetElement.classList.contains('show');
+                this.setAttribute('aria-expanded', !isExpanded);
+                
+                console.log(`🔄 ${targetId} ${isExpanded ? 'сворачивается' : 'разворачивается'}`);
+            }
+        });
+    });
+    
+    console.log('✅ Кнопки сворачивания настроены');
+}
+
+// Функция копирования ссылок на вакансии в буфер обмена
+window.copyVacancyLink = function(country) {
+    {% if selected_vacancy %}
+    let vacancyLink = '';
+    let buttonClass = '';
+    let countryName = '';
+    
+    if (country === 'belarus') {
+        vacancyLink = `{{ selected_vacancy.vacancy_link_belarus|escapejs }}`;
+        buttonClass = 'btn-copy-vacancy-link-belarus';
+        countryName = 'Беларуси';
+    } else if (country === 'poland') {
+        vacancyLink = `{{ selected_vacancy.vacancy_link_poland|escapejs }}`;
+        buttonClass = 'btn-copy-vacancy-link-poland';
+        countryName = 'Польши';
+    }
+    
+    if (!vacancyLink || vacancyLink.trim() === '') {
+        showNotification('Ссылка на вакансию для ' + countryName + ' не настроена', 'warning');
+        return;
+    }
+    
+    // Копируем в буфер обмена
+    navigator.clipboard.writeText(vacancyLink).then(function() {
+        // Показываем успешное уведомление
+        showNotification('Ссылка на вакансию для ' + countryName + ' скопирована в буфер обмена!', 'success');
+        
+        // Визуальная обратная связь
+        const button = document.querySelector('.' + buttonClass);
+        const originalClass = button.className;
+        button.className = originalClass + ' copy-success';
+        
+        setTimeout(function() {
+            button.className = originalClass;
+        }, 2000);
+        
+    }).catch(function(err) {
+        console.error('Ошибка копирования: ', err);
+        showNotification('Ошибка копирования в буфер обмена', 'error');
+    });
+    {% else %}
+    showNotification('Вакансия не выбрана', 'warning');
+    {% endif %}
+};
+
+// Функция копирования вопросов в буфер обмена
+function copyQuestions(country) {
+    {% if selected_vacancy %}
+    let questions = '';
+    let buttonClass = '';
+    let countryName = '';
+    
+    if (country === 'belarus') {
+        questions = `{{ selected_vacancy.questions_belarus|escapejs }}`;
+        buttonClass = 'btn-copy-belarus';
+        countryName = 'Беларуси';
+    } else if (country === 'poland') {
+        questions = `{{ selected_vacancy.questions_poland|escapejs }}`;
+        buttonClass = 'btn-copy-poland';
+        countryName = 'Польши';
+    }
+    
+    if (!questions || questions.trim() === '') {
+        showNotification('Вопросы для ' + countryName + ' не настроены', 'warning');
+        return;
+    }
+    
+    // Копируем в буфер обмена
+    navigator.clipboard.writeText(questions).then(function() {
+        // Показываем успешное уведомление
+        showNotification('Вопросы для ' + countryName + ' скопированы в буфер обмена!', 'success');
+        
+        // Визуальная обратная связь
+        const button = document.querySelector('.' + buttonClass);
+        const originalClass = button.className;
+        button.className = originalClass + ' copy-success';
+        
+        setTimeout(function() {
+            button.className = originalClass;
+        }, 2000);
+        
+    }).catch(function(err) {
+        console.error('Ошибка копирования: ', err);
+        showNotification('Ошибка копирования в буфер обмена', 'error');
+    });
+    {% else %}
+    showNotification('Вакансия не выбрана', 'warning');
+    {% endif %}
+}
+
+// Функция показа уведомлений
+function showNotification(message, type = 'info') {
+    // Создаем элемент уведомления
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type === 'success' ? 'success' : type === 'warning' ? 'warning' : type === 'error' ? 'danger' : 'info'} alert-dismissible fade show position-fixed`;
+    notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    
+    notification.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'warning' ? 'exclamation-triangle' : type === 'error' ? 'times-circle' : 'info-circle'} me-2"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    // Добавляем на страницу
+    document.body.appendChild(notification);
+    
+    // Автоматически удаляем через 5 секунд
+    setTimeout(function() {
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+        }
+    }, 5000);
+}
+
+// Функции для генерации слотов (адаптированы из calendar_events.html)
+function calculateAvailableSlots(dayEvents, date) {
+    // Определяем рабочие часы из настроек пользователя или используем значения по умолчанию
+    const workStartHour = window.userWorkHours ? window.userWorkHours.startHour : 11;
+    const workEndHour = window.userWorkHours ? window.userWorkHours.endHour : 18;
+    
+    // Создаем массив слотов по часам
+    const slots = [];
+    for (let hour = workStartHour; hour < workEndHour; hour++) {
+        slots.push({
+            hour: hour,
+            start: new Date(date.getFullYear(), date.getMonth(), date.getDate(), hour, 0, 0),
+            end: new Date(date.getFullYear(), date.getMonth(), date.getDate(), hour + 1, 0, 0),
+            isOccupied: false
+        });
+    }
+    
+    // Проверяем каждое событие дня и отмечаем занятые слоты
+    dayEvents.forEach(event => {
+        // Пропускаем события на весь день
+        if (event.is_all_day) {
+            return;
+        }
+        
+        const eventStart = new Date(event.start);
+        const eventEnd = new Date(event.end);
+        
+        // Проверяем, пересекается ли событие с рабочими часами
+        if (eventStart.getHours() < workEndHour && eventEnd.getHours() >= workStartHour) {
+            // Отмечаем занятые слоты
+            slots.forEach(slot => {
+                // Если событие занимает хотя бы полчаса в слоте, считаем слот занятым
+                const slotStart = slot.start.getTime();
+                const slotEnd = slot.end.getTime();
+                const eventStartTime = eventStart.getTime();
+                const eventEndTime = eventEnd.getTime();
+                
+                // Проверяем пересечение (событие занимает минимум 30 минут в слоте)
+                const overlapStart = Math.max(slotStart, eventStartTime);
+                const overlapEnd = Math.min(slotEnd, eventEndTime);
+                const overlapDuration = overlapEnd - overlapStart;
+                
+                if (overlapDuration >= 30 * 60 * 1000) { // 30 минут в миллисекундах
+                    slot.isOccupied = true;
+                }
+            });
+        }
+    });
+    
+    // Формируем строку доступных слотов
+    const availableRanges = [];
+    let currentRangeStart = null;
+    
+    slots.forEach((slot, index) => {
+        if (!slot.isOccupied) {
+            if (currentRangeStart === null) {
+                currentRangeStart = slot.hour;
+            }
+        } else {
+            if (currentRangeStart !== null) {
+                // Завершаем текущий диапазон
+                if (currentRangeStart === slot.hour - 1) {
+                    availableRanges.push(currentRangeStart.toString());
+                } else {
+                    // Добавляем +1 к последнему часу диапазона, так как слот означает время до следующего часа
+                    availableRanges.push(`${currentRangeStart}-${slot.hour}`);
+                }
+                currentRangeStart = null;
+            }
+        }
+    });
+    
+    // Завершаем последний диапазон, если он есть
+    if (currentRangeStart !== null) {
+        const lastSlot = slots[slots.length - 1];
+        if (currentRangeStart === lastSlot.hour) {
+            availableRanges.push(currentRangeStart.toString());
+        } else {
+            // Добавляем +1 к последнему часу, так как слот 17 означает время 17:00-18:00
+            availableRanges.push(`${currentRangeStart}-${lastSlot.hour + 1}`);
+        }
+    }
+    
+    return availableRanges.length > 0 ? availableRanges.join(', ') : 'Нет свободных слотов';
+}
+
+function generateWeekSlots(weekOffset) {
+    const today = new Date();
+    const startOfWeek = new Date(today);
+    
+    // Находим начало недели (понедельник)
+    const dayOfWeek = today.getDay();
+    const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    startOfWeek.setDate(today.getDate() + daysToMonday + (weekOffset * 7));
+    
+    console.log(`📅 Генерация слотов для недели ${weekOffset}, начало недели:`, startOfWeek.toDateString());
+    
+    const slots = [];
+    const weekdays = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ', 'ВС'];
+    
+    // Генерируем слоты для рабочих дней (понедельник-пятница)
+    for (let i = 0; i < 5; i++) {
+        const date = new Date(startOfWeek);
+        date.setDate(startOfWeek.getDate() + i);
+        
+        const dateStr = date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+        
+        // Пропускаем прошедшие дни для текущей недели (включая сегодня)
+        if (weekOffset === 0) {
+            const now = new Date();
+            const dateStart = new Date(date);
+            dateStart.setHours(0, 0, 0, 0);
+            const nowStart = new Date(now);
+            nowStart.setHours(0, 0, 0, 0);
+            
+            // Пропускаем сегодняшний день и все прошедшие дни
+            if (dateStart <= nowStart) {
+                console.log(`🚫 Пропускаем день ${dateStr} (сегодня или прошедший)`);
+                continue;
+            }
+        }
+        let meetingsCount = 0;
+        let availableSlots = '';
+        
+        if (typeof calendarEvents !== 'undefined' && Array.isArray(calendarEvents)) {
+            console.log(`🔍 Поиск событий для даты ${dateStr} (${date.toDateString()})`);
+            
+            const dayEvents = calendarEvents.filter(event => {
+                const eventDate = new Date(event.start);
+                const isMatch = eventDate.toDateString() === date.toDateString();
+                if (isMatch) {
+                    console.log(`  ✅ Найдено событие: "${event.title}" на ${eventDate.toDateString()}`);
+                }
+                return isMatch;
+            });
+            
+            // Исключаем встречи с названием "Обед" для подсчета встреч
+            const meetingsWithoutLunch = dayEvents.filter(event => {
+                const title = event.title.toLowerCase();
+                const isLunch = title.includes('обед') || title.includes('lunch');
+                if (isLunch) {
+                    console.log(`  🍽️ Исключаем обед: "${event.title}"`);
+                }
+                return !isLunch;
+            });
+            
+            meetingsCount = meetingsWithoutLunch.length;
+            
+            // Вычисляем доступные слоты времени (11-18, исключая обед)
+            availableSlots = calculateAvailableSlots(dayEvents, date);
+            
+            console.log(`📅 Дата ${dateStr}: ${meetingsWithoutLunch.length} встреч (исключая обед из ${dayEvents.length} общих), слоты: ${availableSlots}`);
+        } else {
+            console.log(`⚠️ calendarEvents не доступен для даты ${dateStr}`);
+            // Если нет данных о событиях, показываем все слоты как доступные
+            const defaultStart = window.userWorkHours ? window.userWorkHours.startHour : 11;
+            const defaultEnd = window.userWorkHours ? window.userWorkHours.endHour : 18;
+            availableSlots = `${defaultStart}-${defaultEnd}`;
+        }
+        
+        slots.push({
+            date: date,
+            dateStr: dateStr,
+            weekday: weekdays[i],
+            meetingsCount: meetingsCount,
+            availableSlots: availableSlots
+        });
+    }
+    
+    console.log(`📅 Итого слотов для недели ${weekOffset}: ${slots.length}`);
+    return slots;
+}
+
+function initializeSlots() {
+    console.log('🎯 Инициализация слотов...');
+    console.log('📊 Доступные данные календаря:', typeof calendarEvents, calendarEvents ? calendarEvents.length : 'не определено');
+    
+    // Проверяем наличие контейнеров
+    const currentWeekSection = document.querySelector('.week-section.current-week');
+    const nextWeekSection = document.querySelector('.week-section.next-week');
+    console.log('📅 Секция текущей недели:', currentWeekSection);
+    console.log('📅 Секция следующей недели:', nextWeekSection);
+    
+    if (!currentWeekSection || !nextWeekSection) {
+        console.error('❌ Секции недель не найдены!');
+        return;
+    }
+    
+    // Проверяем наличие calendarEvents
+    if (!calendarEvents || !Array.isArray(calendarEvents)) {
+        console.error('❌ calendarEvents не определен или не является массивом!');
+        return;
+    }
+    
+    console.log('📊 calendarEvents содержит', calendarEvents.length, 'событий');
+    
+    // Генерируем слоты для текущей и следующей недели
+    console.log('🔄 Генерируем слоты для текущей недели...');
+    const currentWeekSlots = generateWeekSlots(0);
+    console.log('🔄 Генерируем слоты для следующей недели...');
+    const nextWeekSlots = generateWeekSlots(1);
+    
+    console.log('📅 Сгенерированные слоты для текущей недели:', currentWeekSlots);
+    console.log('📅 Сгенерированные слоты для следующей недели:', nextWeekSlots);
+    
+    // Обновляем DOM с данными слотов
+    console.log('🔄 Обновляем отображение слотов...');
+    updateSlotsDisplay(currentWeekSlots, nextWeekSlots);
+    
+    console.log('✅ Слоты инициализированы');
+    
+    // Обновляем время последнего обновления
+    updateLastUpdateTime();
+}
+
+// Функция обновления времени последнего обновления
+function updateLastUpdateTime() {
+    const timestampElement = document.getElementById('update-timestamp');
+    if (timestampElement) {
+        const now = new Date();
+        const timeString = now.toLocaleTimeString('ru-RU', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            second: '2-digit'
+        });
+        timestampElement.textContent = timeString;
+        console.log(`🕐 Время обновления: ${timeString}`);
+    }
+}
+
+// Функция обновления слотов
+window.refreshSlots = function() {
+    console.log('🔄 Обновление слотов...');
+    
+    const refreshBtn = document.querySelector('.btn-refresh-slots');
+    if (refreshBtn) {
+        // Добавляем класс для анимации и блокируем кнопку
+        refreshBtn.classList.add('refreshing');
+        refreshBtn.disabled = true;
+        refreshBtn.innerHTML = '<i class="fas fa-sync-alt"></i><div class="copy-tooltip">Обновление...</div>';
+    }
+    
+    // Показываем уведомление
+    showNotification('Обновление слотов...', 'info');
+    
+    // Получаем свежие данные с сервера
+    fetch('/google-oauth/api/calendar-events/', {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log(`✅ Получено ${data.count} событий с сервера`);
+            
+            // Обновляем глобальную переменную calendarEvents
+            window.calendarEvents = data.events;
+            
+            // Обновляем слоты с новыми данными
+            initializeSlots();
+            
+            // Обновляем время последнего обновления
+            updateLastUpdateTime();
+            
+            showNotification(`Слоты обновлены! Загружено ${data.count} событий`, 'success');
+            console.log('✅ Слоты обновлены успешно');
+        } else {
+            console.error('❌ Ошибка получения данных с сервера:', data.message);
+            showNotification(`Ошибка: ${data.message}`, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('❌ Ошибка при запросе к серверу:', error);
+        showNotification('Ошибка при обновлении слотов', 'error');
+    })
+    .finally(() => {
+        // Восстанавливаем кнопку
+        if (refreshBtn) {
+            // Убираем класс анимации и разблокируем кнопку
+            refreshBtn.classList.remove('refreshing');
+            refreshBtn.disabled = false;
+            refreshBtn.innerHTML = '<i class="fas fa-sync-alt"></i><div class="copy-tooltip">Обновить слоты</div>';
+        }
+    });
+};
+
+// Настройка автоматического обновления слотов
+function setupAutoRefresh() {
+    console.log('🔄 Настройка автоматического обновления слотов...');
+    
+    // Обновление каждые 5 минут
+    setInterval(function() {
+        console.log('⏰ Автоматическое обновление слотов (каждые 5 минут)');
+        refreshSlots();
+    }, 5 * 60 * 1000); // 5 минут
+    
+    // Обновление при фокусе на странице
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden) {
+            console.log('👁️ Страница стала видимой, обновляем слоты');
+            refreshSlots();
+        }
+    });
+    
+    // Обновление при фокусе на окне
+    window.addEventListener('focus', function() {
+        console.log('🎯 Окно получило фокус, обновляем слоты');
+        refreshSlots();
+    });
+    
+    console.log('✅ Автоматическое обновление настроено');
+}
+
+function updateSlotsDisplay(currentWeekSlots, nextWeekSlots) {
+    console.log('🔄 Обновление отображения слотов...');
+    
+    // Обновляем текущую неделю
+    const currentWeekSection = document.querySelector('.week-section.current-week');
+    if (currentWeekSection && currentWeekSlots.length > 0) {
+        const slotsRow = currentWeekSection.querySelector('.row');
+        if (slotsRow) {
+            slotsRow.innerHTML = '';
+            currentWeekSlots.forEach(slot => {
+                const slotHtml = createSlotCard(slot);
+                slotsRow.insertAdjacentHTML('beforeend', slotHtml);
+            });
+        }
+    }
+    
+    // Обновляем следующую неделю
+    const nextWeekSection = document.querySelector('.week-section.next-week');
+    if (nextWeekSection && nextWeekSlots.length > 0) {
+        const slotsRow = nextWeekSection.querySelector('.row');
+        if (slotsRow) {
+            slotsRow.innerHTML = '';
+            nextWeekSlots.forEach(slot => {
+                const slotHtml = createSlotCard(slot);
+                slotsRow.insertAdjacentHTML('beforeend', slotHtml);
+            });
+        }
+    }
+    
+    // Проверяем наличие слотов и деактивируем кнопки при необходимости
+    updateSlotButtons(currentWeekSlots, nextWeekSlots);
+}
+
+// Функция обновления состояния кнопок слотов
+function updateSlotButtons(currentWeekSlots, nextWeekSlots) {
+    console.log('🔘 Обновление состояния кнопок слотов...');
+    
+    // Проверяем, есть ли доступные слоты в текущей неделе
+    const currentWeekHasSlots = currentWeekSlots && currentWeekSlots.length > 0 && 
+        currentWeekSlots.some(slot => slot.availableSlots !== 'Нет свободных слотов');
+    
+    // Проверяем, есть ли доступные слоты в следующей неделе
+    const nextWeekHasSlots = nextWeekSlots && nextWeekSlots.length > 0 && 
+        nextWeekSlots.some(slot => slot.availableSlots !== 'Нет свободных слотов');
+    
+    console.log(`📅 Текущая неделя имеет слоты: ${currentWeekHasSlots}`);
+    console.log(`📅 Следующая неделя имеет слоты: ${nextWeekHasSlots}`);
+    
+    // Кнопка копирования слотов текущей недели
+    const currentWeekBtn = document.querySelector('.btn-copy-current-week');
+    if (currentWeekBtn) {
+        if (currentWeekHasSlots) {
+            currentWeekBtn.disabled = false;
+            currentWeekBtn.classList.remove('disabled');
+            currentWeekBtn.title = 'Скопировать слоты текущей недели';
+        } else {
+            currentWeekBtn.disabled = true;
+            currentWeekBtn.classList.add('disabled');
+            currentWeekBtn.title = 'Нет доступных слотов на текущей неделе';
+        }
+    }
+    
+    // Кнопка копирования слотов следующей недели
+    const nextWeekBtn = document.querySelector('.btn-copy-next-week');
+    if (nextWeekBtn) {
+        if (nextWeekHasSlots) {
+            nextWeekBtn.disabled = false;
+            nextWeekBtn.classList.remove('disabled');
+            nextWeekBtn.title = 'Скопировать слоты следующей недели';
+        } else {
+            nextWeekBtn.disabled = true;
+            nextWeekBtn.classList.add('disabled');
+            nextWeekBtn.title = 'Нет доступных слотов на следующей неделе';
+        }
+    }
+    
+    // Кнопка копирования всех слотов (деактивируется, если хотя бы одна неделя не имеет слотов)
+    const allSlotsBtn = document.querySelector('.btn-copy-all-slots');
+    if (allSlotsBtn) {
+        if (currentWeekHasSlots && nextWeekHasSlots) {
+            allSlotsBtn.disabled = false;
+            allSlotsBtn.classList.remove('disabled');
+            allSlotsBtn.title = 'Скопировать все слоты';
+        } else {
+            allSlotsBtn.disabled = true;
+            allSlotsBtn.classList.add('disabled');
+            allSlotsBtn.title = 'Не все недели имеют доступные слоты';
+        }
+    }
+    
+    console.log('✅ Состояние кнопок слотов обновлено');
+}
+
+function createSlotCard(slot) {
+    const slotsCount = slot.availableSlots === 'Нет свободных слотов' ? 0 : slot.availableSlots.split(',').length;
+    const badgeClass = slotsCount > 0 ? 'bg-primary' : 'bg-secondary';
+    
+    return `
+        <div class="col-md-6 col-lg-4 mb-3">
+            <div class="slot-card card h-100">
+                <div class="card-body p-3">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <span class="fw-bold">${slot.dateStr}</span>
+                        <span class="badge ${badgeClass} rounded-pill">${slotsCount}</span>
+                    </div>
+                    <div class="text-muted small mb-2">${slot.weekday}</div>
+                    <div class="text-primary small">${slot.availableSlots}</div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Функции копирования слотов (адаптированы из calendar_events.html)
+window.copyAllSlots = function() {
+    console.log('📋 Копирование всех слотов...');
+    
+    const currentWeekSlots = [];
+    const nextWeekSlots = [];
+    
+    // Копируем слоты из текущей недели
+    const currentWeekSection = document.querySelector('.week-section.current-week');
+    if (currentWeekSection) {
+        currentWeekSection.querySelectorAll('.slot-card').forEach(card => {
+            const slotData = extractSlotData(card);
+            if (slotData) {
+                currentWeekSlots.push(slotData);
+            }
+        });
+    }
+    
+    // Копируем слоты из следующей недели
+    const nextWeekSection = document.querySelector('.week-section.next-week');
+    if (nextWeekSection) {
+        nextWeekSection.querySelectorAll('.slot-card').forEach(card => {
+            const slotData = extractSlotData(card);
+            if (slotData) {
+                nextWeekSlots.push(slotData);
+            }
+        });
+    }
+    
+    if (currentWeekSlots.length === 0 && nextWeekSlots.length === 0) {
+        showNotification('Нет слотов для копирования', 'warning');
+        return;
+    }
+    
+    // Формируем текст для копирования с использованием настроек
+    let text = '';
+    
+    // Добавляем общий префикс, если настроен
+    if (slotsSettings.allSlotsPrefix) {
+        text += `${slotsSettings.allSlotsPrefix}\n`;
+    }
+    
+    if (currentWeekSlots.length > 0) {
+        // Добавляем только слоты текущей недели с доступными временами
+        currentWeekSlots.forEach(slot => {
+            // Пропускаем дни без свободных слотов
+            if (slot.slots && slot.slots !== 'Нет свободных слотов') {
+                text += `${slot.weekday} ${slot.slots}\n`;
+            }
+        });
+    }
+    
+    if (nextWeekSlots.length > 0) {
+        // Добавляем разделяющий текст между неделями, если настроен
+        if (slotsSettings.separatorText) {
+            text += `\n${slotsSettings.separatorText}\n`;
+        } else {
+            text += '\n';
+        }
+        
+        // Добавляем только слоты следующей недели с доступными временами
+        nextWeekSlots.forEach(slot => {
+            // Пропускаем дни без свободных слотов
+            if (slot.slots && slot.slots !== 'Нет свободных слотов') {
+                text += `${slot.weekday} (${slot.date}) ${slot.slots}\n`;
+            }
+        });
+    }
+    
+    copySlotsToClipboard(text.trim());
+}
+
+window.copyWeekSlots = function(weekType) {
+    console.log(`📋 Копирование слотов ${weekType} недели...`);
+    
+    // Находим секцию недели по типу
+    let weekSection;
+    if (weekType === 'current') {
+        weekSection = document.querySelector('.week-section.current-week');
+    } else if (weekType === 'next') {
+        weekSection = document.querySelector('.week-section.next-week');
+    }
+    
+    if (!weekSection) {
+        showNotification('Секция недели не найдена', 'error');
+        return;
+    }
+    
+    const slots = [];
+    weekSection.querySelectorAll('.slot-card').forEach(card => {
+        const slotData = extractSlotData(card);
+        if (slotData) {
+            slots.push(slotData);
+        }
+    });
+    
+    if (slots.length === 0) {
+        showNotification('Нет слотов для копирования в этой неделе', 'warning');
+        return;
+    }
+    
+    // Формируем текст для копирования с использованием настроек
+    let text = '';
+    if (weekType === 'current') {
+        // Добавляем префикс текущей недели, если настроен
+        if (slotsSettings.currentWeekPrefix) {
+            text += `${slotsSettings.currentWeekPrefix}\n`;
+        }
+        // Формат для текущей недели: ПН 12-15, 17
+        // Пропускаем дни без свободных слотов
+        slots.forEach(slot => {
+            if (slot.slots && slot.slots !== 'Нет свободных слотов') {
+                text += `${slot.weekday} ${slot.slots}\n`;
+            }
+        });
+    } else if (weekType === 'next') {
+        // Добавляем префикс следующей недели, если настроен
+        if (slotsSettings.nextWeekPrefix) {
+            text += `${slotsSettings.nextWeekPrefix}\n`;
+        }
+        // Формат для следующей недели: ПН (15.09) 11-14, 15
+        // Пропускаем дни без свободных слотов
+        slots.forEach(slot => {
+            if (slot.slots && slot.slots !== 'Нет свободных слотов') {
+                text += `${slot.weekday} (${slot.date}) ${slot.slots}\n`;
+            }
+        });
+    }
+    
+    copySlotsToClipboard(text.trim());
+}
+
+function extractSlotData(card) {
+    try {
+        const dateElement = card.querySelector('.fw-bold');
+        const weekdayElement = card.querySelector('.text-muted');
+        const slotsElement = card.querySelector('.text-primary, .text-info');
+        
+        if (!dateElement || !weekdayElement || !slotsElement) {
+            console.warn('⚠️ Не все элементы найдены в карточке слота');
+            return null;
+        }
+        
+        const slotData = {
+            date: dateElement.textContent.trim(),
+            weekday: weekdayElement.textContent.trim(),
+            slots: slotsElement.textContent.trim()
+        };
+        
+        console.log('🔍 Извлеченные данные слота:', slotData);
+        return slotData;
+    } catch (e) {
+        console.error('Ошибка извлечения данных слота:', e);
+        return null;
+    }
+}
+
+function copySlotsToClipboard(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+        // Используем современный API
+        navigator.clipboard.writeText(text).then(() => {
+            showNotification('Слоты скопированы в буфер обмена!', 'success');
+        }).catch(err => {
+            console.error('Ошибка копирования:', err);
+            fallbackCopySlotsToClipboard(text);
+        });
+    } else {
+        // Fallback для старых браузеров
+        fallbackCopySlotsToClipboard(text);
+    }
+}
+
+function fallbackCopySlotsToClipboard(text) {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    textArea.style.top = '-999999px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+        document.execCommand('copy');
+        showNotification('Слоты скопированы в буфер обмена!', 'success');
+    } catch (err) {
+        console.error('Ошибка fallback копирования:', err);
+        showNotification('Ошибка копирования. Попробуйте выделить текст вручную.', 'error');
+    }
+    
+    document.body.removeChild(textArea);
+}
+</script>
+{% endblock %}

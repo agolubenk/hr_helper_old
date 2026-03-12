@@ -1,0 +1,49 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Авторизация HeadHunter.ru - HR Helper{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fab fa-hire-a-helper me-2"></i>
+                        Авторизация HeadHunter.ru
+                    </h4>
+                </div>
+                <div class="card-body text-center py-5">
+                    <i class="fab fa-hire-a-helper fa-5x text-primary mb-4"></i>
+                    <h3>Подключение к HeadHunter.ru</h3>
+                    <p class="text-muted mb-4">
+                        Для работы с API HeadHunter.ru необходимо авторизоваться через OAuth.
+                        Вы будете перенаправлены на страницу авторизации HeadHunter.ru.
+                    </p>
+                    <form method="post">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-sign-in-alt me-2"></i>
+                            Авторизоваться на HeadHunter.ru
+                        </button>
+                    </form>
+                    <div class="mt-4">
+                        <a href="{% url 'hhru:dashboard' %}" class="text-muted">
+                            <i class="fas fa-arrow-left me-1"></i>
+                            Вернуться на главную
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+
+
+
+
+

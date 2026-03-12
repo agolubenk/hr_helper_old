@@ -1,0 +1,311 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}HeadHunter.ru - HR Helper{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="mb-0">
+                    <i class="fab fa-hire-a-helper me-2"></i>
+                    HeadHunter.ru
+                </h2>
+                {% if not account %}
+                    {% if has_config %}
+                    <a href="{% url 'hhru:oauth_authorize' %}" class="btn btn-primary">
+                        <i class="fas fa-plug me-2"></i>
+                        Подключить аккаунт
+                    </a>
+                    {% else %}
+                    <a href="{% url 'hhru:configuration_create' %}" class="btn btn-warning">
+                        <i class="fas fa-cog me-2"></i>
+                        Создать конфигурацию OAuth
+                    </a>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    {% if account %}
+    <!-- Статус подключения -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="card-title mb-1">
+                                <i class="fas fa-check-circle text-success me-2"></i>
+                                Аккаунт подключен
+                            </h5>
+                            <p class="text-muted mb-0">
+                                {{ account.first_name }} {{ account.last_name }} ({{ account.email }})
+                            </p>
+                        </div>
+                        <div>
+                            <span class="badge bg-{% if connection_status == 'success' %}success{% elif connection_status == 'error' %}danger{% else %}warning{% endif %}">
+                                {% if connection_status == 'success' %}
+                                    <i class="fas fa-check"></i> Подключено
+                                {% elif connection_status == 'error' %}
+                                    <i class="fas fa-times"></i> Ошибка
+                                {% else %}
+                                    <i class="fas fa-exclamation-triangle"></i> Не подключено
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                    {% if connection_message %}
+                    <div class="mt-3">
+                        <small class="text-muted">{{ connection_message }}</small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Статистика -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <i class="fas fa-list fa-2x text-primary mb-2"></i>
+                    <h3 class="mb-0">{{ stats.total_logs }}</h3>
+                    <p class="text-muted mb-0">Всего запросов</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
+                    <h3 class="mb-0">{{ stats.successful_requests }}</h3>
+                    <p class="text-muted mb-0">Успешных</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <i class="fas fa-times-circle fa-2x text-danger mb-2"></i>
+                    <h3 class="mb-0">{{ stats.failed_requests }}</h3>
+                    <p class="text-muted mb-0">Ошибок</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <i class="fas fa-key fa-2x text-info mb-2"></i>
+                    <h3 class="mb-0">
+                        {% if account.is_token_valid %}
+                            <span class="text-success">Активен</span>
+                        {% else %}
+                            <span class="text-danger">Истек</span>
+                        {% endif %}
+                    </h3>
+                    <p class="text-muted mb-0">Токен доступа</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {% if not account.employer_id %}
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="alert alert-warning d-flex align-items-center justify-content-between">
+                <span>
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    ID работодателя не указан — без него нельзя загрузить вакансии. Укажите его вручную.
+                </span>
+                <a href="{% url 'hhru:employer_id_set' %}" class="btn btn-warning btn-sm">Указать ID работодателя</a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Быстрые действия -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Быстрые действия</h5>
+                </div>
+                <div class="card-body">
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-outline-primary" onclick="testConnection()">
+                            <i class="fas fa-network-wired me-2"></i>
+                            Тестировать подключение
+                        </button>
+                        {% if account.needs_refresh %}
+                        <button type="button" class="btn btn-outline-warning" onclick="refreshToken()">
+                            <i class="fas fa-sync-alt me-2"></i>
+                            Обновить токен
+                        </button>
+                        {% endif %}
+                        <a href="{% url 'hhru:accounts_list' %}" class="btn btn-outline-info">
+                            <i class="fas fa-user-circle me-2"></i>
+                            Мои аккаунты
+                        </a>
+                        <a href="{% url 'hhru:logs_list' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-history me-2"></i>
+                            Логи запросов
+                        </a>
+                        <a href="{% url 'extension:management' %}#resume-links-section" class="btn btn-outline-secondary" title="Связи hh.ru/rabota.by → Huntflow, сохранённые в расширении, используются в откликах по вакансиям">
+                            <i class="fas fa-link me-2"></i>
+                            Связи резюме ↔ Huntflow
+                        </a>
+                        <a href="{% url 'hhru:vacancies_active' %}" class="btn btn-outline-success">
+                            <i class="fas fa-briefcase me-2"></i>
+                            Вакансии (активные)
+                        </a>
+                        <a href="{% url 'hhru:vacancies_archived' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-archive me-2"></i>
+                            Вакансии (архив)
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Последние логи -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Последние запросы к API</h5>
+                    <a href="{% url 'hhru:logs_list' %}" class="btn btn-sm btn-outline-primary">
+                        Все логи
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if recent_logs %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Время</th>
+                                    <th>Метод</th>
+                                    <th>Эндпоинт</th>
+                                    <th>Статус</th>
+                                    <th>Тип</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in recent_logs %}
+                                <tr>
+                                    <td>{{ log.created_at|date:"d.m.Y H:i" }}</td>
+                                    <td><span class="badge bg-secondary">{{ log.method }}</span></td>
+                                    <td><code>{{ log.endpoint|truncatechars:50 }}</code></td>
+                                    <td>
+                                        {% if log.is_success %}
+                                            <span class="badge bg-success">{{ log.status_code }}</span>
+                                        {% elif log.is_error %}
+                                            <span class="badge bg-danger">{{ log.status_code|default:"ERROR" }}</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">{{ log.status_code|default:"-" }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{% if log.log_type == 'ERROR' %}danger{% elif log.log_type == 'GET' %}info{% elif log.log_type == 'POST' %}success{% else %}secondary{% endif %}">
+                                            {{ log.get_log_type_display }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center mb-0">Нет записей</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {% else %}
+    <!-- Приглашение подключить аккаунт -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="fab fa-hire-a-helper fa-5x text-muted mb-4"></i>
+                    {% if has_config %}
+                    <h3>Подключите ваш аккаунт HeadHunter.ru</h3>
+                    <p class="text-muted mb-4">
+                        Для работы с API HeadHunter.ru необходимо подключить ваш аккаунт через OAuth авторизацию.
+                    </p>
+                    <a href="{% url 'hhru:oauth_authorize' %}" class="btn btn-primary btn-lg">
+                        <i class="fas fa-plug me-2"></i>
+                        Подключить аккаунт
+                    </a>
+                    {% else %}
+                    <h3>Создайте конфигурацию OAuth</h3>
+                    <p class="text-muted mb-4">
+                        Для работы с API HeadHunter.ru необходимо сначала создать конфигурацию OAuth с данными вашего приложения.
+                    </p>
+                    <a href="{% url 'hhru:configuration_create' %}" class="btn btn-primary btn-lg">
+                        <i class="fas fa-cog me-2"></i>
+                        Создать конфигурацию OAuth
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function testConnection() {
+    fetch('{% url "hhru:test_connection_ajax" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'account_id={{ account.id|default:"" }}'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Подключение успешно: ' + data.message);
+        } else {
+            alert('Ошибка подключения: ' + (data.error || data.message));
+        }
+    })
+    .catch(error => {
+        alert('Ошибка: ' + error);
+    });
+}
+
+function refreshToken() {
+    fetch('{% url "hhru:refresh_token_ajax" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'account_id={{ account.id|default:"" }}'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Токен успешно обновлен');
+            location.reload();
+        } else {
+            alert('Ошибка обновления токена: ' + (data.error || data.message));
+        }
+    })
+    .catch(error => {
+        alert('Ошибка: ' + error);
+    });
+}
+</script>
+{% endblock %}
+

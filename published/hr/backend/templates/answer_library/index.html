@@ -1,0 +1,50 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Библиотека ответов — HR Helper{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h2 class="mb-4">
+                <i class="fas fa-book me-2"></i>
+                Библиотека ответов
+            </h2>
+            <p class="text-muted mb-4">
+                Справочник тем с триггерами и примерами ответов для кандидатов. Чат с ИИ формирует ответ по вопросам кандидата, опираясь только на выбранные по триггерам блоки.
+            </p>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="fas fa-list me-2"></i>
+                                Справочник тем и примеров
+                            </h5>
+                            <p class="card-text text-muted small">
+                                Тема, слова-триггеры, пример ответа и доп. данные. При совпадении триггеров в вопросе кандидата блок подставляется в запрос к ИИ.
+                            </p>
+                            <a href="{% url 'answer_library:topic_list' %}" class="btn btn-primary">Открыть справочник</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="fas fa-comments me-2"></i>
+                                Чат: ответы на вопросы кандидата
+                            </h5>
+                            <p class="card-text text-muted small">
+                                Вставьте в поле вопросы кандидата. По триггерам подтянутся релевантные блоки из справочника, ИИ сформирует ответ только по ним.
+                            </p>
+                            <a href="{% url 'answer_library:chat' %}" class="btn btn-outline-primary">Открыть чат</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

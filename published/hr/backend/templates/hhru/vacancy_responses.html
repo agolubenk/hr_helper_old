@@ -1,0 +1,365 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Отклики: {{ vacancy_title }} - HR Helper{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+                <h2 class="mb-0">
+                    <i class="fas fa-users me-2"></i>
+                    Отклики: {{ vacancy_title }}
+                </h2>
+                <div class="d-flex align-items-center flex-wrap gap-2">
+                    <span class="text-muted small me-1">Ссылки открывать на:</span>
+                    <div class="btn-group btn-group-sm" role="group" id="platformToggle" title="Выберите площадку для открытия ссылок на вакансию и резюме">
+                        <input type="radio" class="btn-check" name="platform" id="platformHh" value="hh" checked autocomplete="off">
+                        <label class="btn btn-outline-primary" for="platformHh">HH.ru</label>
+                        <input type="radio" class="btn-check" name="platform" id="platformRabota" value="rabota" autocomplete="off">
+                        <label class="btn btn-outline-primary" for="platformRabota">Rabota.by</label>
+                    </div>
+                    <a href="{% url 'extension:management' %}#resume-links-section" class="btn btn-outline-secondary me-2" title="Связи, сохранённые в расширении, используются здесь">
+                        <i class="fas fa-link me-1"></i>Связи резюме ↔ Huntflow
+                    </a>
+                    <a href="https://hh.ru/vacancy/{{ hh_vacancy_id }}" target="_blank" rel="noopener" class="btn btn-outline-secondary me-2" id="btnVacancyLink" data-href-hh="https://hh.ru/vacancy/{{ hh_vacancy_id }}" data-href-rabota="https://rabota.by/vacancies?query={{ vacancy_title|urlencode }}">
+                        <i class="fas fa-external-link-alt me-1"></i><span id="btnVacancyLinkText">На HH.ru</span>
+                    </a>
+                    <a href="{% url 'hhru:vacancies_active' %}" class="btn btn-outline-primary">
+                        <i class="fas fa-arrow-left me-1"></i>К списку вакансий
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <ul class="nav nav-tabs mb-3" id="folderTabs" role="tablist">
+        {% for folder in folder_list %}
+        <li class="nav-item" role="presentation">
+            <button class="nav-link {% if forloop.first %}active{% endif %}" id="tab-{{ folder.key }}" data-bs-toggle="tab" data-bs-target="#panel-{{ folder.key }}" type="button" role="tab">
+                {{ folder.label }}
+                <span class="badge bg-secondary ms-1">{{ folder.items|length }}</span>
+            </button>
+        </li>
+        {% endfor %}
+    </ul>
+
+    <div class="tab-content" id="folderPanels">
+        {% for folder in folder_list %}
+        <div class="tab-pane fade {% if forloop.first %}show active{% endif %}" id="panel-{{ folder.key }}" role="tabpanel">
+            {% if not folder.items %}
+            <p class="text-muted">Нет откликов в этой папке.</p>
+            {% else %}
+            <div class="list-group list-group-flush">
+                {% for card in folder.items %}
+                <div class="list-group-item p-0 border-start border-0 border-bottom {% if card.blacklist %}border-danger border-3{% endif %}" data-negotiation-id="{{ card.negotiation_id }}">
+                    <div class="d-flex align-items-center py-2 px-2 card-row-toggle" style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#collapse-{{ folder.key }}-{{ forloop.counter }}" aria-expanded="false">
+                        <div class="form-check me-2" onclick="event.stopPropagation();">
+                            <input class="form-check-input response-checkbox" type="checkbox" value="{{ card.negotiation_id }}" data-card-id="card-{{ folder.key }}-{{ forloop.counter }}">
+                        </div>
+                        <div class="flex-grow-1 min-width-0">
+                            <span class="fw-medium">{{ card.fio }}</span>
+                            {% if card.blacklist %}
+                            <span class="badge bg-danger ms-1">ЧС</span>
+                            {% endif %}
+                            <span class="text-muted small ms-1">· {% if card.age != '—' %}{{ card.age }} лет · {% endif %}{{ card.experience }} · {{ card.location }}</span>
+                            {% if card.in_huntflow %}
+                            <span class="badge bg-success ms-1">Huntflow</span>
+                            {% elif card.huntflow_check_status == 'not_found' %}
+                            <span class="badge bg-warning text-dark ms-1">Нужно добавить</span>
+                            {% endif %}
+                        </div>
+                        <i class="fas fa-chevron-down text-muted ms-2 card-chevron"></i>
+                    </div>
+                    <div class="collapse" id="collapse-{{ folder.key }}-{{ forloop.counter }}">
+                        <div class="px-2 pb-3 pt-1 bg-light rounded-bottom" id="card-{{ folder.key }}-{{ forloop.counter }}">
+                            <dl class="row small mb-2 g-1">
+                                <dt class="col-sm-3">Желаемая вакансия</dt>
+                                <dd class="col-sm-9">{{ card.vacancy_title }}</dd>
+                                <dt class="col-sm-3">Общий опыт</dt>
+                                <dd class="col-sm-9">{{ card.experience }}</dd>
+                                <dt class="col-sm-3">Локация</dt>
+                                <dd class="col-sm-9">{{ card.location }}</dd>
+                                <dt class="col-sm-3">Пол</dt>
+                                <dd class="col-sm-9">{{ card.gender }}</dd>
+                                <dt class="col-sm-3">Возраст</dt>
+                                <dd class="col-sm-9">{{ card.age }}{% if card.age != '—' %} лет{% endif %}</dd>
+                                <dt class="col-sm-3">Контакты</dt>
+                                <dd class="col-sm-9">{{ card.contacts }}</dd>
+                                <dt class="col-sm-3">В Huntflow</dt>
+                                <dd class="col-sm-9" data-huntflow-cell>
+                                    {% if card.in_huntflow %}
+                                    <a href="{{ card.huntflow_url }}" target="_blank" rel="noopener">Да</a>
+                                    — {{ card.huntflow_status }}{% if card.huntflow_last_contact != '—' %}, {{ card.huntflow_last_contact }}{% endif %}
+                                    {% if card.huntflow_rejection_reason %}
+                                    <span class="text-danger ms-1">· Причина отказа: {{ card.huntflow_rejection_reason }}</span>
+                                    {% endif %}
+                                    <span class="ms-2">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary edit-huntflow-btn" data-link-id="{{ card.huntflow_link_id }}" data-current-url="{{ card.huntflow_url }}">Изменить</button>
+                                        <button type="button" class="btn btn-sm btn-outline-danger ms-1 delete-huntflow-link" data-link-id="{{ card.huntflow_link_id }}" data-delete-url="{% url 'extension:resume_link_delete' card.huntflow_link_id %}">Удалить</button>
+                                    </span>
+                                    <div class="edit-huntflow-inline mt-1" data-link-id="{{ card.huntflow_link_id }}" style="display: none;">
+                                        <input type="text" class="form-control form-control-sm d-inline-block" style="width: 280px;" placeholder="Ссылка на кандидата в Huntflow">
+                                        <button type="button" class="btn btn-sm btn-primary save-huntflow-link-btn">Сохранить</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary cancel-edit-huntflow-btn">Отмена</button>
+                                    </div>
+                                    {% elif card.huntflow_check_status == 'not_found' %}
+                                    <span class="text-warning">Нужно добавить</span>
+                                    <button type="button" class="btn btn-sm btn-outline-warning ms-1 check-huntflow-btn" data-resume-id="{{ card.resume_id }}" data-resume-url="{{ card.resume_alternate_url }}">Проверить снова</button>
+                                    {% else %}
+                                    <span class="text-muted">Не проверено</span>
+                                    <button type="button" class="btn btn-sm btn-outline-primary ms-1 check-huntflow-btn" data-resume-id="{{ card.resume_id }}" data-resume-url="{{ card.resume_alternate_url }}">Проверить в Huntflow</button>
+                                    {% endif %}
+                                </dd>
+                                {% if card.reject_reason %}
+                                <dt class="col-sm-3">Причина отказа</dt>
+                                <dd class="col-sm-9">{{ card.reject_reason }}</dd>
+                                {% endif %}
+                            </dl>
+                            <div class="d-flex flex-wrap gap-2 align-items-end">
+                                {% if card.resume_alternate_url or card.fio %}
+                                <a href="{{ card.resume_alternate_url|default:'' }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary resume-platform-link"
+                                   data-resume-hh="{{ card.resume_alternate_url|default:'' }}"
+                                   data-resume-rabota="https://rabota.by/resumes?query={{ card.fio|urlencode }}"
+                                   data-label-hh="Резюме на HH.ru"
+                                   data-label-rabota="Резюме на Rabota.by">
+                                    <i class="fas fa-file-alt me-1"></i><span class="resume-link-label">Резюме на HH.ru</span>
+                                </a>
+                                {% endif %}
+                                {% if card.actions %}
+                                <div class="d-flex flex-wrap gap-2 align-items-end mt-1">
+                                    <label class="small text-muted mb-0">Изменить статус:</label>
+                                    <select class="form-select form-select-sm action-select" style="width: auto; min-width: 180px;" data-card-id="card-{{ folder.key }}-{{ forloop.counter }}">
+                                        <option value="">— выберите —</option>
+                                        {% for action in card.actions %}
+                                        <option value="{{ action.url|escape }}">{{ action.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <input type="text" class="form-control form-control-sm action-message" placeholder="Сообщение (необяз.)" style="width: 200px;" data-card-id="card-{{ folder.key }}-{{ forloop.counter }}">
+                                    <button type="button" class="btn btn-sm btn-primary apply-action-btn" data-card-id="card-{{ folder.key }}-{{ forloop.counter }}">Применить</button>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="small mt-2 apply-status" data-card-id="card-{{ folder.key }}-{{ forloop.counter }}"></div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+(function() {
+    var applyUrl = '{% url "hhru:change_negotiation_status_ajax" %}';
+    var checkHuntflowUrl = '{% url "hhru:check_huntflow_ajax" %}';
+    var updateLinkUrl = '{% url "hhru:update_huntflow_link_ajax" %}';
+    var deleteLinkUrlPattern = "{% url 'extension:resume_link_delete' 0 %}";
+    var csrfToken = '{{ csrf_token }}';
+    var PLATFORM_KEY = 'hhru_responses_platform';
+    var getCookie = function(name) {
+        var v = document.cookie.match('(?:^|;)\\s*' + name + '=([^;]*)');
+        return v ? decodeURIComponent(v[1]) : '';
+    };
+
+    function getPlatform() {
+        try { var v = sessionStorage.getItem(PLATFORM_KEY); if (v === 'rabota' || v === 'hh') return v; } catch (e) {}
+        return 'hh';
+    }
+    function setPlatform(v) {
+        try { sessionStorage.setItem(PLATFORM_KEY, v); } catch (e) {}
+    }
+    function applyPlatform() {
+        var platform = document.querySelector('input[name="platform"]:checked');
+        var isRabota = platform && platform.value === 'rabota';
+        var btn = document.getElementById('btnVacancyLink');
+        var textEl = document.getElementById('btnVacancyLinkText');
+        if (btn) {
+            btn.href = isRabota ? (btn.getAttribute('data-href-rabota') || btn.getAttribute('data-href-hh')) : (btn.getAttribute('data-href-hh') || btn.getAttribute('data-href-rabota'));
+            if (textEl) textEl.textContent = isRabota ? 'На Rabota.by' : 'На HH.ru';
+        }
+        document.querySelectorAll('.resume-platform-link').forEach(function(a) {
+            var href = isRabota ? (a.getAttribute('data-resume-rabota') || a.getAttribute('data-resume-hh')) : (a.getAttribute('data-resume-hh') || a.getAttribute('data-resume-rabota'));
+            var label = isRabota ? (a.getAttribute('data-label-rabota') || 'Резюме на Rabota.by') : (a.getAttribute('data-label-hh') || 'Резюме на HH.ru');
+            if (href) a.href = href;
+            var span = a.querySelector('.resume-link-label'); if (span) span.textContent = label;
+        });
+    }
+    (function initPlatformToggle() {
+        var saved = getPlatform();
+        var radio = document.getElementById(saved === 'rabota' ? 'platformRabota' : 'platformHh');
+        if (radio) radio.checked = true;
+        applyPlatform();
+        var toggles = document.querySelectorAll('#platformToggle input[name="platform"]');
+        for (var i = 0; i < toggles.length; i++) {
+            toggles[i].addEventListener('change', function() { setPlatform(this.value); applyPlatform(); });
+        }
+    })();
+
+    function escapeHtml(s) {
+        if (s == null) return '';
+        var d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+
+    function buildHuntflowFoundHtml(data) {
+        var url = escapeHtml(data.huntflow_url || '');
+        var status = escapeHtml(data.status_name || 'В Huntflow');
+        var rejection = (data.rejection_reason_name || '').trim();
+        var linkId = data.huntflow_link_id || '';
+        var deleteUrl = (deleteLinkUrlPattern && linkId) ? deleteLinkUrlPattern.replace(/\/0\/?$/, '/' + String(linkId) + '/') : ('/extension/resume-link/' + linkId + '/');
+        var rejectionHtml = rejection ? '<span class="text-danger ms-1">· Причина отказа: ' + escapeHtml(rejection) + '</span>' : '';
+        return '<a href="' + url + '" target="_blank" rel="noopener">Да</a> — ' + status +
+            rejectionHtml +
+            ' <span class="ms-2"><button type="button" class="btn btn-sm btn-outline-secondary edit-huntflow-btn" data-link-id="' + escapeHtml(String(linkId)) + '" data-current-url="' + url + '">Изменить</button> ' +
+            '<button type="button" class="btn btn-sm btn-outline-danger ms-1 delete-huntflow-link" data-link-id="' + escapeHtml(String(linkId)) + '" data-delete-url="' + escapeHtml(deleteUrl) + '">Удалить</button></span>' +
+            '<div class="edit-huntflow-inline mt-1" data-link-id="' + escapeHtml(String(linkId)) + '" style="display: none;">' +
+            '<input type="text" class="form-control form-control-sm d-inline-block" style="width: 280px;" placeholder="Ссылка на кандидата в Huntflow"> ' +
+            '<button type="button" class="btn btn-sm btn-primary save-huntflow-link-btn">Сохранить</button> ' +
+            '<button type="button" class="btn btn-sm btn-outline-secondary cancel-edit-huntflow-btn">Отмена</button></div>';
+    }
+
+    document.addEventListener('click', function(e) {
+        var btn = e.target && e.target.closest('.check-huntflow-btn');
+        if (!btn) return;
+        e.preventDefault();
+        var resumeId = btn.getAttribute('data-resume-id');
+        var resumeUrl = btn.getAttribute('data-resume-url') || '';
+        var formData = new FormData();
+        formData.append('resume_id', resumeId);
+        formData.append('resume_url', resumeUrl);
+        formData.append('csrfmiddlewaretoken', csrfToken);
+        var originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = '…';
+        fetch(checkHuntflowUrl, { method: 'POST', body: formData, credentials: 'same-origin' })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success && data.found) {
+                    var dd = btn.closest('dd[data-huntflow-cell]');
+                    if (dd) dd.innerHTML = buildHuntflowFoundHtml(data);
+                    var row = btn.closest('.list-group-item');
+                    if (row && !row.querySelector('.badge.bg-success')) {
+                        var compact = row.querySelector('.card-row-toggle .flex-grow-1');
+                        if (compact) {
+                            var badge = document.createElement('span');
+                            badge.className = 'badge bg-success ms-1';
+                            badge.textContent = 'Huntflow';
+                            compact.appendChild(badge);
+                        }
+                    }
+                } else if (data.success && !data.found) {
+                    alert('Кандидат не найден в Huntflow. Добавьте его вручную и сохраните связь на странице «Связи резюме ↔ Huntflow».');
+                } else {
+                    alert(data.error || 'Ошибка');
+                }
+                btn.disabled = false;
+                btn.textContent = originalText;
+            })
+            .catch(function() { btn.disabled = false; btn.textContent = originalText; });
+    });
+
+    document.addEventListener('click', function(e) {
+        var btn = e.target && e.target.closest('.edit-huntflow-btn');
+        if (btn) {
+            e.preventDefault();
+            var linkId = btn.getAttribute('data-link-id');
+            var currentUrl = btn.getAttribute('data-current-url') || '';
+            var dd = btn.closest('dd[data-huntflow-cell]');
+            var inline = dd ? dd.querySelector('.edit-huntflow-inline[data-link-id="' + linkId + '"]') : document.querySelector('.edit-huntflow-inline[data-link-id="' + linkId + '"]');
+            if (inline) { inline.style.display = 'block'; var input = inline.querySelector('input'); if (input) input.value = currentUrl; }
+            return;
+        }
+        btn = e.target && e.target.closest('.cancel-edit-huntflow-btn');
+        if (btn) { var inline = btn.closest('.edit-huntflow-inline'); if (inline) inline.style.display = 'none'; return; }
+        btn = e.target && e.target.closest('.save-huntflow-link-btn');
+        if (btn) {
+            var inline = btn.closest('.edit-huntflow-inline');
+            var linkId = inline && inline.getAttribute('data-link-id');
+            var input = inline && inline.querySelector('input');
+            var url = (input && input.value) ? input.value.trim() : '';
+            if (!url) return;
+            var formData = new FormData();
+            formData.append('link_id', linkId);
+            formData.append('huntflow_url', url);
+            formData.append('csrfmiddlewaretoken', csrfToken);
+            fetch(updateLinkUrl, { method: 'POST', body: formData, credentials: 'same-origin' })
+                .then(function(r) { return r.json(); })
+                .then(function(data) { if (data.success) location.reload(); else alert(data.error || 'Ошибка'); });
+            return;
+        }
+        btn = e.target && e.target.closest('.delete-huntflow-link');
+        if (btn) {
+            e.preventDefault();
+            if (!confirm('Удалить связь с Huntflow?')) return;
+            var url = btn.getAttribute('data-delete-url');
+            fetch(url, { method: 'DELETE', headers: { 'X-CSRFToken': csrfToken, 'Accept': 'application/json' }, credentials: 'same-origin' })
+                .then(function(r) { if (r.ok || r.status === 204) location.reload(); else r.json().then(function(d) { alert(d.message || 'Ошибка'); }); });
+        }
+    });
+
+    document.querySelectorAll('.card-row-toggle').forEach(function(el) {
+        el.addEventListener('click', function(e) {
+            if (e.target.closest('.form-check') || e.target.closest('.apply-action-btn') || e.target.closest('.action-select') || e.target.closest('.action-message')) return;
+        });
+    });
+
+    document.querySelectorAll('.collapse').forEach(function(collapseEl) {
+        collapseEl.addEventListener('show.bs.collapse', function() {
+            var id = this.id;
+            var row = document.querySelector('[data-bs-target="#' + id + '"]');
+            if (row) {
+                var chevron = row.querySelector('.card-chevron');
+                if (chevron) { chevron.classList.remove('fa-chevron-down'); chevron.classList.add('fa-chevron-up'); }
+            }
+        });
+        collapseEl.addEventListener('hide.bs.collapse', function() {
+            var id = this.id;
+            var row = document.querySelector('[data-bs-target="#' + id + '"]');
+            if (row) {
+                var chevron = row.querySelector('.card-chevron');
+                if (chevron) { chevron.classList.remove('fa-chevron-up'); chevron.classList.add('fa-chevron-down'); }
+            }
+        });
+    });
+
+    document.querySelectorAll('.apply-action-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var cardId = this.getAttribute('data-card-id');
+            var select = document.querySelector('.action-select[data-card-id="' + cardId + '"]');
+            var messageInput = document.querySelector('.action-message[data-card-id="' + cardId + '"]');
+            var statusEl = document.querySelector('.apply-status[data-card-id="' + cardId + '"]');
+            if (!select || !select.value) {
+                if (statusEl) { statusEl.textContent = 'Выберите действие'; statusEl.className = 'small mt-2 apply-status text-warning'; }
+                return;
+            }
+            var actionUrl = select.value;
+            var message = messageInput ? messageInput.value.trim() : '';
+            var formData = new FormData();
+            formData.append('action_url', actionUrl);
+            formData.append('message', message);
+            formData.append('csrfmiddlewaretoken', csrfToken);
+            if (statusEl) { statusEl.textContent = '…'; statusEl.className = 'small mt-2 apply-status text-muted'; }
+            fetch(applyUrl, { method: 'POST', body: formData, credentials: 'same-origin' })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.success) {
+                        if (statusEl) { statusEl.textContent = 'Статус изменён.'; statusEl.className = 'small mt-2 apply-status text-success'; }
+                        setTimeout(function() { location.reload(); }, 800);
+                    } else {
+                        if (statusEl) { statusEl.textContent = 'Ошибка: ' + (data.error || ''); statusEl.className = 'small mt-2 apply-status text-danger'; }
+                    }
+                })
+                .catch(function() {
+                    if (statusEl) { statusEl.textContent = 'Ошибка запроса'; statusEl.className = 'small mt-2 apply-status text-danger'; }
+                });
+        });
+    });
+})();
+</script>
+{% endblock %}

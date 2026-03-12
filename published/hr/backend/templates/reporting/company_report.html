@@ -1,0 +1,548 @@
+{% extends 'common/base.html' %}
+{% load static %}
+{% load reporting_filters %}
+
+{% block title %}Отчет по компании - HR Helper{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="mb-0">
+                    <i class="fas fa-building me-2"></i>
+                    Отчет по компании
+                </h2>
+                <a href="{% url 'reporting:export_company_report_excel' %}?period={{ period }}&start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}" class="btn btn-success">
+                    <i class="fas fa-file-excel me-2"></i>
+                    Экспорт в Excel
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Фильтры -->
+    <div class="row mb-4">
+        <div class="col-12 reporting-section">
+            <div class="card">
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-3">
+                            <label for="period" class="form-label">Период</label>
+                            <select name="period" id="period" class="form-select">
+                                <option value="daily" {% if period == 'daily' %}selected{% endif %}>Ежедневная</option>
+                                <option value="weekly" {% if period == 'weekly' %}selected{% endif %}>Понедельная</option>
+                                <option value="monthly" {% if period == 'monthly' %}selected{% endif %}>Помесячная</option>
+                                <option value="quarterly" {% if period == 'quarterly' %}selected{% endif %}>Поквартальная</option>
+                                <option value="yearly" {% if period == 'yearly' %}selected{% endif %}>Годовая</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="start_date" class="form-label">Дата начала</label>
+                            <input type="date" name="start_date" id="start_date" class="form-control" value="{{ start_date|date:'Y-m-d' }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="end_date" class="form-label">Дата окончания</label>
+                            <input type="date" name="end_date" id="end_date" class="form-control" value="{{ end_date|date:'Y-m-d' }}">
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-filter me-2"></i>
+                                Применить фильтры
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Статистика -->
+    <div class="row mb-4">
+        <div class="col-md-3 reporting-section">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h3 class="text-primary">{{ report_data.total_screenings }}</h3>
+                    <p class="mb-0">Всего скринингов</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h3 class="text-success">{{ report_data.total_interviews }}</h3>
+                    <p class="mb-0">Всего интервью</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h3 class="text-warning">
+                        {% if report_data.conversion_rate is not None %}
+                            {{ report_data.conversion_rate }}%
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </h3>
+                    <p class="mb-0">Конверсия (скрининги → интервью)</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h3 class="text-info">{{ report_data.total_time_minutes|format_duration_minutes }}</h3>
+                    <p class="mb-0">Суммарное время</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- График -->
+    <div class="row mb-4">
+        <div class="col-12 reporting-section">
+            <div class="card">
+                <div class="card-header">
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <h5 class="mb-0">График</h5>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="row g-2">
+                                <div class="col-md-6">
+                                    <select id="chartPeriod" class="form-select form-select-sm">
+                                        <option value="daily">Дни</option>
+                                        <option value="weekly">Недели</option>
+                                        <option value="monthly" selected>Месяцы</option>
+                                        <option value="quarterly">Кварталы</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <select id="chartDataType" class="form-select form-select-sm">
+                                        <option value="time">Часы</option>
+                                        <option value="interviews">Интервью</option>
+                                        <option value="screenings">Скрининги</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="row g-2 mt-2">
+                                <div class="col-md-12">
+                                    <select id="chartFilterType" class="form-select form-select-sm">
+                                        <option value="recruiter">По рекрутерам</option>
+                                        <option value="interviewer">По интервьюерам</option>
+                                        <option value="vacancy">По вакансиям</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="chartFiltersContainer" class="mb-3"></div>
+                    <canvas id="reportChart" style="max-height: 400px;"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Детализация по периодам -->
+    <div class="row">
+        <div class="col-12 reporting-section">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Детализация по периодам</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Период</th>
+                                    <th>Скрининги</th>
+                                    <th>Интервью</th>
+                                    <th>Всего</th>
+                                    <th>Время</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for period_key, period_data in report_data.grouped_data.items %}
+                                <tr>
+                                    <td>{{ period_key }}</td>
+                                    <td>{{ period_data.screenings }}</td>
+                                    <td>{{ period_data.interviews }}</td>
+                                    <td><strong>{{ period_data.screenings|add:period_data.interviews }}</strong></td>
+                                    <td>{{ period_data.total_time_minutes|format_duration_minutes }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center">Нет данных за выбранный период</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const canvas = document.getElementById('reportChart');
+    if (!canvas) {
+        console.error('Canvas элемент не найден!');
+        return;
+    }
+    
+    // Ждем загрузки Chart.js
+    function waitForChart(callback) {
+        if (typeof Chart !== 'undefined') {
+            callback();
+        } else {
+            setTimeout(function() {
+                waitForChart(callback);
+            }, 100);
+        }
+    }
+    
+    waitForChart(function() {
+        console.log('Chart.js загружен, инициализируем график');
+        
+        let chart = null;
+        const reportType = 'company';
+        const startDate = '{{ start_date|date:"Y-m-d" }}';
+        const endDate = '{{ end_date|date:"Y-m-d" }}';
+        
+        // Храним данные о всех доступных элементах
+        const allFilters = {
+            recruiter: [
+                {% for recruiter in recruiters %}
+                { id: {{ recruiter.id }}, name: '{{ recruiter.get_full_name|default:recruiter.username|escapejs }}' },
+                {% endfor %}
+            ],
+            interviewer: [
+                {% for interviewer in interviewers %}
+                { id: {{ interviewer.id }}, name: '{{ interviewer.get_full_name|escapejs }}' },
+                {% endfor %}
+            ],
+            vacancy: [
+                {% for vacancy in vacancies %}
+                { id: {{ vacancy.id }}, name: '{{ vacancy.name|escapejs }}' },
+                {% endfor %}
+            ]
+        };
+        
+        // Храним выбранные фильтры
+        let selectedFilters = {
+            recruiter: [],
+            interviewer: [],
+            vacancy: []
+        };
+        
+        // Инициализация: выбираем все элементы по умолчанию
+        function initializeFilters() {
+            const filterType = document.getElementById('chartFilterType').value;
+            selectedFilters[filterType] = allFilters[filterType].map(item => ({
+                type: filterType,
+                id: item.id,
+                name: item.name
+            }));
+            updateFiltersDisplay();
+        }
+        
+        // Обновление отображения фильтров на графике
+        function updateFiltersDisplay() {
+            const filterType = document.getElementById('chartFilterType').value;
+            let container = document.getElementById('chartFiltersContainer');
+            
+            // Создаем контейнер, если его нет
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'chartFiltersContainer';
+                container.className = 'mb-3';
+                const cardBody = canvas.closest('.card-body');
+                if (cardBody) {
+                    cardBody.insertBefore(container, canvas);
+                } else {
+                    console.error('Не найден card-body для вставки фильтров');
+                    return;
+                }
+            }
+            
+            container.innerHTML = '';
+            
+            if (allFilters[filterType].length === 0) {
+                container.style.display = 'none';
+                return;
+            }
+            
+            container.style.display = 'block';
+            const filterGroup = document.createElement('div');
+            filterGroup.className = 'd-flex flex-wrap gap-2 align-items-center';
+            
+            allFilters[filterType].forEach(item => {
+                const isSelected = selectedFilters[filterType].some(f => f.id === item.id);
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'form-check-input chart-filter-checkbox';
+                checkbox.value = item.id;
+                checkbox.checked = isSelected;
+                checkbox.dataset.type = filterType;
+                checkbox.id = `${filterType}_${item.id}`;
+                checkbox.addEventListener('change', function() {
+                    if (this.checked) {
+                        selectedFilters[filterType].push({
+                            type: filterType,
+                            id: item.id,
+                            name: item.name
+                        });
+                    } else {
+                        selectedFilters[filterType] = selectedFilters[filterType].filter(f => f.id !== item.id);
+                    }
+                    loadChartData();
+                });
+                
+                const label = document.createElement('label');
+                label.className = 'form-check-label small';
+                label.htmlFor = checkbox.id;
+                label.textContent = item.name;
+                
+                const wrapper = document.createElement('div');
+                wrapper.className = 'form-check';
+                wrapper.appendChild(checkbox);
+                wrapper.appendChild(label);
+                filterGroup.appendChild(wrapper);
+            });
+            
+            container.appendChild(filterGroup);
+        }
+        
+        function loadChartData() {
+            const chartPeriod = document.getElementById('chartPeriod').value;
+            const chartDataType = document.getElementById('chartDataType').value;
+            const filterType = document.getElementById('chartFilterType').value;
+            
+            // Получаем выбранные элементы для текущего типа фильтра
+            const filters = selectedFilters[filterType];
+            
+            if (filters.length === 0) {
+                console.warn('Не выбрано ни одного элемента для отображения');
+                if (chart) {
+                    chart.destroy();
+                    chart = null;
+                }
+                return;
+            }
+            
+            // Загружаем данные для каждого выбранного элемента
+            const promises = filters.map(filter => {
+                let url = `{% url 'reporting:api_report_data' %}?report_type=${reportType}&period=${chartPeriod}&start_date=${startDate}&end_date=${endDate}`;
+                
+                if (filter.type === 'recruiter') {
+                    url += `&recruiter_id=${filter.id}`;
+                } else if (filter.type === 'interviewer') {
+                    url += `&interviewer_id=${filter.id}`;
+                } else if (filter.type === 'vacancy') {
+                    url += `&vacancy_id=${filter.id}`;
+                }
+                
+                return fetch(url)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        return {
+                            filter: filter,
+                            data: data
+                        };
+                    });
+            });
+            
+            Promise.all(promises)
+                .then(results => {
+                    console.log('Данные графика получены:', results);
+                    updateChart(results, chartPeriod, chartDataType);
+                })
+                .catch(error => {
+                    console.error('Ошибка загрузки данных графика:', error);
+                    if (chart) {
+                        chart.destroy();
+                        chart = null;
+                    }
+                });
+        }
+        
+        function updateChart(results, period, dataType) {
+            // Собираем все уникальные метки (периоды) из всех результатов
+            const allLabels = new Set();
+            results.forEach(result => {
+                const groupedData = result.data.grouped_data || {};
+                Object.keys(groupedData).forEach(label => allLabels.add(label));
+            });
+            const labels = Array.from(allLabels).sort();
+            
+            console.log('Обновляем график. Labels:', labels);
+            
+            // Проверяем, что есть данные
+            if (labels.length === 0) {
+                console.warn('Нет данных для отображения графика');
+                if (chart) {
+                    chart.destroy();
+                    chart = null;
+                }
+                // Показываем сообщение пользователю
+                const cardBody = canvas.closest('.card-body');
+                if (cardBody && !cardBody.querySelector('.no-data-message')) {
+                    const message = document.createElement('div');
+                    message.className = 'no-data-message alert alert-info';
+                    message.textContent = 'Нет данных для отображения графика за выбранный период';
+                    cardBody.appendChild(message);
+                }
+                return;
+            }
+            
+            // Убираем сообщение об отсутствии данных, если оно есть
+            const cardBody = canvas.closest('.card-body');
+            const noDataMessage = cardBody ? cardBody.querySelector('.no-data-message') : null;
+            if (noDataMessage) {
+                noDataMessage.remove();
+            }
+            
+            // Цвета для разных линий
+            const colors = [
+                { border: 'rgba(54, 162, 235, 1)', background: 'rgba(54, 162, 235, 0.5)' },
+                { border: 'rgba(75, 192, 192, 1)', background: 'rgba(75, 192, 192, 0.5)' },
+                { border: 'rgba(255, 159, 64, 1)', background: 'rgba(255, 159, 64, 0.5)' },
+                { border: 'rgba(153, 102, 255, 1)', background: 'rgba(153, 102, 255, 0.5)' },
+                { border: 'rgba(255, 99, 132, 1)', background: 'rgba(255, 99, 132, 0.5)' },
+                { border: 'rgba(255, 206, 86, 1)', background: 'rgba(255, 206, 86, 0.5)' },
+                { border: 'rgba(201, 203, 207, 1)', background: 'rgba(201, 203, 207, 0.5)' },
+            ];
+            
+            // Создаем datasets для каждого выбранного элемента
+            const datasets = results.map((result, index) => {
+                const groupedData = result.data.grouped_data || {};
+                const color = colors[index % colors.length];
+                
+                let datasetData = [];
+                let labelSuffix = '';
+                
+                switch(dataType) {
+                    case 'time':
+                        datasetData = labels.map(key => {
+                            const minutes = groupedData[key]?.total_time_minutes || 0;
+                            return parseFloat((minutes / 60).toFixed(2));
+                        });
+                        labelSuffix = ' (часы)';
+                        break;
+                    case 'interviews':
+                        datasetData = labels.map(key => groupedData[key]?.interviews || 0);
+                        labelSuffix = ' (интервью)';
+                        break;
+                    case 'screenings':
+                        datasetData = labels.map(key => groupedData[key]?.screenings || 0);
+                        labelSuffix = ' (скрининги)';
+                        break;
+                }
+                
+                return {
+                    label: result.filter.name + labelSuffix,
+                    data: datasetData,
+                    borderColor: color.border,
+                    backgroundColor: color.background,
+                    borderWidth: 2,
+                    fill: false,
+                    tension: 0.4
+                };
+            });
+            
+            console.log('Datasets:', datasets);
+            console.log('Labels:', labels);
+            
+            if (chart) {
+                chart.destroy();
+                chart = null;
+            }
+            
+            try {
+                chart = new Chart(canvas, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: datasets
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        aspectRatio: 2,
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top',
+                                onClick: function(e, legendItem) {
+                                    // Переключаем видимость линии при клике на легенду
+                                    const index = legendItem.datasetIndex;
+                                    const meta = chart.getDatasetMeta(index);
+                                    meta.hidden = meta.hidden === null ? !chart.data.datasets[index].hidden : null;
+                                    chart.update();
+                                }
+                            },
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false
+                            }
+                        },
+                        interaction: {
+                            mode: 'index',
+                            intersect: false
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+                console.log('График создан успешно');
+            } catch (error) {
+                console.error('Ошибка создания графика:', error);
+            }
+        }
+        
+        // Инициализация фильтров
+        initializeFilters();
+        
+        // Обработчик изменения типа фильтра
+        document.getElementById('chartFilterType').addEventListener('change', function() {
+            const filterType = this.value;
+            // Если для этого типа фильтра еще нет выбранных элементов, выбираем все
+            if (selectedFilters[filterType].length === 0) {
+                selectedFilters[filterType] = allFilters[filterType].map(item => ({
+                    type: filterType,
+                    id: item.id,
+                    name: item.name
+                }));
+            }
+            updateFiltersDisplay();
+            loadChartData();
+        });
+        
+        // Обработчики событий
+        document.getElementById('chartPeriod').addEventListener('change', loadChartData);
+        document.getElementById('chartDataType').addEventListener('change', loadChartData);
+        
+        // Загружаем данные при инициализации
+        loadChartData();
+    });
+});
+</script>
+{% endblock %}
+

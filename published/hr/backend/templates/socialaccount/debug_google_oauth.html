@@ -1,0 +1,126 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Отладка Google OAuth - HR Helper{% endblock %}
+{% block page_title %}Отладка Google OAuth{% endblock %}
+
+{% block extra_css %}
+<link href="{% static 'css/socialaccount.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function testGoogleOAuth() {
+    console.log('Тестирование Google OAuth...');
+    
+    // Пробуем открыть Google OAuth в новом окне
+    const googleUrl = '{% url "google_login" %}';
+    console.log('Google URL:', googleUrl);
+    
+    const popup = window.open(googleUrl, 'google_oauth', 'width=500,height=600,scrollbars=yes,resizable=yes');
+    
+    if (!popup) {
+        alert('Браузер заблокировал всплывающее окно. Разрешите всплывающие окна для этого сайта.');
+        return;
+    }
+    
+    // Проверяем, что окно открылось
+    const checkClosed = setInterval(() => {
+        if (popup.closed) {
+            clearInterval(checkClosed);
+            console.log('Окно Google OAuth закрыто');
+            // Перезагружаем страницу, чтобы проверить, авторизовался ли пользователь
+            window.location.reload();
+        }
+    }, 1000);
+}
+
+function testDirectRedirect() {
+    console.log('Прямой редирект на Google OAuth...');
+    window.location.href = '{% url "google_login" %}';
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-bug me-2"></i>
+                    Отладка Google OAuth
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <h6>Текущее состояние:</h6>
+                    <ul>
+                        <li><strong>URL:</strong> {{ request.get_full_path }}</li>
+                        <li><strong>Пользователь:</strong> {{ user }}</li>
+                        <li><strong>Авторизован:</strong> {{ user.is_authenticated }}</li>
+                        <li><strong>User Agent:</strong> {{ request.META.HTTP_USER_AGENT|truncatechars:100 }}</li>
+                    </ul>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Тестовые кнопки:</h6>
+                        <div class="d-grid gap-2">
+                            <button onclick="testGoogleOAuth()" class="btn btn-primary">
+                                <i class="fab fa-google me-2"></i>
+                                Тест в новом окне
+                            </button>
+                            
+                            <button onclick="testDirectRedirect()" class="btn btn-warning">
+                                <i class="fas fa-external-link-alt me-2"></i>
+                                Прямой редирект
+                            </button>
+                            
+                            <a href="{% url 'google_login' %}" class="btn btn-danger">
+                                <i class="fab fa-google me-2"></i>
+                                Обычная ссылка
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h6>Информация:</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>Google Login URL:</strong> {% url 'google_login' %}</li>
+                            <li><strong>Account Login URL:</strong> {% url 'account_login' %}</li>
+                            <li><strong>Callback URL:</strong> /accounts/google/login/callback/</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="alert alert-warning">
+                    <h6>Возможные проблемы:</h6>
+                    <ul class="mb-0">
+                        <li>Браузер блокирует всплывающие окна</li>
+                        <li>Проблемы с CORS или CSP</li>
+                        <li>Неправильные настройки в Google Console</li>
+                        <li>Проблемы с редиректом</li>
+                        <li>Блокировщик рекламы</li>
+                    </ul>
+                </div>
+                
+                <div class="alert alert-info">
+                    <h6>Инструкции:</h6>
+                    <ol>
+                        <li>Нажмите "Тест в новом окне" - должно открыться окно Google OAuth</li>
+                        <li>Если окно не открывается, разрешите всплывающие окна</li>
+                        <li>Попробуйте "Прямой редирект" - должен перенаправить на Google</li>
+                        <li>Проверьте консоль браузера (F12) на наличие ошибок</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+

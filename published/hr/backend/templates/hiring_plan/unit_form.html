@@ -1,0 +1,192 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}{% if object %}Редактирование{% else %}Создание{% endif %} заявки - HR Helper{% endblock %}
+{% block page_title %}{% if object %}Редактирование заявки{% else %}Создание заявки{% endif %}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-{% if object %}edit{% else %}plus{% endif %} me-2"></i>
+                        {% if object %}Редактирование заявки{% else %}Создание заявки{% endif %}
+                    </h5>
+                    <div class="btn-group" role="group">
+                        {% if object %}
+                            <a href="{% url 'hiring_plan:unit_detail' object.pk %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Назад
+                            </a>
+                        {% else %}
+                            <a href="{% url 'hiring_plan:hiring_units_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Назад
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <!-- Основная информация -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="card-title mb-0">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        Основная информация
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label for="id_status" class="form-label">Статус <span class="text-danger">*</span></label>
+                                        <select name="status" id="id_status" class="form-select" required>
+                                            <option value="">Выберите статус</option>
+                                            <option value="open" {% if form.status.value == 'open' %}selected{% endif %}>Открыт</option>
+                                            <option value="in_progress" {% if form.status.value == 'in_progress' %}selected{% endif %}>В процессе</option>
+                                            <option value="hired" {% if form.status.value == 'hired' %}selected{% endif %}>Нанят</option>
+                                            <option value="failed" {% if form.status.value == 'failed' %}selected{% endif %}>Не удалось</option>
+                                            <option value="cancelled" {% if form.status.value == 'cancelled' %}selected{% endif %}>Отменен</option>
+                                        </select>
+                                        {% if form.status.errors %}
+                                            <div class="text-danger">{{ form.status.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="id_filled_date" class="form-label">Дата закрытия</label>
+                                        <input type="date" name="filled_date" id="id_filled_date" class="form-control" 
+                                               value="{% if form.filled_date.value %}{{ form.filled_date.value|date:'Y-m-d' }}{% endif %}">
+                                        {% if form.filled_date.errors %}
+                                            <div class="text-danger">{{ form.filled_date.errors.0 }}</div>
+                                        {% endif %}
+                                        <div class="form-text">Оставьте пустым для автоматического заполнения при статусе "Нанят"</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="card-title mb-0">
+                                        <i class="fas fa-user me-2"></i>
+                                        Информация о кандидате
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label for="id_candidate_id" class="form-label">ID кандидата</label>
+                                        <input type="text" name="candidate_id" id="id_candidate_id" class="form-control" 
+                                               value="{{ form.candidate_id.value|default:'' }}">
+                                        {% if form.candidate_id.errors %}
+                                            <div class="text-danger">{{ form.candidate_id.errors.0 }}</div>
+                                        {% endif %}
+                                        <div class="form-text">ID кандидата из внешней системы (Huntflow, ClickUp и т.д.)</div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="id_candidate_name" class="form-label">Имя кандидата</label>
+                                        <input type="text" name="candidate_name" id="id_candidate_name" class="form-control" 
+                                               value="{{ form.candidate_name.value|default:'' }}">
+                                        {% if form.candidate_name.errors %}
+                                            <div class="text-danger">{{ form.candidate_name.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Заметки -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="card-title mb-0">
+                                        <i class="fas fa-sticky-note me-2"></i>
+                                        Заметки
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label for="id_notes" class="form-label">Заметки</label>
+                                        <textarea name="notes" id="id_notes" class="form-control" rows="4">{{ form.notes.value|default:'' }}</textarea>
+                                        {% if form.notes.errors %}
+                                            <div class="text-danger">{{ form.notes.errors.0 }}</div>
+                                        {% endif %}
+                                        <div class="form-text">Дополнительная информация по заявке</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Информация о заявке (только для чтения) -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="card-title mb-0">
+                                        <i class="fas fa-info me-2"></i>
+                                        Информация о заявке
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-3">
+                                            <strong>Вакансия:</strong><br>
+                                            {{ object.position.vacancy.name }}
+                                        </div>
+                                        <div class="col-md-3">
+                                            <strong>Грейд:</strong><br>
+                                            <span class="badge bg-info">{{ object.grade.name }}</span>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <strong>Номер слота:</strong><br>
+                                            <span class="badge bg-secondary">{{ object.slot_number }}</span>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <strong>План:</strong><br>
+                                            {{ plan.title }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Кнопки -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <div class="d-flex justify-content-end">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-2"></i>
+                                    {% if object %}Сохранить изменения{% else %}Создать заявку{% endif %}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Автоматическое заполнение даты закрытия при выборе статуса "Нанят"
+document.getElementById('id_status').addEventListener('change', function() {
+    const filledDateField = document.getElementById('id_filled_date');
+    if (this.value === 'hired' && !filledDateField.value) {
+        const today = new Date().toISOString().split('T')[0];
+        filledDateField.value = today;
+    } else if (this.value !== 'hired') {
+        filledDateField.value = '';
+    }
+});
+</script>
+{% endblock %}

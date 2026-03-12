@@ -1,0 +1,48 @@
+# Dockerfile для продакшена
+FROM python:3.11-slim
+
+# Установка системных зависимостей (gosu — для entrypoint: collectstatic от root, затем переключение на hrhelper)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    postgresql-client \
+    redis-tools \
+    curl \
+    libpq-dev \
+    gcc \
+    gosu \
+    && rm -rf /var/lib/apt/lists/*
+
+# Создание пользователя для приложения
+RUN useradd --create-home --shell /bin/bash hrhelper
+
+# Установка рабочей директории
+WORKDIR /app
+
+# Копирование requirements
+COPY requirements.txt .
+
+# Установка Python зависимостей
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Копирование кода приложения
+COPY . .
+
+# Entrypoint: при старте заполняет volume staticfiles (collectstatic) и запускает gunicorn от hrhelper
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+# Создание директорий для логов и статики
+RUN mkdir -p logs staticfiles media && \
+    touch logs/django.log && \
+    chown -R hrhelper:hrhelper /app
+
+# Открытие порта
+EXPOSE 8000
+
+# Healthcheck для проверки работоспособности
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD curl -f http://localhost:8000/health/ || exit 1
+
+# При старте: collectstatic в volume, затем gunicorn от пользователя hrhelper
+ENTRYPOINT ["/app/entrypoint.sh"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "120", "--keep-alive", "5", "--access-logfile", "-", "--error-logfile", "-", "config.wsgi:application"]
+

@@ -1,0 +1,100 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Прогнозы потребности - HR Helper{% endblock %}
+{% block page_title %}🔮 Прогнозы потребности в персонале{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-crystal-ball me-2"></i>
+                        Список прогнозов
+                    </h5>
+                    <a href="{% url 'hiring_plan:metrics_dashboard' %}" class="btn btn-primary">
+                        <i class="fas fa-tachometer-alt me-2"></i>Дашборд
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped">
+                        <thead>
+                            <tr>
+                                <th>Вакансия</th>
+                                <th>Грейд</th>
+                                <th>Период прогноза</th>
+                                <th>Прогнозируемая потребность</th>
+                                <th>Уверенность</th>
+                                <th>Фактор сезонности</th>
+                                <th>Создано</th>
+                                <th>Автор</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for forecast in forecasts %}
+                            <tr>
+                                <td>{{ forecast.vacancy.name }}</td>
+                                <td>{{ forecast.grade.name|default:"-" }}</td>
+                                <td>
+                                    <span class="badge bg-info">{{ forecast.get_forecast_period_display }}</span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-primary fs-6">{{ forecast.forecasted_demand }} чел.</span>
+                                </td>
+                                <td>
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar {% if forecast.confidence_level >= 70 %}bg-success{% elif forecast.confidence_level >= 50 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                             style="width: {{ forecast.confidence_level }}%">
+                                            {{ forecast.confidence_level }}%
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if forecast.seasonality_factor > 1.0 %}
+                                        <span class="badge bg-success">+{{ forecast.seasonality_factor }}x</span>
+                                    {% elif forecast.seasonality_factor < 1.0 %}
+                                        <span class="badge bg-warning">{{ forecast.seasonality_factor }}x</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ forecast.seasonality_factor }}x</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ forecast.created_at|date:"d.m.Y H:i" }}</td>
+                                <td>
+                                    {% if forecast.created_by %}
+                                        {{ forecast.created_by.get_full_name|default:forecast.created_by.username }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="8" class="text-center">Прогнозы не найдены.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                {% if is_paginated %}
+                    <nav aria-label="Page navigation">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Предыдущая</a></li>
+                            {% endif %}
+                            <li class="page-item disabled"><span class="page-link">Страница {{ page_obj.number }} из {{ page_obj.num_pages }}</span></li>
+                            {% if page_obj.has_next %}
+                                <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Следующая</a></li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

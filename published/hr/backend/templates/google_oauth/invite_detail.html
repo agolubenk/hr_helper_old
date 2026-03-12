@@ -1,0 +1,478 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Инвайт: {{ invite.candidate_name }}{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">Инвайт: {{ invite.candidate_name|default:"Не указано" }}</h1>
+                <div>
+                    <a href="{% url 'google_oauth:invite_list' %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Назад к списку
+                    </a>
+                    <a href="{% url 'google_oauth:invite_create' %}" class="btn btn-success">
+                        <i class="fas fa-plus me-2"></i>Создать новый
+                    </a>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-lg-8">
+                    <!-- Основная информация -->
+                    <div class="card shadow mb-4">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 font-weight-bold text-primary">Основная информация</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6>Кандидат:</h6>
+                                    <p class="text-muted">{{ invite.candidate_name|default:"Не указано" }}</p>
+                                    {% if invite.candidate_name and "Кандидат" in invite.candidate_name and invite.candidate_id %}
+                                        <div class="alert alert-warning small">
+                                            <i class="fas fa-exclamation-triangle"></i> 
+                                            <strong>Данные получены из заглушки</strong><br>
+                                            <small>Используйте URL с правильным ID аккаунта (org694) для получения реальных данных</small>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    <h6>ID кандидата:</h6>
+                                    <p class="text-muted">{{ invite.candidate_id|default:"Не указано" }}</p>
+                                    
+                                    <h6>Уровень кандидата:</h6>
+                                    <p class="text-muted">{{ invite.candidate_grade|default:"Не указано" }}</p>
+                                    {% if invite.candidate_grade == "Не указан" %}
+                                        <small class="text-info">
+                                            <i class="fas fa-info-circle"></i> 
+                                            Уровень не найден в данных кандидата
+                                        </small>
+                                    {% endif %}
+                                    
+                                    <h6>Ссылка на кандидата:</h6>
+                                    <a href="{{ invite.candidate_url }}" target="_blank" class="btn btn-primary btn-sm">
+                                        <i class="fas fa-external-link-alt me-2"></i>Открыть в Huntflow
+                                    </a>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6>Вакансия:</h6>
+                                    <p class="text-muted">{{ invite.vacancy_title|default:"Не указано" }}</p>
+                                    {% if invite.vacancy_title and "Вакансия" in invite.vacancy_title and invite.vacancy_id %}
+                                        <div class="alert alert-warning small">
+                                            <i class="fas fa-exclamation-triangle"></i> 
+                                            <strong>Данные получены из заглушки</strong><br>
+                                            <small>Используйте URL с правильным ID аккаунта (org694) для получения реальных данных</small>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    <h6>ID вакансии:</h6>
+                                    <p class="text-muted">{{ invite.vacancy_id|default:"Не указано" }}</p>
+                                    
+                                    <h6>Шаблон scorecard:</h6>
+                                    {% if invite.scorecard_template_url %}
+                                        <p class="text-muted">
+                                            <a href="{{ invite.scorecard_template_url }}" target="_blank" class="text-decoration-none">
+                                                <i class="fas fa-external-link-alt me-1"></i>
+                                                Открыть шаблон
+                                            </a>
+                                        </p>
+                                    {% else %}
+                                        <p class="text-muted">Не указан</p>
+                                    {% endif %}
+                                    
+                                    <h6>Статус:</h6>
+                                    <span class="badge badge-{% if invite.status == 'pending' %}warning{% elif invite.status == 'sent' %}info{% elif invite.status == 'completed' %}success{% else %}secondary{% endif %}">
+                                        {{ invite.get_status_display }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Тип встречи, интервьюеры, исходная команда -->
+                    <div class="card shadow mb-4">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 font-weight-bold text-primary">Тип встречи и участники</h6>
+                        </div>
+                        <div class="card-body">
+                            <h6>Тип:</h6>
+                            <p class="text-muted">
+                                {% if invite.google_drive_file_id %}
+                                    <span class="badge bg-info">Скрининг</span>
+                                {% else %}
+                                    <span class="badge bg-primary">Интервью</span>
+                                {% endif %}
+                                {% if invite.interview_format %}
+                                    <span class="badge bg-secondary">{{ invite.get_interview_format_display }}</span>
+                                {% endif %}
+                            </p>
+                            <h6>Интервьюеры:</h6>
+                            {% with inv_list=invite.interviewers.all %}
+                                {% if inv_list %}
+                                    <ul class="list-unstyled text-muted mb-0">
+                                        {% for inv in inv_list %}
+                                            <li>{{ inv.get_full_name|default:inv.email }} {% if inv.email %}({{ inv.email }}){% endif %}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% elif invite.interviewer %}
+                                    <p class="text-muted mb-0">{{ invite.interviewer.get_full_name }} ({{ invite.interviewer.email }})</p>
+                                {% else %}
+                                    <p class="text-muted mb-0">Не указаны</p>
+                                {% endif %}
+                            {% endwith %}
+                            {% if invite.original_form_data %}
+                                <h6 class="mt-3">Исходная команда (что ввёл пользователь):</h6>
+                                <pre class="bg-light border rounded p-3 small text-muted mb-0" style="max-height: 200px; overflow: auto;">{{ invite.original_form_data }}</pre>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Снимок встреч на дату (если есть) -->
+                    {% if invite.meetings_snapshot %}
+                    <div class="card shadow mb-4">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 font-weight-bold text-primary">Снимок встреч на дату интервью</h6>
+                        </div>
+                        <div class="card-body">
+                            {% with data=invite.meetings_snapshot %}
+                                <p class="text-muted small"><strong>Дата:</strong> {{ data.date|default:"—" }}</p>
+                                {% if data.calendars %}
+                                    {% for cal in data.calendars %}
+                                        <h6 class="mt-3 small">Календарь: {{ cal.owner_email|default:cal.calendar_id|default:"—" }}</h6>
+                                        <ul class="list-unstyled small text-muted">
+                                            {% for ev in cal.events %}
+                                                <li class="mb-2">
+                                                    <strong>{{ ev.summary|default:"(без названия)" }}</strong>
+                                                    {{ ev.start|default:"" }} — {{ ev.end|default:"" }}
+                                                    {% for att in ev.attendees %}
+                                                        <br><span class="text-muted">• {{ att.email }}: {% if att.responseStatus == 'accepted' %}принято{% elif att.responseStatus == 'declined' %}не принято{% elif att.responseStatus == 'tentative' %}возможно{% else %}{{ att.responseStatus }}{% endif %}</span>
+                                                    {% endfor %}
+                                                </li>
+                                            {% endfor %}
+                                        </ul>
+                                    {% endfor %}
+                                {% else %}
+                                    <ul class="list-unstyled small text-muted">
+                                        {% for ev in data.events %}
+                                            <li class="mb-2">
+                                                <strong>{{ ev.summary|default:"(без названия)" }}</strong>
+                                                {{ ev.start|default:"" }} — {{ ev.end|default:"" }}
+                                                {% for att in ev.attendees %}
+                                                    <br><span class="text-muted">• {{ att.email }}: {% if att.responseStatus == 'accepted' %}принято{% elif att.responseStatus == 'declined' %}не принято{% elif att.responseStatus == 'tentative' %}возможно{% else %}{{ att.responseStatus }}{% endif %}</span>
+                                                {% endfor %}
+                                            </li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            {% endwith %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Google сервисы в две колонки -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <!-- Google Drive информация -->
+                            <div class="card shadow h-100">
+                                <div class="card-header py-3">
+                                    <h6 class="m-0 font-weight-bold text-primary">Google Drive</h6>
+                                </div>
+                                <div class="card-body">
+                                    {% if invite.google_drive_file_url %}
+                                        <h6>Scorecard:</h6>
+                                        <a href="{{ invite.google_drive_file_url }}" target="_blank" class="btn btn-success btn-block mb-3">
+                                            <i class="fas fa-file-excel me-2"></i>Открыть Scorecard
+                                        </a>
+                                        
+                                        <h6>Папка:</h6>
+                                        {% if invite.get_google_drive_folder_url %}
+                                            <a href="{{ invite.get_google_drive_folder_url }}" target="_blank" class="btn btn-outline-primary btn-sm btn-block mb-3">
+                                                <i class="fas fa-folder me-2"></i>Открыть папку
+                                            </a>
+                                        {% else %}
+                                            <p class="text-muted small">Не указана</p>
+                                        {% endif %}
+                                        
+                                        <h6>Путь к файлу:</h6>
+                                        <p class="text-muted small">{{ invite.get_google_drive_file_path|default:"Не указан" }}</p>
+                                    {% elif invite.google_drive_file_id %}
+                                        <div class="alert alert-warning">
+                                            <i class="fas fa-exclamation-triangle me-2"></i>
+                                            <strong>Scorecard подготовлен, но не создан</strong>
+                                        </div>
+                                        <p class="text-muted small">
+                                            Для создания реального scorecard файла необходимо настроить Google OAuth интеграцию.
+                                        </p>
+                                        
+                                        <h6>Подготовленные данные:</h6>
+                                        {% if invite.get_google_drive_folder_url %}
+                                            <a href="{{ invite.get_google_drive_folder_url }}" target="_blank" class="btn btn-outline-primary btn-sm btn-block mb-2">
+                                                <i class="fas fa-folder me-2"></i>Открыть папку
+                                            </a>
+                                        {% endif %}
+                                        <p class="text-muted small">
+                                            <strong>Путь к файлу:</strong> {{ invite.get_google_drive_file_path|default:"Не указан" }}
+                                        </p>
+                                    {% else %}
+                                        <div class="alert alert-info">
+                                            <i class="fas fa-info-circle me-2"></i>
+                                            <strong>Scorecard не создан</strong>
+                                        </div>
+                                        <p class="text-muted small">
+                                            Scorecard будет создан автоматически при настройке Google OAuth интеграции.
+                                        </p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <!-- Google Calendar информация -->
+                            <div class="card shadow h-100">
+                                <div class="card-header py-3">
+                                    <h6 class="m-0 font-weight-bold text-primary">Google Calendar</h6>
+                                </div>
+                                <div class="card-body">
+                                    {% if invite.calendar_event_url %}
+                                        <h6>Дата и время интервью:</h6>
+                                        <p class="text-primary font-weight-bold">{{ invite.get_formatted_interview_datetime }}</p>
+                                        
+                                        <h6>Календарное событие:</h6>
+                                        <a href="{{ invite.calendar_event_url }}" target="_blank" class="btn btn-info btn-block mb-3">
+                                            <i class="fas fa-calendar-alt me-2"></i>Открыть в календаре
+                                        </a>
+                                        
+                                        {% if invite.google_meet_url %}
+                                            <h6>Google Meet:</h6>
+                                            <a href="{{ invite.google_meet_url }}" target="_blank" class="btn btn-success btn-block mb-3">
+                                                <i class="fas fa-video me-2"></i>Присоединиться к встрече
+                                            </a>
+                                        {% endif %}
+                                        
+                                        <h6>ID события:</h6>
+                                        <p class="text-muted small">{{ invite.calendar_event_id }}</p>
+                                        
+                                        <div class="alert alert-success small">
+                                            <i class="fas fa-check-circle me-2"></i>
+                                            <strong>Событие создано</strong><br>
+                                            <small>Интервью запланировано на 45 минут</small>
+                                        </div>
+                                    {% else %}
+                                        <div class="alert alert-warning">
+                                            <i class="fas fa-exclamation-triangle me-2"></i>
+                                            <strong>Календарное событие не создано</strong>
+                                        </div>
+                                        <p class="text-muted small">
+                                            Для создания календарного события необходимо настроить Google OAuth интеграцию.
+                                        </p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-4">
+                    <!-- Действия -->
+                    <div class="card shadow mb-4">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 font-weight-bold text-primary">Действия</h6>
+                        </div>
+                        <div class="card-body">
+                            <button type="button" class="btn btn-primary w-100 mb-2" onclick="copyInvitation({{ invite.pk }})">
+                                <i class="fas fa-copy me-2"></i>Копировать приглашение
+                            </button>
+                            
+                            <a href="{% url 'google_oauth:invite_update' invite.pk %}" class="btn btn-warning w-100 mb-2">
+                                <i class="fas fa-edit me-2"></i>Редактировать
+                            </a>
+                            
+                            {% if invite.google_drive_file_url %}
+                                <button type="button" class="btn btn-info w-100 mb-2" onclick="regenerateScorecard({{ invite.pk }})">
+                                    <i class="fas fa-sync me-2"></i>Пересоздать Scorecard
+                                </button>
+                            {% endif %}
+                            
+                            <a href="{% url 'google_oauth:invite_delete' invite.pk %}" class="btn btn-danger w-100">
+                                <i class="fas fa-trash me-2"></i>Удалить инвайт
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Метаданные -->
+                    <div class="card shadow">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 font-weight-bold text-primary">Метаданные</h6>
+                        </div>
+                        <div class="card-body">
+                            <h6>Создан:</h6>
+                            <p class="text-muted small">{{ invite.created_at|date:"d.m.Y H:i" }}</p>
+                            
+                            <h6>Обновлен:</h6>
+                            <p class="text-muted small">{{ invite.updated_at|date:"d.m.Y H:i" }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyInvitation(inviteId) {
+    console.log('🔍 Начинаем копирование приглашения для инвайта:', inviteId);
+    
+    // Получаем CSRF токен
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (!csrfToken) {
+        console.error('❌ CSRF токен не найден');
+        showNotification('Ошибка: CSRF токен не найден', 'error');
+        return;
+    }
+    
+    console.log('🔍 CSRF токен найден:', csrfToken.value.substring(0, 10) + '...');
+    
+    // Получаем текст приглашения с сервера
+    fetch(`/google-oauth/invites/${inviteId}/invitation-text/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken.value,
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(response => {
+        console.log('🔍 Ответ сервера получен:', response.status, response.statusText);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('🔍 Данные получены:', data);
+        if (data.success) {
+            console.log('🔍 Текст приглашения:', data.invitation_text);
+            // Копируем текст в буфер обмена
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(data.invitation_text).then(function() {
+                    console.log('✅ Текст успешно скопирован в буфер обмена');
+                    showNotification('Приглашение скопировано в буфер обмена!', 'success');
+                }).catch(function(err) {
+                    console.error('❌ Ошибка копирования через Clipboard API:', err);
+                    // Fallback для старых браузеров
+                    fallbackCopyTextToClipboard(data.invitation_text);
+                });
+            } else {
+                console.log('🔍 Clipboard API не поддерживается, используем fallback');
+                fallbackCopyTextToClipboard(data.invitation_text);
+            }
+        } else {
+            console.error('❌ Ошибка от сервера:', data.message);
+            showNotification('Ошибка получения текста приглашения: ' + data.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('❌ Ошибка запроса:', error);
+        showNotification('Ошибка получения приглашения: ' + error.message, 'error');
+    });
+}
+
+function fallbackCopyTextToClipboard(text) {
+    console.log('🔍 Используем fallback метод копирования');
+    
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    
+    // Избегаем прокрутки к элементу
+    textArea.style.top = "0";
+    textArea.style.left = "0";
+    textArea.style.position = "fixed";
+    textArea.style.opacity = "0";
+    textArea.style.pointerEvents = "none";
+    
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+        const successful = document.execCommand('copy');
+        console.log('🔍 Fallback копирование:', successful ? 'успешно' : 'неудачно');
+        if (successful) {
+            showNotification('Приглашение скопировано в буфер обмена!', 'success');
+        } else {
+            showNotification('Не удалось скопировать приглашение', 'error');
+        }
+    } catch (err) {
+        console.error('❌ Fallback: Не удалось скопировать', err);
+        showNotification('Не удалось скопировать приглашение', 'error');
+    }
+    
+    document.body.removeChild(textArea);
+}
+
+function showNotification(message, type) {
+    // Создаем уведомление
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show position-fixed`;
+    notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    notification.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Автоматически скрываем через 3 секунды
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 3000);
+}
+
+function regenerateScorecard(inviteId) {
+    if (confirm('Вы уверены, что хотите пересоздать scorecard? Это удалит текущий файл и создаст новый.')) {
+        console.log('🔍 Начинаем пересоздание scorecard для инвайта:', inviteId);
+        
+        // Получаем CSRF токен
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (!csrfToken) {
+            console.error('❌ CSRF токен не найден');
+            showNotification('Ошибка: CSRF токен не найден', 'error');
+            return;
+        }
+        
+        fetch(`/google-oauth/invites/${inviteId}/regenerate-scorecard/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken.value,
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(response => {
+            console.log('🔍 Ответ сервера получен:', response.status, response.statusText);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('🔍 Данные получены:', data);
+            if (data.success) {
+                showNotification('Scorecard успешно пересоздан!', 'success');
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+            } else {
+                showNotification('Ошибка: ' + data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('❌ Ошибка запроса:', error);
+            showNotification('Ошибка: ' + error.message, 'error');
+        });
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,471 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Настройки бенчмарков{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/finance.css' %}">
+<style>
+    .settings-section {
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        padding: var(--space-24);
+        margin-bottom: var(--space-24);
+        box-shadow: var(--shadow-sm);
+    }
+    
+    .settings-section h5 {
+        color: var(--color-text);
+        margin-bottom: var(--space-16);
+        padding-bottom: var(--space-8);
+        border-bottom: 2px solid var(--color-primary);
+    }
+    
+    .form-group {
+        margin-bottom: var(--space-20);
+    }
+    
+    .form-label {
+        font-weight: 600;
+        color: var(--color-text);
+        margin-bottom: var(--space-8);
+    }
+    
+    .form-control, .form-select {
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-base);
+        padding: var(--space-12);
+        background: var(--color-surface);
+        color: var(--color-text);
+        transition: all var(--duration-normal) var(--ease-standard);
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: var(--color-primary);
+        box-shadow: 0 0 0 0.2rem rgba(var(--color-primary-rgb), 0.25);
+        outline: none;
+    }
+    
+    .form-text {
+        color: var(--color-text-muted);
+        font-size: 0.875rem;
+        margin-top: var(--space-4);
+    }
+    
+    .checkbox-group {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: var(--space-16);
+        margin-top: var(--space-12);
+    }
+    
+    .form-check {
+        position: relative;
+        cursor: pointer;
+    }
+    
+    .form-check-input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+        width: 0;
+        height: 0;
+        margin: 0;
+        padding: 0;
+        border: none;
+        background: none;
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        outline: none;
+        box-shadow: none;
+        clip: rect(0, 0, 0, 0);
+        overflow: hidden;
+    }
+    
+    /* Дополнительные стили для полного скрытия */
+    .form-check-input:before,
+    .form-check-input:after {
+        display: none !important;
+    }
+    
+    /* Скрываем все возможные псевдоэлементы */
+    .form-check-input::-webkit-appearance,
+    .form-check-input::-moz-appearance {
+        display: none !important;
+    }
+    
+    /* Убираем все возможные индикаторы */
+    .form-check-input:checked:before,
+    .form-check-input:checked:after,
+    .form-check-input:focus:before,
+    .form-check-input:focus:after {
+        display: none !important;
+    }
+    
+    .form-check-label {
+        display: block;
+        padding: var(--space-16);
+        background: var(--color-surface);
+        border: 2px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        color: var(--color-text);
+        font-weight: 600;
+        font-size: 0.95rem;
+        text-align: center;
+        transition: all var(--duration-normal) var(--ease-standard);
+        position: relative;
+        overflow: hidden;
+        cursor: pointer;
+    }
+    
+    .form-check-label::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
+        opacity: 0;
+        transition: opacity var(--duration-normal) var(--ease-standard);
+        z-index: 0;
+    }
+    
+    .form-check-label::after {
+        content: '✓';
+        position: absolute;
+        top: 50%;
+        right: var(--space-12);
+        transform: translateY(-50%);
+        color: var(--color-primary);
+        font-size: 16px;
+        font-weight: bold;
+        opacity: 0;
+        transition: opacity var(--duration-normal) var(--ease-standard);
+        z-index: 1;
+    }
+    
+    .form-check-label:hover {
+        border-color: var(--color-primary);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.15);
+    }
+    
+    .form-check-label:hover::before {
+        opacity: 0.05;
+    }
+    
+    .form-check-input:checked + .form-check-label {
+        border-color: var(--color-primary);
+        background: rgba(var(--color-primary-rgb), 0.1);
+        color: var(--color-primary);
+    }
+    
+    .form-check-input:checked + .form-check-label::before {
+        opacity: 0.1;
+    }
+    
+    .form-check-input:checked + .form-check-label::after {
+        opacity: 1;
+    }
+    
+    /* Стили для обязательных полей */
+    .form-check-input:disabled + .form-check-label {
+        background: rgba(var(--color-success-rgb), 0.1);
+        border-color: var(--color-success);
+        color: var(--color-success);
+        cursor: not-allowed;
+    }
+    
+    .form-check-input:disabled + .form-check-label::after {
+        opacity: 1;
+        color: var(--color-success);
+    }
+    
+    .form-check-input:disabled + .form-check-label:hover {
+        transform: none;
+        box-shadow: none;
+    }
+    
+    .form-check-input:disabled + .form-check-label:hover::before {
+        opacity: 0;
+    }
+    
+    .btn-save {
+        background: var(--color-primary);
+        border: none;
+        color: white;
+        padding: var(--space-12) var(--space-24);
+        border-radius: var(--radius-base);
+        font-weight: 600;
+        transition: all var(--duration-normal) var(--ease-standard);
+    }
+    
+    .btn-save:hover {
+        background: var(--color-primary-dark);
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+    }
+    
+    .settings-info {
+        background: var(--color-info-light);
+        border: 1px solid var(--color-info);
+        border-radius: var(--radius-base);
+        padding: var(--space-16);
+        margin-bottom: var(--space-24);
+    }
+    
+    .settings-info h6 {
+        color: var(--color-info-dark);
+        margin-bottom: var(--space-8);
+    }
+    
+    .settings-info p {
+        color: var(--color-info-dark);
+        margin: 0;
+        font-size: 0.9rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <!-- Хлебные крошки -->
+            <nav aria-label="breadcrumb" class="mb-4">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'finance:dashboard' %}">Финансы</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'finance:benchmarks_dashboard' %}">Бенчмарки</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Настройки</li>
+                </ol>
+            </nav>
+
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="h3 mb-1">
+                        <i class="fas fa-cog me-2"></i>
+                        Настройки бенчмарков
+                    </h1>
+                    <p class="text-muted mb-0">Конфигурация системы анализа зарплатных бенчмарков</p>
+                </div>
+            </div>
+
+            <!-- Информация о настройках -->
+            <div class="settings-info">
+                <h6><i class="fas fa-info-circle me-2"></i>Информация о настройках</h6>
+                <p>Настройки бенчмарков влияют на расчет средних значений, анализ данных через ИИ и сбор информации о вакансиях. Изменения применяются немедленно после сохранения.</p>
+            </div>
+
+            <form method="post" class="settings-form">
+                {% csrf_token %}
+                
+                <!-- Основные настройки -->
+                <div class="settings-section">
+                    <h5><i class="fas fa-sliders-h me-2"></i>Основные настройки</h5>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="average_calculation_period_days" class="form-label">
+                                    Период расчета среднего (дни)
+                                </label>
+                                <input type="number" 
+                                       class="form-control" 
+                                       id="average_calculation_period_days" 
+                                       name="average_calculation_period_days" 
+                                       value="{{ settings.average_calculation_period_days }}"
+                                       min="1" 
+                                       max="365" 
+                                       required>
+                                <div class="form-text">Количество дней для расчета средних значений бенчмарков (1-365)</div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="belarus_tax_rate" class="form-label">
+                                    Налог в РБ (%)
+                                </label>
+                                <input type="number" 
+                                       class="form-control" 
+                                       id="belarus_tax_rate" 
+                                       name="belarus_tax_rate" 
+                                       value="{{ settings.belarus_tax_rate }}"
+                                       step="0.01" 
+                                       min="0" 
+                                       max="50" 
+                                       required>
+                                <div class="form-text">Налоговая ставка в Беларуси для пересчета net/gross (0-50%)</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="max_daily_tasks" class="form-label">
+                                    Максимальное количество задач в день
+                                </label>
+                                <input type="number" 
+                                       class="form-control" 
+                                       id="max_daily_tasks" 
+                                       name="max_daily_tasks" 
+                                       value="{{ settings.max_daily_tasks }}"
+                                       min="1" 
+                                       max="10000" 
+                                       required>
+                                <div class="form-text">Максимальное количество задач для обработки в день (1-10000)</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ИИ анализ -->
+                <div class="settings-section">
+                    <h5><i class="fas fa-robot me-2"></i>ИИ анализ</h5>
+                    
+                    <div class="form-group">
+                        <label for="ai_analysis_prompt" class="form-label">
+                            Промпт для анализа данных через ИИ
+                        </label>
+                        <textarea class="form-control" 
+                                  id="ai_analysis_prompt" 
+                                  name="ai_analysis_prompt" 
+                                  rows="4" 
+                                  required>{{ settings.ai_analysis_prompt }}</textarea>
+                        <div class="form-text">Промпт для анализа данных о зарплатах через искусственный интеллект</div>
+                    </div>
+                </div>
+
+                <!-- Источники данных -->
+                <div class="settings-section">
+                    <h5><i class="fas fa-database me-2"></i>Источники данных о вакансиях</h5>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Выберите источники данных</label>
+                        <div class="checkbox-group">
+                            {% for value, label in data_sources_choices %}
+                                <div class="form-check">
+                                    <input class="form-check-input" 
+                                           type="checkbox" 
+                                           id="data_source_{{ value }}" 
+                                           name="data_sources" 
+                                           value="{{ value }}"
+                                           {% if value in settings.data_sources %}checked{% endif %}>
+                                    <label class="form-check-label" for="data_source_{{ value }}">
+                                        {{ label }}
+                                    </label>
+                                </div>
+                            {% endfor %}
+                        </div>
+                        <div class="form-text">Выберите источники данных о вакансиях для анализа</div>
+                    </div>
+                </div>
+
+                <!-- Поля вакансий -->
+                <div class="settings-section">
+                    <h5><i class="fas fa-list me-2"></i>Поля для сохранения вакансий</h5>
+                    
+                    <!-- Обязательные поля -->
+                    <div class="form-group">
+                        <label class="form-label">Обязательные поля</label>
+                        <div class="checkbox-group">
+                            {% for value, label in required_vacancy_fields %}
+                                <div class="form-check">
+                                    <input class="form-check-input" 
+                                           type="checkbox" 
+                                           id="vacancy_field_{{ value }}" 
+                                           name="vacancy_fields" 
+                                           value="{{ value }}"
+                                           checked
+                                           disabled>
+                                    <label class="form-check-label required-field" for="vacancy_field_{{ value }}">
+                                        {{ label }}
+                                    </label>
+                                </div>
+                            {% endfor %}
+                        </div>
+                        <div class="form-text">Эти поля всегда включены и не могут быть отключены</div>
+                    </div>
+                    
+                    <!-- Дополнительные поля -->
+                    <div class="form-group">
+                        <label class="form-label">Дополнительные поля</label>
+                        <div class="checkbox-group">
+                            {% for value, label in optional_vacancy_fields %}
+                                <div class="form-check">
+                                    <input class="form-check-input" 
+                                           type="checkbox" 
+                                           id="vacancy_field_{{ value }}" 
+                                           name="vacancy_fields" 
+                                           value="{{ value }}"
+                                           {% if value in settings.vacancy_fields %}checked{% endif %}>
+                                    <label class="form-check-label" for="vacancy_field_{{ value }}">
+                                        {{ label }}
+                                    </label>
+                                </div>
+                            {% endfor %}
+                        </div>
+                        <div class="form-text">Выберите дополнительные поля для сохранения информации о вакансиях</div>
+                    </div>
+                </div>
+
+                <!-- Кнопка сохранения -->
+                <div class="text-end">
+                    <button type="submit" class="btn btn-save">
+                        <i class="fas fa-save me-2"></i>
+                        Сохранить настройки
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Добавляем валидацию формы
+    const form = document.querySelector('.settings-form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            // Проверяем, что выбрано хотя бы один источник данных
+            const dataSources = document.querySelectorAll('input[name="data_sources"]:checked');
+            if (dataSources.length === 0) {
+                e.preventDefault();
+                alert('Пожалуйста, выберите хотя бы один источник данных о вакансиях.');
+                return false;
+            }
+            
+            // Проверяем, что выбрано хотя бы одно дополнительное поле вакансии
+            const optionalVacancyFields = document.querySelectorAll('input[name="vacancy_fields"]:checked:not([disabled])');
+            if (optionalVacancyFields.length === 0) {
+                e.preventDefault();
+                alert('Пожалуйста, выберите хотя бы одно дополнительное поле для вакансий.');
+                return false;
+            }
+        });
+    }
+    
+    // Добавляем анимацию при клике на кнопки-чекбоксы
+    const formChecks = document.querySelectorAll('.form-check');
+    formChecks.forEach(formCheck => {
+        const label = formCheck.querySelector('.form-check-label');
+        const input = formCheck.querySelector('.form-check-input');
+        
+        // Добавляем анимацию при клике
+        label.addEventListener('click', function() {
+            // Анимация только для неотключенных элементов
+            if (!input.disabled) {
+                this.style.transform = 'scale(0.95)';
+                setTimeout(() => {
+                    this.style.transform = '';
+                }, 150);
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

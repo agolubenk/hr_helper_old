@@ -1,0 +1,128 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}404 - Страница не найдена | HR Helper{% endblock %}
+
+{% block extra_css %}
+    <style>
+        .error-container {
+            min-height: 80vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .error-image-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 400px;
+        }
+        
+        .error-404 {
+            width: 435px;
+            height: 670px;
+            background-image: url('{% static "img/404.png" %}');
+            background-repeat: no-repeat;
+            background-size: 200% 100%;
+            background-position: left center;
+            border-radius: 15px;
+        }
+        
+        /* Светлая тема: показываем левую половину (белый робот) */
+        body.light-theme .error-404 {
+            background-position: left center;
+        }
+        
+        /* Тёмная тема: показываем правую половину (красный робот) */
+        body.dark-theme .error-404 {
+            background-position: right center;
+        }
+    </style>
+{% endblock %}
+
+{% block page_title %}404 - Страница не найдена{% endblock %}
+
+{% block content %}
+    <div class="error-container">
+        <div class="row g-4 align-items-center">
+            <!-- Левая колонка - картинка -->
+            <div class="col-lg-6">
+                <div class="error-image-container">
+                    <div class="error-404"></div>
+                </div>
+            </div>
+            
+            <!-- Правая колонка - карточка с текстом -->
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <!-- Заголовок -->
+                        <h1 class="display-1 fw-bold text-primary mb-3">404</h1>
+                        <h2 class="h3 mb-4">Страница не найдена</h2>
+                        
+                        <!-- Описание -->
+                        <p class="lead mb-4">
+                            К сожалению, запрашиваемая страница не существует или была перемещена. 
+                            Возможно, вы ввели неправильный адрес или перешли по устаревшей ссылке.
+                        </p>
+                        
+                        <!-- Действия -->
+                        <div class="d-flex justify-content-center gap-3">
+                            <a href="{% url 'home' %}" class="btn btn-primary">
+                                <i class="fas fa-home me-2"></i>
+                                На главную
+                            </a>
+                            <a href="javascript:history.back()" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>
+                                Назад
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+    <script>
+        // Определяем тему и применяем соответствующий класс для картинки 404
+        function apply404Theme() {
+            const body = document.body;
+            const html = document.documentElement;
+            
+            // Получаем текущую тему из data-theme атрибута
+            const currentTheme = html.getAttribute('data-theme');
+            
+            if (currentTheme === 'dark') {
+                body.classList.add('dark-theme');
+                body.classList.remove('light-theme');
+            } else {
+                body.classList.add('light-theme');
+                body.classList.remove('dark-theme');
+            }
+        }
+        
+        // Применяем тему при загрузке страницы
+        document.addEventListener('DOMContentLoaded', function() {
+            apply404Theme();
+            
+            // Слушаем изменения темы
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.type === 'attributes' && mutation.attributeName === 'data-theme') {
+                        apply404Theme();
+                    }
+                });
+            });
+            
+            observer.observe(document.documentElement, {
+                attributes: true,
+                attributeFilter: ['data-theme']
+            });
+        });
+    </script>
+{% endblock %}
+

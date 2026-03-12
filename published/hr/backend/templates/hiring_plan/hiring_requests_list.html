@@ -1,0 +1,630 @@
+{% extends 'common/base.html' %}
+{% load static %}
+{% load hiring_plan_extras %}
+
+{% block title %}Заявки на найм - HR Helper{% endblock %}
+{% block page_title %}Заявки на найм{% endblock %}
+
+{% block content %}
+<style>
+/* Стили для stat-card (как в benchmarks) */
+.stat-card {
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
+    color: white;
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    min-height: 118px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    width: 100%;
+    margin: 0;
+}
+
+.stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+    pointer-events: none;
+}
+
+.stat-card .stat-number {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+    position: relative;
+    z-index: 1;
+    line-height: 1.2;
+}
+
+.stat-card .stat-label {
+    font-size: 1rem;
+    opacity: 0.9;
+    position: relative;
+    z-index: 1;
+    line-height: 1.2;
+}
+
+.stat-card .stat-icon {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    font-size: 3rem;
+    opacity: 0.2;
+    z-index: 0;
+}
+
+.priority-icon {
+    font-size: 1.2em;
+    cursor: help;
+}
+.priority-icon:hover {
+    transform: scale(1.1);
+    transition: transform 0.2s ease;
+}
+.vacancy-name {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+}
+.project-name {
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+}
+
+/* Темная тема для главной страницы заявок */
+[data-bs-theme="dark"] .card {
+    background-color: #343a40;
+    border-color: #495057;
+}
+
+[data-bs-theme="dark"] .card-header {
+    background-color: #495057;
+    border-bottom-color: #6c757d;
+    color: #ffffff;
+}
+
+[data-bs-theme="dark"] .card-body {
+    background-color: #343a40;
+    color: #ffffff;
+}
+
+[data-bs-theme="dark"] .table {
+    color: #ffffff;
+}
+
+[data-bs-theme="dark"] .table-striped > tbody > tr:nth-of-type(odd) > td {
+    background-color: #2d3338;
+}
+
+[data-bs-theme="dark"] .table-hover > tbody > tr:hover > td {
+    background-color: #495057;
+}
+
+[data-bs-theme="dark"] .table th {
+    background-color: #343a40;
+    border-color: #495057;
+    color: #ffffff;
+}
+
+[data-bs-theme="dark"] .table td {
+    border-color: #495057;
+    color: #ffffff;
+}
+
+[data-bs-theme="dark"] .text-muted {
+    color: #adb5bd !important;
+}
+
+[data-bs-theme="dark"] .badge {
+    color: #ffffff;
+}
+
+[data-bs-theme="dark"] .badge.bg-secondary {
+    background-color: #6c757d !important;
+    color: #ffffff !important;
+}
+
+[data-bs-theme="dark"] .badge.bg-primary {
+    background-color: #0d6efd !important;
+    color: #ffffff !important;
+}
+
+[data-bs-theme="dark"] .badge.bg-danger {
+    background-color: #dc3545 !important;
+    color: #ffffff !important;
+}
+
+[data-bs-theme="dark"] .badge.bg-success {
+    background-color: #198754 !important;
+    color: #ffffff !important;
+}
+
+[data-bs-theme="dark"] .badge.bg-warning {
+    background-color: #ffc107 !important;
+    color: #000000 !important;
+}
+
+[data-bs-theme="dark"] .badge.bg-info {
+    background-color: #0dcaf0 !important;
+    color: #000000 !important;
+}
+
+[data-bs-theme="dark"] .text-decoration-none {
+    color: #ffffff;
+}
+
+[data-bs-theme="dark"] .text-decoration-none:hover {
+    color: #66b3ff;
+}
+
+[data-bs-theme="dark"] .vacancy-name {
+    color: #ffffff;
+}
+
+[data-bs-theme="dark"] .project-name {
+    color: #ffffff;
+}
+
+[data-bs-theme="dark"] .fas {
+    color: inherit;
+}
+</style>
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-users me-2"></i>
+                        Заявки на найм
+                    </h5>
+                            <div class="btn-group flex-wrap gap-2" role="group">
+                                <a href="{% url 'hiring_plan:hiring_requests_export_json' %}" class="btn btn-outline-success btn-sm" title="Скачать заявки и SLA в JSON">
+                                    <i class="fas fa-download me-2"></i>Экспорт в JSON
+                                </a>
+                                <button type="button" class="btn btn-outline-info btn-sm" data-bs-toggle="modal" data-bs-target="#importHiringRequestsJsonModal" title="Загрузить заявки и SLA из JSON">
+                                    <i class="fas fa-upload me-2"></i>Импорт из JSON
+                                </button>
+                                <a href="{% url 'hiring_plan:hiring_request_create' %}" class="btn btn-primary">
+                                    <i class="fas fa-plus me-2"></i>Создать заявку
+                                </a>
+                                <a href="{% url 'hiring_plan:yearly_hiring_plan' %}" class="btn btn-outline-success">
+                                    <i class="fas fa-calendar-alt me-2"></i>Годовая таблица
+                                </a>
+                                <a href="{% url 'hiring_plan:metrics_dashboard' %}" class="btn btn-outline-info">
+                                    <i class="fas fa-chart-bar me-2"></i>Метрики и KPI
+                                </a>
+                                <a href="{% url 'hiring_plan:sla_list' %}" class="btn btn-outline-warning">
+                                    <i class="fas fa-clock me-2"></i>Управление SLA
+                                </a>
+                            </div>
+                </div>
+            </div>
+
+            <!-- Модальное окно импорта заявок из JSON -->
+            <div class="modal fade" id="importHiringRequestsJsonModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title"><i class="fas fa-upload me-2"></i>Импорт заявок и SLA из JSON</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <form method="post" action="{% url 'hiring_plan:hiring_requests_import_json' %}" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            <div class="modal-body">
+                                <p class="text-muted small">Выберите JSON-файл, полученный при экспорте. При импорте существующие SLA перезаписываются по паре вакансия+грейд; заявки добавляются новыми записями. Вакансии и грейды должны существовать.</p>
+                                <div class="mb-3">
+                                    <label for="id_hiring_json_file" class="form-label">Файл JSON</label>
+                                    <input type="file" name="json_file" id="id_hiring_json_file" class="form-control" accept=".json,application/json" required>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                                <button type="submit" class="btn btn-primary"><i class="fas fa-upload me-1"></i>Загрузить</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+
+                <!-- Статистика -->
+                <div class="row mb-4 g-3 align-items-stretch">
+                    <div class="col reporting-section d-flex">
+                        <div class="stat-card h-100 w-100" style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);">
+                            <div class="stat-icon">
+                                <i class="fas fa-list-alt"></i>
+                            </div>
+                            <div class="stat-number">{{ total_requests }}</div>
+                            <div class="stat-label">Всего заявок</div>
+                        </div>
+                    </div>
+                    <div class="col reporting-section d-flex">
+                        <div class="stat-card h-100 w-100" style="background: linear-gradient(135deg, #17a2b8 0%, #117a8b 100%);">
+                            <div class="stat-icon">
+                                <i class="fas fa-calendar-alt"></i>
+                            </div>
+                            <div class="stat-number">{{ planned_requests }}</div>
+                            <div class="stat-label">Планируется</div>
+                        </div>
+                    </div>
+                    <div class="col reporting-section d-flex">
+                        <div class="stat-card h-100 w-100" style="background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);">
+                            <div class="stat-icon">
+                                <i class="fas fa-spinner"></i>
+                            </div>
+                            <div class="stat-number">{{ in_progress_requests }}</div>
+                            <div class="stat-label">В процессе</div>
+                        </div>
+                    </div>
+                    <div class="col reporting-section d-flex">
+                        <div class="stat-card h-100 w-100" style="background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);">
+                            <div class="stat-icon">
+                                <i class="fas fa-check-circle"></i>
+                            </div>
+                            <div class="stat-number">{{ closed_requests }}</div>
+                            <div class="stat-label">Закрыто</div>
+                        </div>
+                    </div>
+                    <div class="col reporting-section d-flex">
+                        <div class="stat-card h-100 w-100" style="background: linear-gradient(135deg, #6c757d 0%, #545b62 100%);">
+                            <div class="stat-icon">
+                                <i class="fas fa-percentage"></i>
+                            </div>
+                            <div class="stat-number">{% widthratio closed_requests total_requests 100 %}%</div>
+                            <div class="stat-label">Выполнение</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Фильтры -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-filter me-2"></i>
+                            Фильтры
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <form method="get" class="row g-3">
+                            <div class="col-md-2">
+                                <label for="search" class="form-label">Поиск</label>
+                                <input type="text" name="search" id="search" class="form-control" 
+                                       value="{{ request.GET.search }}" placeholder="Вакансия, кандидат...">
+                            </div>
+                            <div class="col-md-2">
+                                <label for="status" class="form-label">Статус</label>
+                                <select name="status" id="status" class="form-select">
+                                    <option value="">Все статусы</option>
+                                    {% for value, label in status_choices %}
+                                        <option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>
+                                            {{ label }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="period" class="form-label">Период</label>
+                                <input type="month" name="period" id="period" class="form-control" 
+                                       value="{{ request.GET.period }}">
+                            </div>
+                            <div class="col-md-2">
+                                <label for="grade" class="form-label">Грейд</label>
+                                <select name="grade" id="grade" class="form-select">
+                                    <option value="">Все грейды</option>
+                                    {% for id, name in grade_choices %}
+                                        <option value="{{ id }}" {% if request.GET.grade == id|stringformat:"s" %}selected{% endif %}>
+                                            {{ name }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="vacancy" class="form-label">Вакансия</label>
+                                <select name="vacancy" id="vacancy" class="form-select">
+                                    <option value="">Все вакансии</option>
+                                    {% for id, name in vacancy_choices %}
+                                        <option value="{{ id }}" {% if request.GET.vacancy == id|stringformat:"s" %}selected{% endif %}>
+                                            {{ name }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="priority" class="form-label">Приоритет</label>
+                                <select name="priority" id="priority" class="form-select">
+                                    <option value="">Все приоритеты</option>
+                                    {% for value, label in priority_choices %}
+                                        <option value="{{ value }}" {% if request.GET.priority == value|stringformat:"s" %}selected{% endif %}>
+                                            {{ label }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="recruiter" class="form-label">Рекрутер</label>
+                                <select name="recruiter" id="recruiter" class="form-select">
+                                    <option value="">Все рекрутеры</option>
+                                    {% for id, username in recruiter_choices %}
+                                        <option value="{{ id }}" {% if request.GET.recruiter == id|stringformat:"s" %}selected{% endif %}>
+                                            {{ username }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-search me-2"></i>Применить фильтры
+                                </button>
+                                <a href="{% url 'hiring_plan:hiring_requests_list' %}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-times me-2"></i>Сбросить
+                                </a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Таблица заявок -->
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th class="text-center" title="Приоритет заявки"></th>
+                                <th>Вакансия / Грейд</th>
+                                <th>Проект</th>
+                                <th>Рекрутер</th>
+                                <th>Статус</th>
+                                <th>Сроки</th>
+                                <th>Факт/SLA</th>
+                                <th>T2H | SLA</th>
+                                <th>Кандидат</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for request in requests %}
+                            <tr>
+                                <td class="text-center">
+                                    {% if request.priority == 1 %}
+                                        <i class="fas fa-exclamation-triangle text-danger priority-icon" title="Критический приоритет"></i>
+                                    {% elif request.priority == 2 %}
+                                        <i class="fas fa-exclamation-circle text-warning priority-icon" title="Высокий приоритет"></i>
+                                    {% elif request.priority == 3 %}
+                                        <i class="fas fa-info-circle text-info priority-icon" title="Средний приоритет"></i>
+                                    {% elif request.priority == 4 %}
+                                        <i class="fas fa-minus-circle text-secondary priority-icon" title="Низкий приоритет"></i>
+                                    {% else %}
+                                        <span class="text-muted">—</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div>
+                                        <strong class="vacancy-name" title="{{ request.vacancy.name }}">{{ request.vacancy.name }}</strong>
+                                        <br>
+                                        <span class="badge bg-info">{{ request.grade.name }}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if request.project %}
+                                        {{ request.project }}
+                                    {% else %}
+                                        <span class="text-muted">—</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if request.recruiter %}
+                                        <div>
+                                            <span>{{ request.recruiter|recruiter_short }}</span>
+                                            {% if request.recruiter_work_days > 0 %}
+                                                <br><small class="text-muted">{{ request.recruiter_work_days }} дн.</small>
+                                            {% endif %}
+                                        </div>
+                                    {% else %}
+                                        <span class="text-muted">Не назначен</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if request.status == 'planned' %}
+                                        <span class="badge bg-info">Планируется</span>
+                                    {% elif request.status == 'in_progress' %}
+                                        <span class="badge bg-warning">В процессе</span>
+                                    {% elif request.status == 'closed' %}
+                                        <div>
+                                            <span class="badge bg-success">Закрыта</span>
+                                            {% if request.closed_date %}
+                                                <br><small class="{{ request.closed_date_color_class }}">{{ request.closed_date|date:"d.m.Y" }}</small>
+                                            {% endif %}
+                                        </div>
+                                    {% elif request.status == 'cancelled' %}
+                                        <div>
+                                            <span class="badge bg-secondary">Отменена</span>
+                                            {% if request.closed_date %}
+                                                <br><small class="{{ request.closed_date_color_class }}">{{ request.closed_date|date:"d.m.Y" }}</small>
+                                            {% endif %}
+                                        </div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div>
+                                        <strong>{{ request.opening_date|date:"d.m.Y" }}</strong>
+                                        {% if request.deadline %}
+                                            <span class="{{ request.deadline_color_class }}"> - {{ request.deadline|date:"d.m.Y" }}</span>
+                                        {% else %}
+                                            <span class="text-muted"> - Нет SLA</span>
+                                        {% endif %}
+                                    </div>
+                                    {% if request.is_overdue and request.deadline %}
+                                        <small class="text-danger">Просрочено</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if request.sla %}
+                                        {% if request.status == 'planned' %}
+                                            <span class="text-muted">—</span>
+                                        {% else %}
+                                            {% if request.sla_status_display == 'В срок' %}
+                                                <span class="text-success"><strong>{{ request.days_in_progress }}</strong>/{{ request.sla.time_to_offer }}д</span>
+                                            {% elif request.sla_status_display == 'Просрочено' %}
+                                                <span class="text-danger"><strong>{{ request.days_in_progress }}</strong>/{{ request.sla.time_to_offer }}д</span>
+                                            {% elif request.sla_status_display == 'Нормально' %}
+                                                <span class="text-info"><strong>{{ request.days_in_progress }}</strong>/{{ request.sla.time_to_offer }}д</span>
+                                            {% elif request.sla_status_display == 'Риск просрочки' %}
+                                                <span class="text-warning"><strong>{{ request.days_in_progress }}</strong>/{{ request.sla.time_to_offer }}д</span>
+                                            {% else %}
+                                                <span class="text-secondary"><strong>{{ request.days_in_progress }}</strong>/{{ request.sla.time_to_offer }}д</span>
+                                            {% endif %}
+                                        {% endif %}
+                                        <br>
+                                        {% if request.sla_status_display == 'В срок' %}
+                                            <span class="badge bg-success">В срок</span>
+                                        {% elif request.sla_status_display == 'Просрочено' %}
+                                            <span class="badge bg-danger">Просрочено</span>
+                                        {% elif request.sla_status_display == 'Нормально' %}
+                                            <span class="badge bg-info">Нормально</span>
+                                        {% elif request.sla_status_display == 'Риск просрочки' %}
+                                            <span class="badge bg-warning">Риск просрочки</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ request.sla_status_display }}</span>
+                                        {% endif %}
+                                    {% else %}
+                                        {% if request.status == 'planned' %}
+                                            <span class="text-muted">—</span>
+                                        {% else %}
+                                            <span class="text-muted"><strong>{{ request.days_in_progress }}</strong> дней</span>
+                                        {% endif %}
+                                        <br>
+                                        <span class="text-muted">Нет SLA</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="d-flex flex-column gap-1">
+                                        <!-- T2H бейдж -->
+                                        {% if request.time2hire %}
+                                            <span class="badge bg-primary">{{ request.time2hire }} дн.</span>
+                                        {% elif request.status == 'closed' %}
+                                            <span class="badge bg-danger">
+                                                <i class="fas fa-exclamation-triangle"></i>
+                                            </span>
+                                        {% else %}
+                                            <span class="text-muted">—</span>
+                                        {% endif %}
+                                        
+                                        <!-- SLA бейдж -->
+                                        {% if request.sla and request.sla.time_to_hire and request.status != 'planned' %}
+                                            {% if request.status == 'closed' %}
+                                                {% if request.time2hire and request.time2hire <= request.sla.time_to_hire %}
+                                                    <span class="badge bg-success">{{ request.sla.time_to_hire }} дн.</span>
+                                                {% else %}
+                                                    <span class="badge bg-danger">{{ request.sla.time_to_hire }} дн.</span>
+                                                {% endif %}
+                                            {% else %}
+                                                {% if request.time2hire and request.time2hire > request.sla.time_to_hire %}
+                                                    <span class="badge bg-warning">{{ request.sla.time_to_hire }} дн.</span>
+                                                {% else %}
+                                                    <span class="badge bg-info">{{ request.sla.time_to_hire }} дн.</span>
+                                                {% endif %}
+                                            {% endif %}
+                                        {% elif request.status == 'planned' %}
+                                            <span class="text-muted">—</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if request.candidate_name %}
+                                        <strong>{{ request.candidate_name }}</strong>
+                                        {% if request.candidate_id %}
+                                            <br><small class="text-muted">ID: {{ request.candidate_id }}</small>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted">—</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <a href="{% url 'hiring_plan:hiring_request_detail' request.pk %}" 
+                                           class="btn btn-outline-primary" title="Просмотр">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <a href="{% url 'hiring_plan:hiring_request_update' request.pk %}" 
+                                           class="btn btn-outline-warning" title="Редактировать">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        {% if request.clickup_task_id %}
+                                        <a href="https://app.clickup.com/t/{{ request.clickup_task_id }}" 
+                                           target="_blank" rel="noopener"
+                                           class="btn btn-outline-info" title="Задача в ClickUp">
+                                            <i class="fas fa-external-link-alt"></i>
+                                        </a>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="10" class="text-center text-muted py-4">
+                                    <i class="fas fa-inbox fa-2x mb-2"></i><br>
+                                    Заявки не найдены
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Пагинация -->
+                {% if is_paginated %}
+                <nav aria-label="Пагинация заявок">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                    <i class="fas fa-angle-double-left"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                    <i class="fas fa-angle-left"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+
+                        <li class="page-item active">
+                            <span class="page-link">
+                                Страница {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}
+                            </span>
+                        </li>
+
+                        {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                    <i class="fas fa-angle-right"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                    <i class="fas fa-angle-double-right"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

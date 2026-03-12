@@ -1,0 +1,399 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Логи синхронизации Notion{% endblock %}
+
+{% block extra_css %}
+<style>
+    .log-card {
+        background: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        border: 1px solid #e9ecef;
+        transition: all 0.3s ease;
+    }
+    
+    .log-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    }
+    
+    .log-header {
+        display: flex;
+        justify-content-between;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+    }
+    
+    .log-status {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .status-success {
+        background: #d4edda;
+        color: #155724;
+    }
+    
+    .status-error {
+        background: #f8d7da;
+        color: #721c24;
+    }
+    
+    .status-partial {
+        background: #fff3cd;
+        color: #856404;
+    }
+    
+    .log-time {
+        font-size: 0.9rem;
+        color: #6c757d;
+    }
+    
+    .log-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .stat-item {
+        text-align: center;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 10px;
+    }
+    
+    .stat-number {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #495057;
+        margin-bottom: 0.25rem;
+    }
+    
+    .stat-label {
+        font-size: 0.8rem;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .log-duration {
+        background: #e9ecef;
+        color: #495057;
+        padding: 0.5rem 1rem;
+        border-radius: 15px;
+        font-size: 0.9rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .log-error {
+        background: #f8d7da;
+        color: #721c24;
+        padding: 1rem;
+        border-radius: 10px;
+        margin-top: 1rem;
+        font-family: 'Courier New', monospace;
+        font-size: 0.9rem;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        color: #6c757d;
+    }
+    
+    .empty-state i {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+    
+    .pagination {
+        justify-content: center;
+        margin-top: 2rem;
+    }
+    
+    .page-link {
+        border-radius: 10px;
+        margin: 0 0.25rem;
+        border: 2px solid #e9ecef;
+        color: #667eea;
+    }
+    
+    .page-link:hover {
+        background: #667eea;
+        border-color: #667eea;
+        color: white;
+    }
+    
+    .page-item.active .page-link {
+        background: #667eea;
+        border-color: #667eea;
+    }
+    
+    .filters-card {
+        background: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        border: 1px solid #e9ecef;
+    }
+    
+    .filter-select {
+        border-radius: 10px;
+        border: 2px solid #e9ecef;
+        padding: 0.5rem 1rem;
+    }
+    
+    .btn-filter {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        color: white;
+        padding: 0.5rem 1.5rem;
+        border-radius: 20px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-filter:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 3px 10px rgba(102, 126, 234, 0.3);
+        color: white;
+    }
+    
+    .btn-clear {
+        background: #6c757d;
+        border: none;
+        color: white;
+        padding: 0.5rem 1.5rem;
+        border-radius: 20px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-clear:hover {
+        background: #5a6268;
+        color: white;
+    }
+</style>
+{% endblock %}
+
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Заголовок -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">Логи синхронизации</h1>
+                    <p class="text-muted mb-0">История синхронизации с Notion</p>
+                </div>
+                <div>
+                    <a href="{% url 'notion_int:dashboard' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Назад к дашборду
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Фильтры -->
+    <div class="filters-card">
+        <form method="get" id="filterForm">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <select name="status" class="form-control filter-select">
+                        <option value="">Все статусы</option>
+                        <option value="success" {% if request.GET.status == 'success' %}selected{% endif %}>
+                            Успешно
+                        </option>
+                        <option value="error" {% if request.GET.status == 'error' %}selected{% endif %}>
+                            Ошибка
+                        </option>
+                        <option value="partial" {% if request.GET.status == 'partial' %}selected{% endif %}>
+                            Частично
+                        </option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <input type="date" 
+                           name="date_from" 
+                           class="form-control filter-select"
+                           value="{{ request.GET.date_from }}"
+                           placeholder="Дата от">
+                </div>
+                <div class="col-md-3">
+                    <input type="date" 
+                           name="date_to" 
+                           class="form-control filter-select"
+                           value="{{ request.GET.date_to }}"
+                           placeholder="Дата до">
+                </div>
+                <div class="col-md-3">
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-filter">
+                            <i class="fas fa-search"></i> Фильтр
+                        </button>
+                        <a href="{% url 'notion_int:sync_logs' %}" class="btn btn-clear">
+                            <i class="fas fa-times"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Результаты -->
+    <div class="row">
+        <div class="col-12">
+            {% if page_obj %}
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <span class="text-muted">
+                            Показано {{ page_obj.start_index }}-{{ page_obj.end_index }} 
+                            из {{ page_obj.paginator.count }} записей
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Список логов -->
+                {% for log in page_obj %}
+                <div class="log-card">
+                    <div class="log-header">
+                        <div>
+                            <span class="log-status status-{{ log.status }}">
+                                {% if log.status == 'success' %}
+                                    <i class="fas fa-check-circle"></i>
+                                {% elif log.status == 'error' %}
+                                    <i class="fas fa-times-circle"></i>
+                                {% else %}
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                {% endif %}
+                                {{ log.get_status_display }}
+                            </span>
+                        </div>
+                        <div class="log-time">
+                            <i class="fas fa-clock"></i>
+                            {{ log.created_at|date:"d.m.Y H:i:s" }}
+                        </div>
+                    </div>
+
+                    <div class="log-stats">
+                        <div class="stat-item">
+                            <div class="stat-number">{{ log.pages_processed }}</div>
+                            <div class="stat-label">Обработано</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number text-success">{{ log.pages_created }}</div>
+                            <div class="stat-label">Создано</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number text-warning">{{ log.pages_updated }}</div>
+                            <div class="stat-label">Обновлено</div>
+                        </div>
+                        {% if log.sync_duration %}
+                        <div class="stat-item">
+                            <div class="stat-number">{{ log.sync_duration|floatformat:1 }}с</div>
+                            <div class="stat-label">Длительность</div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    {% if log.error_message %}
+                    <div class="log-error">
+                        <strong>Ошибка:</strong>
+                        {{ log.error_message }}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+
+                <!-- Пагинация -->
+                {% if page_obj.has_other_pages %}
+                <nav aria-label="Навигация по страницам">
+                    <ul class="pagination">
+                        {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?{% if request.GET.status %}status={{ request.GET.status }}&{% endif %}{% if request.GET.date_from %}date_from={{ request.GET.date_from }}&{% endif %}{% if request.GET.date_to %}date_to={{ request.GET.date_to }}&{% endif %}page=1">
+                                    <i class="fas fa-angle-double-left"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?{% if request.GET.status %}status={{ request.GET.status }}&{% endif %}{% if request.GET.date_from %}date_from={{ request.GET.date_from }}&{% endif %}{% if request.GET.date_to %}date_to={{ request.GET.date_to }}&{% endif %}page={{ page_obj.previous_page_number }}">
+                                    <i class="fas fa-angle-left"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ num }}</span>
+                                </li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?{% if request.GET.status %}status={{ request.GET.status }}&{% endif %}{% if request.GET.date_from %}date_from={{ request.GET.date_from }}&{% endif %}{% if request.GET.date_to %}date_to={{ request.GET.date_to }}&{% endif %}page={{ num }}">{{ num }}</a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?{% if request.GET.status %}status={{ request.GET.status }}&{% endif %}{% if request.GET.date_from %}date_from={{ request.GET.date_from }}&{% endif %}{% if request.GET.date_to %}date_to={{ request.GET.date_to }}&{% endif %}page={{ page_obj.next_page_number }}">
+                                    <i class="fas fa-angle-right"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?{% if request.GET.status %}status={{ request.GET.status }}&{% endif %}{% if request.GET.date_from %}date_from={{ request.GET.date_from }}&{% endif %}{% if request.GET.date_to %}date_to={{ request.GET.date_to }}&{% endif %}page={{ page_obj.paginator.num_pages }}">
+                                    <i class="fas fa-angle-double-right"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+
+            {% else %}
+                <!-- Пустое состояние -->
+                <div class="empty-state">
+                    <i class="fas fa-history"></i>
+                    <h4>Логи не найдены</h4>
+                    <p>История синхронизации появится после первого запуска</p>
+                    <a href="{% url 'notion_int:dashboard' %}" class="btn btn-primary">
+                        <i class="fas fa-sync-alt"></i> Выполнить синхронизацию
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Автоматическое обновление страницы каждые 30 секунд, если есть активные синхронизации
+document.addEventListener('DOMContentLoaded', function() {
+    // Проверяем, есть ли активные синхронизации (статус 'running')
+    const hasActiveSyncs = document.querySelector('.log-status.status-running');
+    
+    if (hasActiveSyncs) {
+        setTimeout(() => {
+            location.reload();
+        }, 30000); // 30 секунд
+    }
+});
+</script>
+{% endblock %}

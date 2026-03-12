@@ -1,0 +1,36 @@
+{% extends "admin/change_list.html" %}
+{% load i18n admin_urls static admin_list %}
+
+{% block object-tools-items %}
+    {{ block.super }}
+    {% if show_update_currency_button %}
+        <li>
+            <a href="update-currency-amounts/" class="addlink" style="background: #79aec8; color: white;">
+                🔄 Обновить курсы валют
+            </a>
+        </li>
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+    {{ block.super }}
+    
+    {% if show_update_currency_button %}
+        <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px;">
+            <h3>💡 Информация о курсах валют</h3>
+            <p>Курсы валют автоматически пересчитываются при:</p>
+            <ul>
+                <li>Создании новой зарплатной вилки</li>
+                <li>Изменении существующей вилки</li>
+                <li>Обновлении курсов валют в системе</li>
+            </ul>
+            <p><strong>Формула расчета:</strong></p>
+            <ul>
+                <li><strong>BYN</strong> = USD × курс_USD</li>
+                <li><strong>PLN</strong> = (USD × курс_USD) ÷ курс_PLN ÷ (1 - суммарные_налоги)</li>
+            </ul>
+            <p><em>Для PLN учитываются активные налоговые ставки из системы налогов PLN.</em></p>
+            <p>Используйте кнопку "🔄 Обновить курсы валют" для принудительного пересчета всех вилок.</p>
+        </div>
+    {% endif %}
+{% endblock %}

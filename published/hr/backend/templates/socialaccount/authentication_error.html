@@ -1,0 +1,80 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Ошибка авторизации - HR Helper{% endblock %}
+{% block page_title %}Ошибка авторизации{% endblock %}
+
+{% block extra_css %}
+<link href="{% static 'css/socialaccount.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-4">
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white text-center">
+                <h4 class="mb-0">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Ошибка авторизации
+                </h4>
+            </div>
+            <div class="card-body text-center">
+                <div class="mb-4">
+                    <i class="fas fa-times-circle fa-4x text-danger mb-3"></i>
+                    <h5>Не удалось войти через Google</h5>
+                    <p class="text-muted">
+                        {% if error.code == 'access_denied' %}
+                            Вы отменили авторизацию в Google
+                        {% elif error.code == 'invalid_request' %}
+                            Неверный запрос авторизации
+                        {% elif error.code == 'unauthorized_client' %}
+                            Неавторизованное приложение
+                        {% elif error.code == 'unsupported_response_type' %}
+                            Неподдерживаемый тип ответа
+                        {% elif error.code == 'invalid_scope' %}
+                            Неверные права доступа
+                        {% elif error.code == 'server_error' %}
+                            Ошибка сервера Google
+                        {% else %}
+                            Произошла неизвестная ошибка
+                        {% endif %}
+                    </p>
+                </div>
+                
+                <div class="d-grid gap-2">
+                    <a href="{% url 'account_login' %}" class="btn btn-primary">
+                        <i class="fas fa-arrow-left me-2"></i>
+                        Попробовать снова
+                    </a>
+                    
+                    <a href="{% url 'admin:login' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-cog me-2"></i>
+                        Войти через админ панель
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row justify-content-center mt-4">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <h6 class="text-muted">Возможные причины ошибки:</h6>
+                <ul class="list-unstyled">
+                    <li><i class="fas fa-check text-success me-2"></i>Вы отменили авторизацию в Google</li>
+                    <li><i class="fas fa-check text-success me-2"></i>Проблемы с интернет-соединением</li>
+                    <li><i class="fas fa-check text-success me-2"></i>Временные проблемы с сервисами Google</li>
+                    <li><i class="fas fa-check text-success me-2"></i>Блокировка браузером всплывающих окон</li>
+                </ul>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Совет:</strong> Попробуйте отключить блокировщик рекламы или разрешить всплывающие окна для этого сайта.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
