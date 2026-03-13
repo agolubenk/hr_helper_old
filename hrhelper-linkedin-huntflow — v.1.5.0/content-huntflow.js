@@ -885,9 +885,7 @@
     const day = String(d.getDate()).padStart(2, "0");
     const month = String(d.getMonth() + 1).padStart(2, "0");
     const year = d.getFullYear();
-    const h = String(d.getHours()).padStart(2, "0");
-    const m = String(d.getMinutes()).padStart(2, "0");
-    return `${day}.${month}.${year} ${h}:${m}`;
+    return `${day}.${month}.${year}`;
   }
 
   async function fetchStatusMultiByHuntflowUrl(huntflowUrl) {
@@ -926,29 +924,44 @@
         const isArchived = v.is_archived;
         const card = document.createElement("div");
         card.className = "hrhelper-hf-vacancy-card" + (isRejected ? " hrhelper-hf-vacancy-card-rejected" : "") + (isArchived ? " hrhelper-hf-vacancy-card-archived" : "");
+        
         const labelWrap = document.createElement("div");
         labelWrap.style.cssText = "flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;";
+        
+        // Первая строка: название вакансии (+ статус рядом, если отказ)
         const line1 = document.createElement("div");
         line1.className = "hrhelper-hf-vacancy-line1";
-        let mainText = (v.vacancy_name || "—") + (v.status_name ? " · " + v.status_name : "");
-        if (isRejected && (v.rejection_reason_name || "").trim()) {
-          mainText += " · Причина: " + (v.rejection_reason_name || "").trim();
+        let mainText = v.vacancy_name || "—";
+        if (isRejected && v.status_name) {
+          mainText += " · " + v.status_name;
         }
         line1.textContent = mainText;
         line1.title = mainText;
         labelWrap.appendChild(line1);
-        const dateStr = formatLastChangeAt(v.last_change_at);
-        if (dateStr) {
-          const line2 = document.createElement("div");
-          line2.className = "hrhelper-hf-vacancy-line2";
-          line2.textContent = "Дата/время: " + dateStr;
+        
+        // Вторая строка: статус (если не отказ) или причина отказа (если отказ)
+        const line2 = document.createElement("div");
+        line2.className = "hrhelper-hf-vacancy-line2";
+        if (isRejected) {
+          const reason = (v.rejection_reason_name || "").trim();
+          if (reason) {
+            line2.textContent = reason;
+            labelWrap.appendChild(line2);
+          }
+        } else if (v.status_name) {
+          line2.textContent = v.status_name;
           labelWrap.appendChild(line2);
         }
+        
+        // Кнопка копирования с датой под ней
+        const copyWrap = document.createElement("div");
+        copyWrap.style.cssText = "display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;";
+        
         const copyBtn = document.createElement("button");
         copyBtn.type = "button";
         copyBtn.className = "hrhelper-hf-copy-btn";
         copyBtn.title = "Копировать ссылку на вакансию";
-        copyBtn.style.cssText = "display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;border-radius:6px;cursor:pointer;flex-shrink:0;";
+        copyBtn.style.cssText = "display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;border-radius:6px;cursor:pointer;";
         copyBtn.innerHTML = COPY_LINK_ICON_SVG;
         const url = (v.appurl || "").trim();
         copyBtn.disabled = !url;
@@ -965,8 +978,19 @@
             });
           });
         }
+        copyWrap.appendChild(copyBtn);
+        
+        // Дата под кнопкой
+        const dateStr = formatLastChangeAt(v.last_change_at);
+        if (dateStr) {
+          const dateEl = document.createElement("div");
+          dateEl.style.cssText = "font-size:9px;color:var(--hrhelper-hf-muted,#6c757d);white-space:nowrap;";
+          dateEl.textContent = dateStr;
+          copyWrap.appendChild(dateEl);
+        }
+        
         card.appendChild(labelWrap);
-        card.appendChild(copyBtn);
+        card.appendChild(copyWrap);
         container.appendChild(card);
       });
     });

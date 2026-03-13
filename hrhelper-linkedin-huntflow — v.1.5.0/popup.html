@@ -136,6 +136,37 @@
     </div>
   </div>
 
+  <!-- Google Drive Section -->
+  <div id="context-gdrive" class="context-block" data-ctx="gdrive" style="display: none;">
+    <h3>Google Drive — Резюме</h3>
+    
+    <div id="gdrive-file-info" class="gdrive-info-box">
+      <p><strong>File ID:</strong> <span id="gdrive-file-id" class="gdrive-file-id">—</span></p>
+    </div>
+
+    <div class="gdrive-form-group">
+      <label for="gdrive-vacancy-select"><strong>Выберите вакансию:</strong></label>
+      <select id="gdrive-vacancy-select" class="ctx-select" disabled>
+        <option value="">— Загрузка вакансий —</option>
+      </select>
+    </div>
+
+    <div class="gdrive-button-group">
+      <button id="gdrive-add-btn" class="btn-small btn-primary" disabled>Добавить в Huntflow</button>
+    </div>
+
+    <div id="gdrive-result" class="gdrive-result" style="display: none;">
+      <div class="gdrive-success-message">
+        <p><strong>Кандидат создан успешно!</strong></p>
+        <p><strong>ФИО:</strong> <span id="result-name"></span></p>
+        <p><strong>Вакансия:</strong> <span id="result-vacancy"></span></p>
+        <a id="result-link" href="#" target="_blank" class="btn-small" rel="noopener">Открыть в Huntflow</a>
+      </div>
+    </div>
+
+    <div id="gdrive-error" class="gdrive-error" style="display: none;"></div>
+  </div>
+
   <div id="popup-copy-buttons" class="popup-copy-buttons" aria-label="Кнопки копирования">
     <div class="popup-copy-buttons-title">Быстрое копирование</div>
     <div class="copy-buttons-buttons">

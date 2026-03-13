@@ -704,9 +704,15 @@ function createFloatingWidget() {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(url);
         copyVacancyBtn.classList.add("hrhelper-copy-btn-copied");
+        copyVacancyBtn.style.borderColor = "var(--hrhelper-success-border, #a3cfbb)";
+        copyVacancyBtn.style.color = "var(--hrhelper-success, #0f5132)";
+        copyVacancyBtn.style.background = "var(--hrhelper-success-bg, #d1e7dd)";
         copyVacancyBtn.title = "Скопировано";
         setTimeout(() => {
           copyVacancyBtn.classList.remove("hrhelper-copy-btn-copied");
+          copyVacancyBtn.style.borderColor = "var(--hrhelper-border, rgba(0,0,0,.15))";
+          copyVacancyBtn.style.color = "var(--hrhelper-muted, #666)";
+          copyVacancyBtn.style.background = "var(--hrhelper-btn-bg, rgba(0,0,0,.05))";
           copyVacancyBtn.title = "Скопировать ссылку на вакансию";
         }, 1500);
       }

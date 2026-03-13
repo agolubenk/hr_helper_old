@@ -18,6 +18,7 @@
     huntflow: true,
     meet: true,
     calendar: true,
+    gdrive: true,
   };
 
   g.__HRH__.DEFAULT_ICONS = {
