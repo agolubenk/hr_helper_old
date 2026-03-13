@@ -18,6 +18,7 @@ function getPageTypeFromUrl(url) {
     if (host.includes("linkedin.com")) return "linkedin";
     if (host.includes("calendar.google.com")) return "calendar";
     if (host.includes("meet.google.com")) return "meet";
+    if (host.includes("drive.google.com") && (path.includes("/file/d/") || path.includes("/open"))) return "gdrive";
     if ((host === "rabota.by" || host === "www.rabota.by" || host.endsWith(".rabota.by") || host.endsWith(".hh.ru") || host === "hh.ru") && path.includes("/resume/")) return "hh_ecosystem";
     if (host.includes("huntflow") && (path.includes("/my") || hash.includes("/my")) && (hash.includes("applicants/filter/all") || (hash.includes("applicants") && hash.includes("/id/")) || (hash.includes("vacancy") && hash.includes("/id/")) || (hash.includes("applicants") && /\/filter\/\d+\/\d+/.test(hash)))) return "huntflow";
   } catch (_) {}
@@ -140,6 +141,17 @@ async function doRequest({ path, method, body }) {
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (!msg) return;
+
+  if (msg.type === 'HRHELPER_GDRIVE_FILE_DETECTED') {
+    chrome.storage.local.set({
+      currentGDriveFile: msg.payload
+    }).then(() => {
+      sendResponse({ success: true });
+    }).catch((error) => {
+      sendResponse({ success: false, error: error.message });
+    });
+    return true;
+  }
 
   if (msg.type === "HRHELPER_OPEN_TABS") {
     try {

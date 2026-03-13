@@ -453,7 +453,15 @@ function injectFloatingWidgetThemeStyles() {
     .hrhelper-floating-widget .hrhelper-widget-header { border-bottom-color: var(--hrhelper-border) !important; }
     .hrhelper-floating-widget .hrhelper-widget-title { color: var(--hrhelper-accent) !important; }
     .hrhelper-floating-widget .hrhelper-widget-title-text { color: inherit; }
-    .hrhelper-floating-widget .hrhelper-toggle-btn { background: var(--hrhelper-btn-bg) !important; color: var(--hrhelper-muted) !important; }
+    .hrhelper-floating-widget .hrhelper-toggle-btn { background: var(--hrhelper-btn-bg) !important; color: var(--hrhelper-muted) !important; transition: background .15s ease !important; }
+    .hrhelper-floating-widget .hrhelper-toggle-btn:hover { background: var(--hrhelper-border) !important; }
+    .hrhelper-floating-widget .hrhelper-toggle-btn:active { background: rgba(0,0,0,.15) !important; }
+    .hrhelper-floating-widget.hrhelper-theme-dark .hrhelper-toggle-btn:active { background: rgba(255,255,255,.15) !important; }
+    .hrhelper-floating-widget .hrhelper-floating-action-group button { transition: background .15s ease, opacity .15s ease !important; }
+    .hrhelper-floating-widget .hrhelper-floating-action-group button:hover { background: var(--hrhelper-border) !important; }
+    .hrhelper-floating-widget .hrhelper-floating-action-group button:active { background: rgba(0,0,0,.15) !important; }
+    .hrhelper-floating-widget.hrhelper-theme-dark .hrhelper-floating-action-group button:active { background: rgba(255,255,255,.15) !important; }
+    .hrhelper-floating-widget .hrhelper-floating-copy-btn.hrhelper-copy-btn-copied { background: var(--hrhelper-success-bg) !important; border-color: var(--hrhelper-success-border) !important; color: var(--hrhelper-success) !important; }
     .hrhelper-floating-widget .hrhelper-status-dropdown,
     .hrhelper-floating-widget .hrhelper-add-vacancy-dropdown { background: var(--hrhelper-bg) !important; border-color: var(--hrhelper-border) !important; }
     .hrhelper-floating-widget input { background: var(--hrhelper-input-bg) !important; color: var(--hrhelper-text) !important; border-color: var(--hrhelper-border) !important; }
@@ -686,8 +694,8 @@ function createFloatingWidget() {
   copyVacancyBtn.setAttribute("aria-label", "Скопировать ссылку на вакансию");
   copyVacancyBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>';
   copyVacancyBtn.style.cssText = "width:24px;height:24px;border:1px solid var(--hrhelper-border,rgba(0,0,0,.15));border-radius:4px;cursor:pointer;color:var(--hrhelper-muted,#666);flex-shrink:0;padding:0;display:flex;align-items:center;justify-content:center;background:var(--hrhelper-btn-bg,rgba(0,0,0,.05));margin-right:4px;";
-  copyVacancyBtn.addEventListener("mouseenter", () => { copyVacancyBtn.style.background = "var(--hrhelper-border,rgba(0,0,0,.1))"; });
-  copyVacancyBtn.addEventListener("mouseleave", () => { copyVacancyBtn.style.background = "var(--hrhelper-btn-bg,rgba(0,0,0,.05))"; });
+  copyVacancyBtn.addEventListener("mouseenter", () => { if (!copyVacancyBtn.classList.contains("hrhelper-copy-btn-copied")) copyVacancyBtn.style.background = "var(--hrhelper-border,rgba(0,0,0,.1))"; });
+  copyVacancyBtn.addEventListener("mouseleave", () => { if (!copyVacancyBtn.classList.contains("hrhelper-copy-btn-copied")) copyVacancyBtn.style.background = "var(--hrhelper-btn-bg,rgba(0,0,0,.05))"; });
   copyVacancyBtn.addEventListener("click", async (e) => {
     e.stopPropagation();
     try {
@@ -695,8 +703,18 @@ function createFloatingWidget() {
       if (!url) return;
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(url);
+        copyVacancyBtn.classList.add("hrhelper-copy-btn-copied");
+        copyVacancyBtn.style.borderColor = "var(--hrhelper-success-border, #a3cfbb)";
+        copyVacancyBtn.style.color = "var(--hrhelper-success, #0f5132)";
+        copyVacancyBtn.style.background = "var(--hrhelper-success-bg, #d1e7dd)";
         copyVacancyBtn.title = "Скопировано";
-        setTimeout(() => { copyVacancyBtn.title = "Скопировать ссылку на вакансию"; }, 1500);
+        setTimeout(() => {
+          copyVacancyBtn.classList.remove("hrhelper-copy-btn-copied");
+          copyVacancyBtn.style.borderColor = "var(--hrhelper-border, rgba(0,0,0,.15))";
+          copyVacancyBtn.style.color = "var(--hrhelper-muted, #666)";
+          copyVacancyBtn.style.background = "var(--hrhelper-btn-bg, rgba(0,0,0,.05))";
+          copyVacancyBtn.title = "Скопировать ссылку на вакансию";
+        }, 1500);
       }
     } catch (_) {}
   });

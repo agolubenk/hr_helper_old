@@ -69,6 +69,16 @@
             </div>
         </a>
     </div>
+    <div class="col-6 col-md-2">
+        <a href="#gdrive-links-section" class="text-decoration-none d-block" title="Перейти к блоку Google Drive → Huntflow">
+            <div class="card border-warning">
+                <div class="card-body text-center">
+                    <h3 class="mb-0 text-warning">{{ stats.total_gdrive_links|default:0 }}</h3>
+                    <p class="text-muted mb-0">Google Drive → Huntflow связи</p>
+                </div>
+            </div>
+        </a>
+    </div>
 </div>
     </div>
     </div>
@@ -274,6 +284,65 @@
     </div>
 </div>
 
+<!-- Google Drive → Huntflow связи -->
+<div class="row mb-4" id="gdrive-links-section">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center py-2" style="cursor: pointer;"
+                 data-bs-toggle="collapse" data-bs-target="#gdriveCollapse" aria-expanded="true" aria-controls="gdriveCollapse">
+                <h5 class="card-title mb-0">
+                    <i class="fab fa-google-drive me-2"></i>
+                    Google Drive → Huntflow связи
+                </h5>
+                <i class="fas fa-chevron-up extension-collapse-icon"></i>
+            </div>
+            <div class="collapse show" id="gdriveCollapse">
+            <div class="card-body">
+                <p class="text-muted mb-2">Связи между файлами Google Drive (резюме) и кандидатами в Huntflow. Создаются при нажатии «Добавить в Huntflow» в попапе расширения на странице Google Drive.</p>
+                {% if gdrive_links %}
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm">
+                        <thead>
+                            <tr>
+                                <th>Файл Google Drive</th>
+                                <th>Кандидат</th>
+                                <th>Вакансия</th>
+                                <th>Huntflow</th>
+                                <th>Создано</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for g in gdrive_links %}
+                            <tr>
+                                <td>
+                                    <a href="{{ g.gdrive_url }}" target="_blank" rel="noopener" class="text-break">
+                                        <i class="fab fa-google-drive me-1"></i>{{ g.gdrive_file_id|truncatechars:20 }}
+                                    </a>
+                                </td>
+                                <td>{{ g.candidate_name|default:"—" }}</td>
+                                <td>{{ g.vacancy_name|default:"—" }}</td>
+                                <td>
+                                    {% if g.huntflow_url %}
+                                    <a href="{{ g.huntflow_url }}" target="_blank" rel="noopener" class="text-break">{{ g.huntflow_url|truncatechars:40 }}</a>
+                                    {% else %}
+                                    —
+                                    {% endif %}
+                                </td>
+                                <td>{{ g.created_at|date:"d.m.Y H:i" }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted mb-0">Нет сохранённых связей. Связи создаются при добавлении резюме из Google Drive в Huntflow через расширение.</p>
+                {% endif %}
+            </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- hh.ru/rabota.by → Huntflow связи (под блоком LinkedIn) -->
 <div class="row mb-4" id="resume-links-section">
     <div class="col-12">
@@ -343,6 +412,9 @@
     </a>
     <a href="#meet-links-section" title="Google Meet → Huntflow" class="extension-sidebar-link" data-section="meet-links-section">
         <i class="fas fa-video"></i>
+    </a>
+    <a href="#gdrive-links-section" title="Google Drive → Huntflow" class="extension-sidebar-link" data-section="gdrive-links-section">
+        <i class="fab fa-google-drive"></i>
     </a>
     <a href="#resume-links-section" title="hh.ru / rabota.by → Huntflow" class="extension-sidebar-link" data-section="resume-links-section">
         <i class="fas fa-briefcase"></i>

@@ -195,6 +195,61 @@ class ResumeHuntflowLink(models.Model):
         return f"{url[:50]}… → Huntflow"
 
 
+class GDriveHuntflowLink(models.Model):
+    """
+    Связка файла Google Drive с кандидатом в Huntflow.
+    Сохраняется из расширения при создании кандидата из файла Google Drive.
+    Используется для показа плавающего окна на странице Google Drive.
+    """
+    gdrive_file_id = models.CharField(
+        _("ID файла Google Drive"),
+        max_length=100,
+        unique=True,
+        db_index=True,
+        help_text="Уникальный ID файла из URL Google Drive",
+    )
+    gdrive_url = models.URLField(
+        _("URL файла Google Drive"),
+        max_length=500,
+        blank=True,
+    )
+    huntflow_url = models.URLField(_("Ссылка Huntflow"), max_length=800)
+    applicant_id = models.IntegerField(_("ID кандидата в Huntflow"), null=True, blank=True)
+    account_id = models.IntegerField(_("ID организации в Huntflow"), null=True, blank=True)
+    vacancy_id = models.IntegerField(_("ID вакансии"), null=True, blank=True)
+    vacancy_name = models.CharField(_("Название вакансии"), max_length=255, blank=True)
+    candidate_name = models.CharField(_("ФИО кандидата"), max_length=255, blank=True)
+    created_at = models.DateTimeField(_("Создано"), default=timezone.now)
+    updated_at = models.DateTimeField(_("Обновлено"), auto_now=True)
+    created_by = models.ForeignKey(
+        'accounts.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_gdrive_huntflow_links',
+        verbose_name=_("Кто создал"),
+    )
+    updated_by = models.ForeignKey(
+        'accounts.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='updated_gdrive_huntflow_links',
+        verbose_name=_("Кто обновил"),
+    )
+
+    class Meta:
+        verbose_name = _("Связка GDrive↔Huntflow")
+        verbose_name_plural = _("Связки GDrive↔Huntflow")
+        ordering = ('-updated_at',)
+        indexes = [
+            models.Index(fields=['gdrive_file_id']),
+        ]
+
+    def __str__(self):
+        return f"GDrive {self.gdrive_file_id[:20]}… → Huntflow {self.applicant_id}"
+
+
 class MeetHuntflowLink(models.Model):
     """
     Связка Google Meet встречи с кандидатом в Huntflow (общая для всех).

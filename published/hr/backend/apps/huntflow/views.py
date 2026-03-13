@@ -2218,25 +2218,28 @@ def chrome_extension_management(request):
     - Статистику
     - Кнопки уровней из Huntflow
     """
-    from .models import LinkedInHuntflowLink, LinkedInThreadProfile, ResumeHuntflowLink, MeetHuntflowLink
+    from .models import LinkedInHuntflowLink, LinkedInThreadProfile, ResumeHuntflowLink, MeetHuntflowLink, GDriveHuntflowLink
     from apps.google_oauth.cache_service import HuntflowAPICache
-    
+
     # Получаем все связи LinkedIn → Huntflow (общие для всех)
     links = LinkedInHuntflowLink.objects.all().order_by('-created_at')
-    
+
     # Получаем все маппинги Thread → Profile (персональные)
     thread_mappings = LinkedInThreadProfile.objects.filter(user=request.user).order_by('-last_accessed_at')
     # Связи резюме (hh.ru/rabota.by) → Huntflow (общие для всех)
     resume_links = ResumeHuntflowLink.objects.all().order_by('-updated_at')
     # Связи Google Meet → Huntflow (общие для всех)
     meet_links = MeetHuntflowLink.objects.all().order_by('-updated_at')
-    
+    # Связи Google Drive → Huntflow (общие для всех)
+    gdrive_links = GDriveHuntflowLink.objects.all().order_by('-updated_at')
+
     # Статистика
     stats = {
         'total_links': links.count(),
         'total_thread_mappings': thread_mappings.count(),
         'total_resume_links': resume_links.count(),
         'total_meet_links': meet_links.count(),
+        'total_gdrive_links': gdrive_links.count(),
         'links_with_vacancy': links.exclude(vacancy_id__isnull=True).count(),
         'recent_links': links.filter(created_at__gte=timezone.now() - timedelta(days=7)).count(),
     }
@@ -2302,6 +2305,7 @@ def chrome_extension_management(request):
         'thread_mappings': thread_mappings,
         'resume_links': resume_links,
         'meet_links': meet_links,
+        'gdrive_links': gdrive_links,
         'stats': stats,
         'vacancies_with_levels': vacancies_with_levels,
         'level_texts': level_texts,

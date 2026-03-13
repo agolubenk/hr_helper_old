@@ -3,7 +3,7 @@ from django.utils.html import format_html
 from django.utils import timezone
 from .models import (
     HuntflowCache, HuntflowLog,
-    LinkedInHuntflowLink, ResumeHuntflowLink, MeetHuntflowLink,
+    LinkedInHuntflowLink, ResumeHuntflowLink, MeetHuntflowLink, GDriveHuntflowLink,
     LinkedInThreadProfile, LevelText,
     HHResponse, HHSyncConfiguration, HHSyncLog, HHFilterStatistics
 )
@@ -141,6 +141,21 @@ class MeetHuntflowLinkAdmin(admin.ModelAdmin):
     readonly_fields = ("created_at", "updated_at")
     date_hierarchy = "updated_at"
     raw_id_fields = ("created_by", "updated_by")
+
+
+@admin.register(GDriveHuntflowLink)
+class GDriveHuntflowLinkAdmin(admin.ModelAdmin):
+    list_display = ("gdrive_file_id_short", "candidate_name", "vacancy_name", "applicant_id", "created_by", "updated_by", "updated_at")
+    list_filter = ("updated_at", "created_by", "updated_by")
+    search_fields = ("gdrive_file_id", "candidate_name", "vacancy_name", "huntflow_url", "created_by__username", "updated_by__username")
+    readonly_fields = ("created_at", "updated_at")
+    date_hierarchy = "updated_at"
+    raw_id_fields = ("created_by", "updated_by")
+
+    def gdrive_file_id_short(self, obj):
+        fid = obj.gdrive_file_id or ""
+        return fid[:20] + "…" if len(fid) > 20 else fid
+    gdrive_file_id_short.short_description = "File ID"
 
 
 @admin.register(LinkedInThreadProfile)

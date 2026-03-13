@@ -321,11 +321,24 @@ body {
   background: #a93226;
   color: white;
 }
+.context-block .btn-small.btn-primary {
+  background: #0d6efd;
+  color: white;
+  font-weight: 500;
+}
+.context-block .btn-small.btn-primary:hover {
+  background: #0b5ed7;
+}
+.context-block .btn-small.btn-primary:disabled {
+  background: #6c757d;
+  opacity: 0.65;
+  cursor: not-allowed;
+}
 .context-block .btn-small[aria-disabled="true"],
-.context-block .btn-small.secondary:disabled {
+.context-block .btn-small.secondary:disabled,
+.context-block .btn-small:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-  pointer-events: none;
 }
 .context-block #ctx-meet-open-all.ctx-meet-open-all-btn {
   height: 26px;
@@ -1033,4 +1046,36 @@ body.popup-theme-dark .setup-form input { background: #2d2d31; border-color: rgb
   body.popup-theme-system .ctx-candidate-body, body.popup-theme-system .context-block .ctx-candidate-label { color: #b0b0b0; }
   body.popup-theme-system .setup-form label { color: #e0e0e0; }
   body.popup-theme-system .setup-form input { background: #2d2d31; border-color: rgba(255,255,255,.15); color: #e8e8e8; }
+}
+
+/* Google Drive Section */
+#context-gdrive h3 { margin-top: 0; margin-bottom: 12px; font-size: 14px; }
+.gdrive-info-box { background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 5px; }
+.gdrive-file-id { font-family: monospace; font-size: 11px; word-break: break-all; }
+.gdrive-form-group { margin: 12px 0; }
+.gdrive-form-group label { display: block; margin-bottom: 6px; font-size: 12px; }
+.gdrive-preview { background: #e8f5e9; padding: 12px; margin: 10px 0; border-radius: 5px; border-left: 3px solid #4caf50; }
+.gdrive-preview h4 { margin: 0 0 8px 0; font-size: 13px; color: #2e7d32; }
+.gdrive-candidate-preview p { margin: 4px 0; font-size: 12px; }
+.gdrive-button-group { margin: 12px 0; display: flex; gap: 8px; }
+.gdrive-result { background: #e3f2fd; padding: 12px; margin: 10px 0; border-radius: 5px; border-left: 3px solid #2196f3; }
+.gdrive-success-message p { margin: 4px 0; font-size: 12px; }
+.gdrive-error { background: #ffebee; color: #c62828; padding: 12px; margin: 10px 0; border-radius: 5px; border-left: 3px solid #c62828; font-size: 12px; }
+
+/* Dark theme for Google Drive */
+body.popup-theme-dark .gdrive-info-box { background: #2d2d31; }
+body.popup-theme-dark .gdrive-file-id { color: #90caf9; }
+body.popup-theme-dark .gdrive-preview { background: rgba(76, 175, 80, 0.15); border-color: #4caf50; }
+body.popup-theme-dark .gdrive-preview h4 { color: #81c784; }
+body.popup-theme-dark .gdrive-result { background: rgba(33, 150, 243, 0.15); border-color: #64b5f6; }
+body.popup-theme-dark .gdrive-error { background: rgba(198, 40, 40, 0.2); color: #ef9a9a; border-color: #c62828; }
+
+/* System theme for Google Drive */
+@media (prefers-color-scheme: dark) {
+  body.popup-theme-system .gdrive-info-box { background: #2d2d31; }
+  body.popup-theme-system .gdrive-file-id { color: #90caf9; }
+  body.popup-theme-system .gdrive-preview { background: rgba(76, 175, 80, 0.15); border-color: #4caf50; }
+  body.popup-theme-system .gdrive-preview h4 { color: #81c784; }
+  body.popup-theme-system .gdrive-result { background: rgba(33, 150, 243, 0.15); border-color: #64b5f6; }
+  body.popup-theme-system .gdrive-error { background: rgba(198, 40, 40, 0.2); color: #ef9a9a; border-color: #c62828; }
 }

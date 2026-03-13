@@ -107,9 +107,7 @@
     </div>
     <div id="ctx-linkedin-last-comment" class="ctx-last-comment" style="display:none;"></div>
   </div>
-  <div id="context-other" class="context-block" data-ctx="other" style="display:none;">
-    <p class="ctx-data">Расширение активно на этой странице, но форма связи LinkedIn–Huntflow доступна только на поддерживаемых сайтах: LinkedIn, rabota.by, hh.ru (резюме), Huntflow, Google Meet.</p>
-  </div>
+  <div id="context-other" class="context-block" data-ctx="other" style="display:none;"></div>
   <div id="context-calendar" class="context-block" data-ctx="calendar">
     <h3>Google Calendar</h3>
     <p>Синхронизация с HR Helper. Логика календаря в приложении.</p>
@@ -136,6 +134,37 @@
       <a href="#" id="ctx-meet-scorecard" class="btn-small btn-scorecard ctx-meet-stack-btn" target="_blank" rel="noopener" aria-disabled="true" aria-label="Scorecard" title="Scorecard"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H6v-2h3v2zm0-4H6v-2h3v2zm0-4H6V7h3v2zm4 8h-2V7h2v10zm4 0h-2v-4h2v4zm0-6h-2V7h2v4z"/></svg> Скоркард</a>
       <a href="#" id="ctx-meet-contact" class="btn-small ctx-meet-contact-full ctx-meet-stack-btn" target="_blank" rel="noopener" aria-disabled="true">Контакт</a>
     </div>
+  </div>
+
+  <!-- Google Drive Section -->
+  <div id="context-gdrive" class="context-block" data-ctx="gdrive" style="display: none;">
+    <h3>Google Drive — Резюме</h3>
+    
+    <div id="gdrive-file-info" class="gdrive-info-box">
+      <p><strong>File ID:</strong> <span id="gdrive-file-id" class="gdrive-file-id">—</span></p>
+    </div>
+
+    <div class="gdrive-form-group">
+      <label for="gdrive-vacancy-select"><strong>Выберите вакансию:</strong></label>
+      <select id="gdrive-vacancy-select" class="ctx-select" disabled>
+        <option value="">— Загрузка вакансий —</option>
+      </select>
+    </div>
+
+    <div class="gdrive-button-group">
+      <button id="gdrive-add-btn" class="btn-small btn-primary" disabled>Добавить в Huntflow</button>
+    </div>
+
+    <div id="gdrive-result" class="gdrive-result" style="display: none;">
+      <div class="gdrive-success-message">
+        <p><strong>Кандидат создан успешно!</strong></p>
+        <p><strong>ФИО:</strong> <span id="result-name"></span></p>
+        <p><strong>Вакансия:</strong> <span id="result-vacancy"></span></p>
+        <a id="result-link" href="#" target="_blank" class="btn-small" rel="noopener">Открыть в Huntflow</a>
+      </div>
+    </div>
+
+    <div id="gdrive-error" class="gdrive-error" style="display: none;"></div>
   </div>
 
   <div id="popup-copy-buttons" class="popup-copy-buttons" aria-label="Кнопки копирования">

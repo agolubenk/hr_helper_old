@@ -19,8 +19,13 @@ const CONTEXT = {
   MEET: 'meet',
   RESUME: 'resume',
   HUNTFLOW: 'huntflow',
+  GDRIVE: 'gdrive',
   OTHER: 'other',
 };
+
+let currentGDriveFileId = null;
+let parsedCandidateData = null;
+let selectedVacancyId = null;
 
 /** Базовая часть URL (до ? и #) для сопоставления и хранения */
 var getBaseUrl = HRH.getBaseUrl;
@@ -68,6 +73,7 @@ function getActivePageKeyFromContext(ctx) {
   if (ctx === CONTEXT.HUNTFLOW) return 'huntflow';
   if (ctx === CONTEXT.MEET) return 'meet';
   if (ctx === CONTEXT.CALENDAR) return 'calendar';
+  if (ctx === CONTEXT.GDRIVE) return 'gdrive';
   return null;
 }
 
@@ -103,6 +109,7 @@ function getContextFromUrl(url) {
     if (host.includes('linkedin.com')) return CONTEXT.LINKEDIN;
     if (host.includes('calendar.google.com')) return CONTEXT.CALENDAR;
     if (host.includes('meet.google.com')) return CONTEXT.MEET;
+    if (host.includes('drive.google.com') && (path.includes('/file/d/') || path.includes('/open'))) return CONTEXT.GDRIVE;
     if ((host === 'rabota.by' || host === 'www.rabota.by' || host.endsWith('.rabota.by') || host.endsWith('.hh.ru')) && path.includes('/resume/')) return CONTEXT.RESUME;
     if (host === 'hh.ru' && path.includes('/resume/')) return CONTEXT.RESUME;
     if (host.includes('huntflow') && (path.includes('/my') || hash.includes('/my')) && (hash.includes('applicants/filter/all') || (hash.includes('applicants') && hash.includes('/id/')) || (hash.includes('vacancy') && hash.includes('/id/')) || (hash.includes('applicants') && /\/filter\/[\d]+\/[\d]+/.test(hash)))) return CONTEXT.HUNTFLOW;
@@ -1515,6 +1522,16 @@ async function showContextForTab() {
     updateHuntflowFloatingToggle(floatingData);
   }
 
+  if (ctx === CONTEXT.GDRIVE) {
+    const gdriveBlock = document.getElementById('context-gdrive');
+    if (gdriveBlock) {
+      gdriveBlock.style.display = 'block';
+      gdriveBlock.classList.add('visible');
+    }
+    await initGDriveSection();
+    return;
+  }
+
   // Для страниц резюме (rabota.by, hh.ru) и Huntflow показываем тот же блок, что и для LinkedIn; для неизвестных сайтов (OTHER) — только блок «другая страница», без формы LinkedIn–Huntflow
   const getBlockId = (HRH.tabs && HRH.tabs.getBlockId) ? HRH.tabs.getBlockId : (c) => ((c === CONTEXT.RESUME || c === CONTEXT.HUNTFLOW) ? 'context-linkedin' : `context-${c}`);
   const isLinkedInBlock = (HRH.tabs && HRH.tabs.isLinkedInBlock) ? HRH.tabs.isLinkedInBlock : (c) => (c === CONTEXT.LINKEDIN || c === CONTEXT.RESUME || c === CONTEXT.HUNTFLOW);
@@ -2494,6 +2511,258 @@ document.querySelectorAll('.ctx-toolbar-btn').forEach((btn) => {
     }
   });
 });
+
+// ============ GOOGLE DRIVE FUNCTIONS ============
+
+async function initGDriveSection() {
+  console.log('[HR Helper] Initializing Google Drive section');
+  const section = document.getElementById('context-gdrive');
+  if (!section) {
+    console.error('[HR Helper] Google Drive section not found in popup.html');
+    return;
+  }
+  
+  section.style.display = 'block';
+  
+  try {
+    let fileId = null;
+    
+    // Сначала пробуем получить из URL текущей вкладки
+    let tab = null;
+    try {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      tab = tabs && tabs[0];
+      console.log('[HR Helper] Current tab:', tab ? { id: tab.id, url: tab.url } : 'no tab');
+    } catch (tabError) {
+      console.error('[HR Helper] Error getting tab:', tabError);
+    }
+    
+    if (tab && tab.url) {
+      console.log('[HR Helper] Tab URL:', tab.url);
+      // Поддержка разных форматов URL Google Drive:
+      // - /file/d/FILE_ID/view
+      // - /file/d/FILE_ID/edit
+      // - /file/d/FILE_ID/preview
+      // - /open?id=FILE_ID
+      let match = tab.url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+      if (!match) {
+        match = tab.url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+      }
+      if (match) {
+        fileId = match[1];
+        console.log('[HR Helper] File ID extracted from URL:', fileId);
+      } else {
+        console.log('[HR Helper] URL does not match Google Drive file pattern');
+      }
+    } else {
+      console.log('[HR Helper] No tab URL available');
+    }
+    
+    // Если не получилось из URL, пробуем из storage
+    if (!fileId) {
+      try {
+        const data = await chrome.storage.local.get('currentGDriveFile');
+        console.log('[HR Helper] Storage data:', data);
+        if (data.currentGDriveFile && data.currentGDriveFile.fileId) {
+          fileId = data.currentGDriveFile.fileId;
+          console.log('[HR Helper] File ID loaded from storage:', fileId);
+        }
+      } catch (storageError) {
+        console.error('[HR Helper] Error reading storage:', storageError);
+      }
+    }
+    
+    if (fileId) {
+      currentGDriveFileId = fileId;
+      const fileIdEl = document.getElementById('gdrive-file-id');
+      if (fileIdEl) fileIdEl.textContent = currentGDriveFileId;
+      
+      await loadActiveVacancies();
+    } else {
+      showGDriveError('Не удалось получить ID файла. Убедитесь, что вы на странице файла Google Drive (drive.google.com/file/d/...).');
+    }
+  } catch (error) {
+    console.error('[HR Helper] Error in initGDriveSection:', error);
+    showGDriveError('Ошибка: ' + error.message);
+  }
+  
+  setupGDriveEventHandlers();
+}
+
+async function loadActiveVacancies() {
+  console.log('[HR Helper] Loading active vacancies');
+  const select = document.getElementById('gdrive-vacancy-select');
+  const addBtn = document.getElementById('gdrive-add-btn');
+  
+  if (!select) return;
+  
+  select.innerHTML = '<option value="">— Загрузка... —</option>';
+  
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: 'HRHELPER_API',
+      payload: {
+        path: '/api/vacancies/active/',
+        method: 'GET'
+      }
+    });
+    
+    console.log('[HR Helper] Vacancies response:', response);
+    
+    if (response && response.ok && response.json && response.json.vacancies) {
+      const vacancies = response.json.vacancies;
+      
+      if (vacancies.length === 0) {
+        select.innerHTML = '<option value="">— Нет активных вакансий —</option>';
+        return;
+      }
+      
+      select.innerHTML = '<option value="">— Выберите вакансию —</option>';
+      
+      vacancies.forEach(vacancy => {
+        const option = document.createElement('option');
+        option.value = vacancy.id;
+        option.textContent = `${vacancy.position}${vacancy.company ? ' (' + vacancy.company + ')' : ''}`;
+        option.dataset.vacancyUrl = vacancy.huntflow_url || '';
+        option.dataset.vacancyName = vacancy.position;
+        select.appendChild(option);
+      });
+      
+      select.disabled = false;
+      if (addBtn) addBtn.disabled = true;
+      console.log('[HR Helper] Loaded', vacancies.length, 'vacancies');
+    } else {
+      const errorMsg = response?.json?.message || response?.json?.error || 'Ошибка API';
+      console.error('[HR Helper] API error:', errorMsg);
+      select.innerHTML = '<option value="">— Ошибка загрузки —</option>';
+    }
+  } catch (error) {
+    console.error('[HR Helper] Error loading vacancies:', error);
+    select.innerHTML = '<option value="">— Ошибка загрузки —</option>';
+  }
+}
+
+let gdriveHandlersInitialized = false;
+
+function setupGDriveEventHandlers() {
+  if (gdriveHandlersInitialized) return;
+  gdriveHandlersInitialized = true;
+  
+  const vacancySelect = document.getElementById('gdrive-vacancy-select');
+  const addBtn = document.getElementById('gdrive-add-btn');
+  
+  if (vacancySelect) {
+    vacancySelect.addEventListener('change', (e) => {
+      selectedVacancyId = e.target.value ? parseInt(e.target.value) : null;
+      if (addBtn) addBtn.disabled = !selectedVacancyId || !currentGDriveFileId;
+      console.log('[HR Helper] Vacancy selected:', selectedVacancyId);
+    });
+  }
+  
+  if (addBtn) {
+    addBtn.addEventListener('click', async () => {
+      console.log('[HR Helper] Add button clicked');
+      await parseAndCreateCandidate();
+    });
+  }
+}
+
+async function parseAndCreateCandidate() {
+  const addBtn = document.getElementById('gdrive-add-btn');
+  const resultBox = document.getElementById('gdrive-result');
+  const errorBox = document.getElementById('gdrive-error');
+  const vacancySelect = document.getElementById('gdrive-vacancy-select');
+  
+  if (addBtn) {
+    addBtn.disabled = true;
+    addBtn.textContent = 'Обработка...';
+  }
+  if (errorBox) errorBox.style.display = 'none';
+  
+  try {
+    console.log('[HR Helper] Sending parse-and-create request:', {
+      fileId: currentGDriveFileId,
+      vacancyId: selectedVacancyId
+    });
+    
+    const response = await chrome.runtime.sendMessage({
+      type: 'HRHELPER_API',
+      payload: {
+        path: '/api/gdrive/parse-and-create/',
+        method: 'POST',
+        body: {
+          file_id: currentGDriveFileId,
+          vacancy_id: selectedVacancyId
+        }
+      }
+    });
+    
+    console.log('[HR Helper] Response:', response);
+    
+    if (response.ok && response.json && response.json.success) {
+      const result = response.json;
+      
+      const selectedOption = vacancySelect?.options[vacancySelect.selectedIndex];
+      const vacancyName = selectedOption ? selectedOption.dataset.vacancyName : 'Вакансия';
+      
+      document.getElementById('result-name').textContent = result.full_name || 'Кандидат';
+      document.getElementById('result-vacancy').textContent = vacancyName;
+      
+      const link = document.getElementById('result-link');
+      if (link) link.href = result.huntflow_url || '#';
+      
+      if (resultBox) resultBox.style.display = 'block';
+      
+      if (addBtn) addBtn.style.display = 'none';
+      if (vacancySelect) vacancySelect.disabled = true;
+      
+      // Notify content script to show floating widget via storage
+      try {
+        await chrome.storage.local.set({
+          hrhelper_gdrive_candidate_created: {
+            fileId: currentGDriveFileId,
+            timestamp: Date.now(),
+            result: result
+          }
+        });
+        
+        // Also try to send message directly
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (tabs && tabs[0]) {
+          chrome.tabs.sendMessage(tabs[0].id, {
+            type: 'HRHELPER_GDRIVE_CANDIDATE_CREATED',
+            payload: result
+          }).catch(() => {});
+        }
+      } catch (_) {}
+      
+      console.log('[HR Helper] Candidate created successfully');
+      
+    } else {
+      throw new Error(response.json?.message || response.json?.error || 'Ошибка создания кандидата');
+    }
+    
+  } catch (error) {
+    console.error('[HR Helper] Error:', error);
+    showGDriveError('Ошибка: ' + error.message);
+  } finally {
+    if (addBtn) {
+      addBtn.disabled = !selectedVacancyId || !currentGDriveFileId;
+      addBtn.textContent = 'Добавить в Huntflow';
+    }
+  }
+}
+
+function showGDriveError(message) {
+  const errorBox = document.getElementById('gdrive-error');
+  if (errorBox) {
+    errorBox.textContent = message;
+    errorBox.style.display = 'block';
+  }
+  console.error('[HR Helper]', message);
+}
+
+// ============ END GOOGLE DRIVE FUNCTIONS ============
 
 // Тема попапа из настроек
 loadAndApplyPopupTheme();

@@ -16,6 +16,10 @@ from apps.huntflow.views_api import (
     HHResponsesViewSet, LinkedInApplicantsViewSet, LinkedInThreadMappingViewSet,
     ResumeHuntflowLinkViewSet
 )
+from apps.huntflow.views_gdrive import (
+    get_active_vacancies, parse_gdrive_resume, create_candidate_from_gdrive,
+    parse_and_create_candidate, get_gdrive_link, update_gdrive_link
+)
 from apps.google_oauth.views_api import (
     GoogleOAuthAccountViewSet, SyncSettingsViewSet, ScorecardPathSettingsViewSet,
     SlotsSettingsViewSet, InviteViewSet, HRScreeningViewSet, QuestionTemplateViewSet,
@@ -96,6 +100,15 @@ urlpatterns = [
     # API v1
     path('v1/', include(router.urls)),
     path('v1/hh/', include('apps.hhru.urls_api')),
+    
+    # Google Drive Integration
+    path('vacancies/active/', get_active_vacancies, name='api_vacancies_active'),
+    path('gdrive/parse-and-create/', parse_and_create_candidate, name='api_gdrive_parse_and_create'),
+    path('gdrive/link/', get_gdrive_link, name='api_gdrive_link'),
+    path('gdrive/link/update/', update_gdrive_link, name='api_gdrive_link_update'),
+    # Legacy endpoints (deprecated)
+    path('parse-gdrive-resume/', parse_gdrive_resume, name='api_parse_gdrive_resume'),
+    path('candidates/create-from-gdrive/', create_candidate_from_gdrive, name='api_create_candidate_gdrive'),
     
     # API аутентификация
     path('auth/', include('rest_framework.urls')),

@@ -372,6 +372,16 @@
       .hrhelper-resume-floating-widget .hrhelper-resume-floating-add-vacancy:hover,
       .hrhelper-resume-floating-widget .hrhelper-resume-floating-toggle:hover,
       .hrhelper-resume-floating-widget .hrhelper-resume-floating-switch-service:hover { background: var(--hrhelper-border) !important; }
+      .hrhelper-resume-floating-widget .hrhelper-resume-floating-edit:active,
+      .hrhelper-resume-floating-widget .hrhelper-resume-floating-open-huntflow:active,
+      .hrhelper-resume-floating-widget .hrhelper-resume-floating-add-vacancy:active,
+      .hrhelper-resume-floating-widget .hrhelper-resume-floating-toggle:active,
+      .hrhelper-resume-floating-widget .hrhelper-resume-floating-switch-service:active { background: rgba(0,0,0,.15) !important; }
+      .hrhelper-resume-floating-widget.hrhelper-theme-dark .hrhelper-resume-floating-edit:active,
+      .hrhelper-resume-floating-widget.hrhelper-theme-dark .hrhelper-resume-floating-open-huntflow:active,
+      .hrhelper-resume-floating-widget.hrhelper-theme-dark .hrhelper-resume-floating-add-vacancy:active,
+      .hrhelper-resume-floating-widget.hrhelper-theme-dark .hrhelper-resume-floating-toggle:active,
+      .hrhelper-resume-floating-widget.hrhelper-theme-dark .hrhelper-resume-floating-switch-service:active { background: rgba(255,255,255,.15) !important; }
       .hrhelper-resume-floating-widget input,
       .hrhelper-resume-floating-widget .hrhelper-link-form-input { background: var(--hrhelper-input-bg) !important; color: var(--hrhelper-text) !important; border-color: var(--hrhelper-border) !important; }
       .hrhelper-resume-floating-widget .hrhelper-link-form-desc { color: var(--hrhelper-muted) !important; }
@@ -389,8 +399,11 @@
       .hrhelper-resume-vacancy-card .hrhelper-resume-vacancy-line1 { margin-bottom: 2px; color: var(--hrhelper-text); font-weight: 600; }
       .hrhelper-resume-vacancy-card .hrhelper-resume-vacancy-line2 { margin-bottom: 2px; color: var(--hrhelper-muted); }
       .hrhelper-resume-vacancy-card .hrhelper-resume-vacancy-reason { margin-top: 4px; font-size: 11px; color: var(--hrhelper-danger); }
-      .hrhelper-resume-vacancy-btn { width: 32px; height: 32px; padding: 0; border: 1px solid var(--hrhelper-card-active-border); border-radius: 6px; cursor: pointer; background: var(--hrhelper-card-active-bg); color: var(--hrhelper-accent); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+      .hrhelper-resume-vacancy-btn { width: 32px; height: 32px; padding: 0; border: 1px solid var(--hrhelper-card-active-border); border-radius: 6px; cursor: pointer; background: var(--hrhelper-card-active-bg); color: var(--hrhelper-accent); display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background .15s ease, border-color .15s ease, color .15s ease; }
+      .hrhelper-resume-vacancy-btn:hover { background: var(--hrhelper-border); }
+      .hrhelper-resume-vacancy-btn.hrhelper-copy-btn-copied { background: var(--hrhelper-success-bg) !important; border-color: var(--hrhelper-success-border) !important; color: var(--hrhelper-success) !important; }
       .hrhelper-resume-floating-widget.hrhelper-theme-dark .hrhelper-resume-vacancy-btn { border-color: rgba(88,166,255,.4); background: rgba(88,166,255,.18); color: #58a6ff; }
+      .hrhelper-resume-floating-widget.hrhelper-theme-dark .hrhelper-resume-vacancy-btn.hrhelper-copy-btn-copied { background: var(--hrhelper-success-bg) !important; border-color: var(--hrhelper-success-border) !important; color: var(--hrhelper-success) !important; }
       .hrhelper-resume-floating-widget.hrhelper-theme-dark .hrhelper-resume-vacancy-card { background: rgba(88,166,255,.08) !important; border-color: rgba(88,166,255,.35) !important; }
       .hrhelper-resume-floating-widget.hrhelper-theme-dark .hrhelper-resume-vacancy-card .hrhelper-resume-vacancy-line1 { color: #e6edf3 !important; }
       .hrhelper-resume-floating-widget.hrhelper-theme-dark .hrhelper-resume-vacancy-card .hrhelper-resume-vacancy-line2 { color: #8b949e !important; }
@@ -833,8 +846,12 @@
           e.stopPropagation();
           if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(v.appurl).then(() => {
+              copyBtn.classList.add('hrhelper-copy-btn-copied');
               copyBtn.title = 'Скопировано';
-              setTimeout(() => { copyBtn.title = 'Копировать ссылку на Huntflow'; }, 1500);
+              setTimeout(() => {
+                copyBtn.classList.remove('hrhelper-copy-btn-copied');
+                copyBtn.title = 'Копировать ссылку на Huntflow';
+              }, 1500);
             });
           }
         });
