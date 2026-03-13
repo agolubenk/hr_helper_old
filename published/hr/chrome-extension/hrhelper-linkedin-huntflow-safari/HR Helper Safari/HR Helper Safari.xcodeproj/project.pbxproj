@@ -1,0 +1,717 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		9C787DEE2F644CE000728B71 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C787DED2F644CE000728B71 /* AppDelegate.swift */; };
+		9C787DF22F644CE000728B71 /* Main.html in Resources */ = {isa = PBXBuildFile; fileRef = 9C787DF02F644CE000728B71 /* Main.html */; };
+		9C787DF42F644CE000728B71 /* Icon.png in Resources */ = {isa = PBXBuildFile; fileRef = 9C787DF32F644CE000728B71 /* Icon.png */; };
+		9C787DF62F644CE000728B71 /* Style.css in Resources */ = {isa = PBXBuildFile; fileRef = 9C787DF52F644CE000728B71 /* Style.css */; };
+		9C787DF82F644CE000728B71 /* Script.js in Resources */ = {isa = PBXBuildFile; fileRef = 9C787DF72F644CE000728B71 /* Script.js */; };
+		9C787DFA2F644CE000728B71 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C787DF92F644CE000728B71 /* ViewController.swift */; };
+		9C787DFD2F644CE000728B71 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 9C787DFB2F644CE000728B71 /* Main.storyboard */; };
+		9C787DFF2F644CE000728B71 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9C787DFE2F644CE000728B71 /* Assets.xcassets */; };
+		9C787E062F644CE000728B71 /* HR Helper Safari Extension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 9C787E052F644CE000728B71 /* HR Helper Safari Extension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		9C787E0B2F644CE000728B71 /* SafariWebExtensionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C787E0A2F644CE000728B71 /* SafariWebExtensionHandler.swift */; };
+		9C787E352F644CE000728B71 /* tabs in Resources */ = {isa = PBXBuildFile; fileRef = 9C787E172F644CE000728B71 /* tabs */; };
+		9C787E362F644CE000728B71 /* content-meet.js in Resources */ = {isa = PBXBuildFile; fileRef = 9C787E182F644CE000728B71 /* content-meet.js */; };
+		9C787E372F644CE000728B71 /* popup.js in Resources */ = {isa = PBXBuildFile; fileRef = 9C787E192F644CE000728B71 /* popup.js */; };
+		9C787E382F644CE000728B71 /* types.js in Resources */ = {isa = PBXBuildFile; fileRef = 9C787E1A2F644CE000728B71 /* types.js */; };
+		9C787E392F644CE000728B71 /* background.js in Resources */ = {isa = PBXBuildFile; fileRef = 9C787E1B2F644CE000728B71 /* background.js */; };
+		9C787E3A2F644CE000728B71 /* content-resume.js in Resources */ = {isa = PBXBuildFile; fileRef = 9C787E1C2F644CE000728B71 /* content-resume.js */; };
+		9C787E3B2F644CE000728B71 /* popup.html in Resources */ = {isa = PBXBuildFile; fileRef = 9C787E1D2F644CE000728B71 /* popup.html */; };
+		9C787E3C2F644CE000728B71 /* vacancy-utils.js in Resources */ = {isa = PBXBuildFile; fileRef = 9C787E1E2F644CE000728B71 /* vacancy-utils.js */; };
+		9C787E3D2F644CE000728B71 /* content.js.bak in Resources */ = {isa = PBXBuildFile; fileRef = 9C787E1F2F644CE000728B71 /* content.js.bak */; };
+		9C787E3E2F644CE000728B71 /* options.js in Resources */ = {isa = PBXBuildFile; fileRef = 9C787E202F644CE000728B71 /* options.js */; };
+		9C787E3F2F644CE000728B71 /* node_modules in Resources */ = {isa = PBXBuildFile; fileRef = 9C787E212F644CE000728B71 /* node_modules */; };
+		9C787E402F644CE000728B71 /* test-console.js in Resources */ = {isa = PBXBuildFile; fileRef = 9C787E222F644CE000728B71 /* test-console.js */; };
+		9C787E412F644CE000728B71 /* shared in Resources */ = {isa = PBXBuildFile; fileRef = 9C787E232F644CE000728B71 /* shared */; };
+		9C787E422F644CE000728B71 /* docs in Resources */ = {isa = PBXBuildFile; fileRef = 9C787E242F644CE000728B71 /* docs */; };
+		9C787E432F644CE000728B71 /* HR Helper Safari in Resources */ = {isa = PBXBuildFile; fileRef = 9C787E252F644CE000728B71 /* HR Helper Safari */; };
+		9C787E442F644CE000728B71 /* vite.config.mts in Resources */ = {isa = PBXBuildFile; fileRef = 9C787E262F644CE000728B71 /* vite.config.mts */; };
+		9C787E452F644CE000728B71 /* update_manifest.sh in Resources */ = {isa = PBXBuildFile; fileRef = 9C787E272F644CE000728B71 /* update_manifest.sh */; };
+		9C787E462F644CE000728B71 /* package-lock.json in Resources */ = {isa = PBXBuildFile; fileRef = 9C787E282F644CE000728B71 /* package-lock.json */; };
+		9C787E472F644CE000728B71 /* package.json in Resources */ = {isa = PBXBuildFile; fileRef = 9C787E292F644CE000728B71 /* package.json */; };
+		9C787E482F644CE000728B71 /* icons in Resources */ = {isa = PBXBuildFile; fileRef = 9C787E2A2F644CE000728B71 /* icons */; };
+		9C787E492F644CE000728B71 /* manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = 9C787E2B2F644CE000728B71 /* manifest.json */; };
+		9C787E4A2F644CE000728B71 /* options.html in Resources */ = {isa = PBXBuildFile; fileRef = 9C787E2C2F644CE000728B71 /* options.html */; };
+		9C787E4B2F644CE000728B71 /* content-gdrive.js in Resources */ = {isa = PBXBuildFile; fileRef = 9C787E2D2F644CE000728B71 /* content-gdrive.js */; };
+		9C787E4C2F644CE000728B71 /* popup.css in Resources */ = {isa = PBXBuildFile; fileRef = 9C787E2E2F644CE000728B71 /* popup.css */; };
+		9C787E4D2F644CE000728B71 /* content.js in Resources */ = {isa = PBXBuildFile; fileRef = 9C787E2F2F644CE000728B71 /* content.js */; };
+		9C787E4E2F644CE000728B71 /* modules in Resources */ = {isa = PBXBuildFile; fileRef = 9C787E302F644CE000728B71 /* modules */; };
+		9C787E4F2F644CE000728B71 /* generate-icons.js in Resources */ = {isa = PBXBuildFile; fileRef = 9C787E312F644CE000728B71 /* generate-icons.js */; };
+		9C787E502F644CE000728B71 /* options.css in Resources */ = {isa = PBXBuildFile; fileRef = 9C787E322F644CE000728B71 /* options.css */; };
+		9C787E512F644CE000728B71 /* content-calendar.js in Resources */ = {isa = PBXBuildFile; fileRef = 9C787E332F644CE000728B71 /* content-calendar.js */; };
+		9C787E522F644CE000728B71 /* content-huntflow.js in Resources */ = {isa = PBXBuildFile; fileRef = 9C787E342F644CE000728B71 /* content-huntflow.js */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		9C787E072F644CE000728B71 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 9C787DE22F644CE000728B71 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9C787E042F644CE000728B71;
+			remoteInfo = "HR Helper Safari Extension";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		9C787E122F644CE000728B71 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				9C787E062F644CE000728B71 /* HR Helper Safari Extension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		9C787DEA2F644CE000728B71 /* HR Helper Safari.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "HR Helper Safari.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		9C787DED2F644CE000728B71 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		9C787DF12F644CE000728B71 /* Base */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = Base; path = Base.lproj/Main.html; sourceTree = "<group>"; };
+		9C787DF32F644CE000728B71 /* Icon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Icon.png; sourceTree = "<group>"; };
+		9C787DF52F644CE000728B71 /* Style.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = Style.css; sourceTree = "<group>"; };
+		9C787DF72F644CE000728B71 /* Script.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = Script.js; sourceTree = "<group>"; };
+		9C787DF92F644CE000728B71 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
+		9C787DFC2F644CE000728B71 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
+		9C787DFE2F644CE000728B71 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		9C787E002F644CE000728B71 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		9C787E052F644CE000728B71 /* HR Helper Safari Extension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "HR Helper Safari Extension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
+		9C787E0A2F644CE000728B71 /* SafariWebExtensionHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariWebExtensionHandler.swift; sourceTree = "<group>"; };
+		9C787E0C2F644CE000728B71 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		9C787E172F644CE000728B71 /* tabs */ = {isa = PBXFileReference; lastKnownFileType = folder; name = tabs; path = "../../../hrhelper-linkedin-huntflow/tabs"; sourceTree = "<group>"; };
+		9C787E182F644CE000728B71 /* content-meet.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = "content-meet.js"; path = "../../../hrhelper-linkedin-huntflow/content-meet.js"; sourceTree = "<group>"; };
+		9C787E192F644CE000728B71 /* popup.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = popup.js; path = "../../../hrhelper-linkedin-huntflow/popup.js"; sourceTree = "<group>"; };
+		9C787E1A2F644CE000728B71 /* types.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = types.js; path = "../../../hrhelper-linkedin-huntflow/types.js"; sourceTree = "<group>"; };
+		9C787E1B2F644CE000728B71 /* background.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = background.js; path = "../../../hrhelper-linkedin-huntflow/background.js"; sourceTree = "<group>"; };
+		9C787E1C2F644CE000728B71 /* content-resume.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = "content-resume.js"; path = "../../../hrhelper-linkedin-huntflow/content-resume.js"; sourceTree = "<group>"; };
+		9C787E1D2F644CE000728B71 /* popup.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = popup.html; path = "../../../hrhelper-linkedin-huntflow/popup.html"; sourceTree = "<group>"; };
+		9C787E1E2F644CE000728B71 /* vacancy-utils.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = "vacancy-utils.js"; path = "../../../hrhelper-linkedin-huntflow/vacancy-utils.js"; sourceTree = "<group>"; };
+		9C787E1F2F644CE000728B71 /* content.js.bak */ = {isa = PBXFileReference; lastKnownFileType = text; name = content.js.bak; path = "../../../hrhelper-linkedin-huntflow/content.js.bak"; sourceTree = "<group>"; };
+		9C787E202F644CE000728B71 /* options.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = options.js; path = "../../../hrhelper-linkedin-huntflow/options.js"; sourceTree = "<group>"; };
+		9C787E212F644CE000728B71 /* node_modules */ = {isa = PBXFileReference; lastKnownFileType = folder; name = node_modules; path = "../../../hrhelper-linkedin-huntflow/node_modules"; sourceTree = "<group>"; };
+		9C787E222F644CE000728B71 /* test-console.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = "test-console.js"; path = "../../../hrhelper-linkedin-huntflow/test-console.js"; sourceTree = "<group>"; };
+		9C787E232F644CE000728B71 /* shared */ = {isa = PBXFileReference; lastKnownFileType = folder; name = shared; path = "../../../hrhelper-linkedin-huntflow/shared"; sourceTree = "<group>"; };
+		9C787E242F644CE000728B71 /* docs */ = {isa = PBXFileReference; lastKnownFileType = folder; name = docs; path = "../../../hrhelper-linkedin-huntflow/docs"; sourceTree = "<group>"; };
+		9C787E252F644CE000728B71 /* HR Helper Safari */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "HR Helper Safari"; path = "../../../hrhelper-linkedin-huntflow/HR Helper Safari"; sourceTree = "<group>"; };
+		9C787E262F644CE000728B71 /* vite.config.mts */ = {isa = PBXFileReference; lastKnownFileType = text; name = vite.config.mts; path = "../../../hrhelper-linkedin-huntflow/vite.config.mts"; sourceTree = "<group>"; };
+		9C787E272F644CE000728B71 /* update_manifest.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = update_manifest.sh; path = "../../../hrhelper-linkedin-huntflow/update_manifest.sh"; sourceTree = "<group>"; };
+		9C787E282F644CE000728B71 /* package-lock.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = "package-lock.json"; path = "../../../hrhelper-linkedin-huntflow/package-lock.json"; sourceTree = "<group>"; };
+		9C787E292F644CE000728B71 /* package.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = package.json; path = "../../../hrhelper-linkedin-huntflow/package.json"; sourceTree = "<group>"; };
+		9C787E2A2F644CE000728B71 /* icons */ = {isa = PBXFileReference; lastKnownFileType = folder; name = icons; path = "../../../hrhelper-linkedin-huntflow/icons"; sourceTree = "<group>"; };
+		9C787E2B2F644CE000728B71 /* manifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = manifest.json; path = "../../../hrhelper-linkedin-huntflow/manifest.json"; sourceTree = "<group>"; };
+		9C787E2C2F644CE000728B71 /* options.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = options.html; path = "../../../hrhelper-linkedin-huntflow/options.html"; sourceTree = "<group>"; };
+		9C787E2D2F644CE000728B71 /* content-gdrive.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = "content-gdrive.js"; path = "../../../hrhelper-linkedin-huntflow/content-gdrive.js"; sourceTree = "<group>"; };
+		9C787E2E2F644CE000728B71 /* popup.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; name = popup.css; path = "../../../hrhelper-linkedin-huntflow/popup.css"; sourceTree = "<group>"; };
+		9C787E2F2F644CE000728B71 /* content.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = content.js; path = "../../../hrhelper-linkedin-huntflow/content.js"; sourceTree = "<group>"; };
+		9C787E302F644CE000728B71 /* modules */ = {isa = PBXFileReference; lastKnownFileType = folder; name = modules; path = "../../../hrhelper-linkedin-huntflow/modules"; sourceTree = "<group>"; };
+		9C787E312F644CE000728B71 /* generate-icons.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = "generate-icons.js"; path = "../../../hrhelper-linkedin-huntflow/generate-icons.js"; sourceTree = "<group>"; };
+		9C787E322F644CE000728B71 /* options.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; name = options.css; path = "../../../hrhelper-linkedin-huntflow/options.css"; sourceTree = "<group>"; };
+		9C787E332F644CE000728B71 /* content-calendar.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = "content-calendar.js"; path = "../../../hrhelper-linkedin-huntflow/content-calendar.js"; sourceTree = "<group>"; };
+		9C787E342F644CE000728B71 /* content-huntflow.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = "content-huntflow.js"; path = "../../../hrhelper-linkedin-huntflow/content-huntflow.js"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		9C787DE72F644CE000728B71 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9C787E022F644CE000728B71 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		9C787DE12F644CE000728B71 = {
+			isa = PBXGroup;
+			children = (
+				9C787DEC2F644CE000728B71 /* HR Helper Safari */,
+				9C787E092F644CE000728B71 /* HR Helper Safari Extension */,
+				9C787DEB2F644CE000728B71 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		9C787DEB2F644CE000728B71 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				9C787DEA2F644CE000728B71 /* HR Helper Safari.app */,
+				9C787E052F644CE000728B71 /* HR Helper Safari Extension.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		9C787DEC2F644CE000728B71 /* HR Helper Safari */ = {
+			isa = PBXGroup;
+			children = (
+				9C787DED2F644CE000728B71 /* AppDelegate.swift */,
+				9C787DF92F644CE000728B71 /* ViewController.swift */,
+				9C787DFB2F644CE000728B71 /* Main.storyboard */,
+				9C787DFE2F644CE000728B71 /* Assets.xcassets */,
+				9C787E002F644CE000728B71 /* Info.plist */,
+				9C787DEF2F644CE000728B71 /* Resources */,
+			);
+			path = "HR Helper Safari";
+			sourceTree = "<group>";
+		};
+		9C787DEF2F644CE000728B71 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				9C787DF02F644CE000728B71 /* Main.html */,
+				9C787DF32F644CE000728B71 /* Icon.png */,
+				9C787DF52F644CE000728B71 /* Style.css */,
+				9C787DF72F644CE000728B71 /* Script.js */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		9C787E092F644CE000728B71 /* HR Helper Safari Extension */ = {
+			isa = PBXGroup;
+			children = (
+				9C787E162F644CE000728B71 /* Resources */,
+				9C787E0A2F644CE000728B71 /* SafariWebExtensionHandler.swift */,
+				9C787E0C2F644CE000728B71 /* Info.plist */,
+			);
+			path = "HR Helper Safari Extension";
+			sourceTree = "<group>";
+		};
+		9C787E162F644CE000728B71 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				9C787E172F644CE000728B71 /* tabs */,
+				9C787E182F644CE000728B71 /* content-meet.js */,
+				9C787E192F644CE000728B71 /* popup.js */,
+				9C787E1A2F644CE000728B71 /* types.js */,
+				9C787E1B2F644CE000728B71 /* background.js */,
+				9C787E1C2F644CE000728B71 /* content-resume.js */,
+				9C787E1D2F644CE000728B71 /* popup.html */,
+				9C787E1E2F644CE000728B71 /* vacancy-utils.js */,
+				9C787E1F2F644CE000728B71 /* content.js.bak */,
+				9C787E202F644CE000728B71 /* options.js */,
+				9C787E212F644CE000728B71 /* node_modules */,
+				9C787E222F644CE000728B71 /* test-console.js */,
+				9C787E232F644CE000728B71 /* shared */,
+				9C787E242F644CE000728B71 /* docs */,
+				9C787E252F644CE000728B71 /* HR Helper Safari */,
+				9C787E262F644CE000728B71 /* vite.config.mts */,
+				9C787E272F644CE000728B71 /* update_manifest.sh */,
+				9C787E282F644CE000728B71 /* package-lock.json */,
+				9C787E292F644CE000728B71 /* package.json */,
+				9C787E2A2F644CE000728B71 /* icons */,
+				9C787E2B2F644CE000728B71 /* manifest.json */,
+				9C787E2C2F644CE000728B71 /* options.html */,
+				9C787E2D2F644CE000728B71 /* content-gdrive.js */,
+				9C787E2E2F644CE000728B71 /* popup.css */,
+				9C787E2F2F644CE000728B71 /* content.js */,
+				9C787E302F644CE000728B71 /* modules */,
+				9C787E312F644CE000728B71 /* generate-icons.js */,
+				9C787E322F644CE000728B71 /* options.css */,
+				9C787E332F644CE000728B71 /* content-calendar.js */,
+				9C787E342F644CE000728B71 /* content-huntflow.js */,
+			);
+			name = Resources;
+			path = "HR Helper Safari Extension";
+			sourceTree = SOURCE_ROOT;
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		9C787DE92F644CE000728B71 /* HR Helper Safari */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9C787E132F644CE000728B71 /* Build configuration list for PBXNativeTarget "HR Helper Safari" */;
+			buildPhases = (
+				9C787DE62F644CE000728B71 /* Sources */,
+				9C787DE72F644CE000728B71 /* Frameworks */,
+				9C787DE82F644CE000728B71 /* Resources */,
+				9C787E122F644CE000728B71 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				9C787E082F644CE000728B71 /* PBXTargetDependency */,
+			);
+			name = "HR Helper Safari";
+			packageProductDependencies = (
+			);
+			productName = "HR Helper Safari";
+			productReference = 9C787DEA2F644CE000728B71 /* HR Helper Safari.app */;
+			productType = "com.apple.product-type.application";
+		};
+		9C787E042F644CE000728B71 /* HR Helper Safari Extension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9C787E0F2F644CE000728B71 /* Build configuration list for PBXNativeTarget "HR Helper Safari Extension" */;
+			buildPhases = (
+				9C787E012F644CE000728B71 /* Sources */,
+				9C787E022F644CE000728B71 /* Frameworks */,
+				9C787E032F644CE000728B71 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "HR Helper Safari Extension";
+			packageProductDependencies = (
+			);
+			productName = "HR Helper Safari Extension";
+			productReference = 9C787E052F644CE000728B71 /* HR Helper Safari Extension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		9C787DE22F644CE000728B71 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2630;
+				LastUpgradeCheck = 2630;
+				TargetAttributes = {
+					9C787DE92F644CE000728B71 = {
+						CreatedOnToolsVersion = 26.3;
+					};
+					9C787E042F644CE000728B71 = {
+						CreatedOnToolsVersion = 26.3;
+					};
+				};
+			};
+			buildConfigurationList = 9C787DE52F644CE000728B71 /* Build configuration list for PBXProject "HR Helper Safari" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 9C787DE12F644CE000728B71;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 9C787DEB2F644CE000728B71 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				9C787DE92F644CE000728B71 /* HR Helper Safari */,
+				9C787E042F644CE000728B71 /* HR Helper Safari Extension */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		9C787DE82F644CE000728B71 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9C787DF42F644CE000728B71 /* Icon.png in Resources */,
+				9C787DFD2F644CE000728B71 /* Main.storyboard in Resources */,
+				9C787DF82F644CE000728B71 /* Script.js in Resources */,
+				9C787DF22F644CE000728B71 /* Main.html in Resources */,
+				9C787DFF2F644CE000728B71 /* Assets.xcassets in Resources */,
+				9C787DF62F644CE000728B71 /* Style.css in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9C787E032F644CE000728B71 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9C787E412F644CE000728B71 /* shared in Resources */,
+				9C787E492F644CE000728B71 /* manifest.json in Resources */,
+				9C787E3B2F644CE000728B71 /* popup.html in Resources */,
+				9C787E3D2F644CE000728B71 /* content.js.bak in Resources */,
+				9C787E422F644CE000728B71 /* docs in Resources */,
+				9C787E4B2F644CE000728B71 /* content-gdrive.js in Resources */,
+				9C787E472F644CE000728B71 /* package.json in Resources */,
+				9C787E402F644CE000728B71 /* test-console.js in Resources */,
+				9C787E382F644CE000728B71 /* types.js in Resources */,
+				9C787E4D2F644CE000728B71 /* content.js in Resources */,
+				9C787E352F644CE000728B71 /* tabs in Resources */,
+				9C787E4F2F644CE000728B71 /* generate-icons.js in Resources */,
+				9C787E452F644CE000728B71 /* update_manifest.sh in Resources */,
+				9C787E372F644CE000728B71 /* popup.js in Resources */,
+				9C787E362F644CE000728B71 /* content-meet.js in Resources */,
+				9C787E392F644CE000728B71 /* background.js in Resources */,
+				9C787E462F644CE000728B71 /* package-lock.json in Resources */,
+				9C787E482F644CE000728B71 /* icons in Resources */,
+				9C787E502F644CE000728B71 /* options.css in Resources */,
+				9C787E4A2F644CE000728B71 /* options.html in Resources */,
+				9C787E432F644CE000728B71 /* HR Helper Safari in Resources */,
+				9C787E3C2F644CE000728B71 /* vacancy-utils.js in Resources */,
+				9C787E3F2F644CE000728B71 /* node_modules in Resources */,
+				9C787E512F644CE000728B71 /* content-calendar.js in Resources */,
+				9C787E4C2F644CE000728B71 /* popup.css in Resources */,
+				9C787E522F644CE000728B71 /* content-huntflow.js in Resources */,
+				9C787E442F644CE000728B71 /* vite.config.mts in Resources */,
+				9C787E3A2F644CE000728B71 /* content-resume.js in Resources */,
+				9C787E4E2F644CE000728B71 /* modules in Resources */,
+				9C787E3E2F644CE000728B71 /* options.js in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		9C787DE62F644CE000728B71 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9C787DFA2F644CE000728B71 /* ViewController.swift in Sources */,
+				9C787DEE2F644CE000728B71 /* AppDelegate.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9C787E012F644CE000728B71 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9C787E0B2F644CE000728B71 /* SafariWebExtensionHandler.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		9C787E082F644CE000728B71 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 9C787E042F644CE000728B71 /* HR Helper Safari Extension */;
+			targetProxy = 9C787E072F644CE000728B71 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		9C787DF02F644CE000728B71 /* Main.html */ = {
+			isa = PBXVariantGroup;
+			children = (
+				9C787DF12F644CE000728B71 /* Base */,
+			);
+			name = Main.html;
+			sourceTree = "<group>";
+		};
+		9C787DFB2F644CE000728B71 /* Main.storyboard */ = {
+			isa = PBXVariantGroup;
+			children = (
+				9C787DFC2F644CE000728B71 /* Base */,
+			);
+			name = Main.storyboard;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		9C787E0D2F644CE000728B71 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		9C787E0E2F644CE000728B71 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		9C787E102F644CE000728B71 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8Q5935866Y;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "HR Helper Safari Extension/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "HR Helper Safari Extension";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"-framework",
+					SafariServices,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.sftntx.hrhelper.safari.extension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		9C787E112F644CE000728B71 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8Q5935866Y;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "HR Helper Safari Extension/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "HR Helper Safari Extension";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"-framework",
+					SafariServices,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.sftntx.hrhelper.safari.extension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		9C787E142F644CE000728B71 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8Q5935866Y;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "HR Helper Safari/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "HR Helper Safari";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMainStoryboardFile = Main;
+				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"-framework",
+					SafariServices,
+					"-framework",
+					WebKit,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.sftntx.hrhelper.safari;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		9C787E152F644CE000728B71 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8Q5935866Y;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "HR Helper Safari/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "HR Helper Safari";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMainStoryboardFile = Main;
+				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"-framework",
+					SafariServices,
+					"-framework",
+					WebKit,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.sftntx.hrhelper.safari;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		9C787DE52F644CE000728B71 /* Build configuration list for PBXProject "HR Helper Safari" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9C787E0D2F644CE000728B71 /* Debug */,
+				9C787E0E2F644CE000728B71 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9C787E0F2F644CE000728B71 /* Build configuration list for PBXNativeTarget "HR Helper Safari Extension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9C787E102F644CE000728B71 /* Debug */,
+				9C787E112F644CE000728B71 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9C787E132F644CE000728B71 /* Build configuration list for PBXNativeTarget "HR Helper Safari" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9C787E142F644CE000728B71 /* Debug */,
+				9C787E152F644CE000728B71 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 9C787DE22F644CE000728B71 /* Project object */;
+}

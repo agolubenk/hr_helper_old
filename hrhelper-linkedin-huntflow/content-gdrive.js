@@ -276,9 +276,15 @@
     title.style.cssText = 'font-size:14px;font-weight:600;color:var(--hrhelper-accent,#0a66c2);display:flex;align-items:center;gap:6px;flex:1;min-width:0;overflow:hidden;';
     const titleIcon = document.createElement('img');
     titleIcon.className = 'hrhelper-title-icon';
-    titleIcon.src = chrome.runtime.getURL('icons/icon-32.png');
+    try {
+      titleIcon.src = chrome.runtime.getURL('icons/icon-32.png');
+    } catch (_) {
+      // Extension context invalidated — используем fallback SVG
+      titleIcon.style.display = 'none';
+    }
     titleIcon.width = 20; titleIcon.height = 20;
     titleIcon.style.cssText = 'flex-shrink:0;display:block;object-fit:contain;';
+    titleIcon.onerror = function() { this.style.display = 'none'; };
     title.appendChild(titleIcon);
     const titleText = document.createElement('span');
     titleText.className = 'hrhelper-widget-title-text';

@@ -1560,6 +1560,15 @@
     return m ? m[1] : null;
   }
 
+  /** Проверка: является ли текущая страница откликом (из списка откликов на вакансию)
+   *  Используется для определения, показывать ли кнопки "Пригласить" / "Отказать"
+   *  Плавающее окно показывается всегда, кнопки — только для откликов */
+  function isResponsePage() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const hhtmFrom = urlParams.get('hhtmFrom');
+    return hhtmFrom === 'employer_vacancy_responses';
+  }
+
   /** Сохранить состояние в storage (ключ = resume_id) */
   function saveStateToStorage(state) {
     const key = getResumeId();
@@ -1691,13 +1700,15 @@
         const host = (location.hostname || '').toLowerCase();
         const isRabota = host.includes('rabota.by');
         const portal = isRabota ? 'rabota.by' : 'hh.ru';
-        const hasRejected = (vacancies || []).some((v) => (v && String(v.status_type || '').toLowerCase() === 'rejected'));
-        const actionsInfo = await checkHhActionsAvailability(getResumeUrlForActions(), state.huntflowUrl);
-        const hhCanAct = !!(actionsInfo && actionsInfo.success && actionsInfo.actions_allowed);
-        // Кнопки при наличии ссылки Huntflow и без отказа по вакансии. Если бэкенд разрешает действия (hhCanAct) —
-        // показываем; иначе тоже показываем (на rabota.by HHResponse часто не находится по resume_url), при клике
-        // бэкенд обновит Huntflow и вернёт сообщение по HH
-        const showActions = !!(state.huntflowUrl && !hasRejected);
+        // Показываем кнопки только для откликов (hhtmFrom=employer_vacancy_responses)
+        // и только если есть хотя бы одна вакансия со статусом "rejected" или "new"
+        const hasRejectedOrNew = (vacancies || []).some((v) => {
+          if (!v) return false;
+          const statusType = String(v.status_type || '').toLowerCase();
+          const statusName = v.status_name || '';
+          return statusType === 'rejected' || isNewStatusName(statusName);
+        });
+        const showActions = !!(state.huntflowUrl && hasRejectedOrNew && isResponsePage());
 
         const options = {
           huntflowUrl: state.huntflowUrl,

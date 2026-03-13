@@ -37,88 +37,102 @@
       <hr class="options-divider" />
 
       <section class="options-extra">
-        <h2 class="options-extra-title">Тема оформления</h2>
-        <div class="options-theme-cards" role="radiogroup" aria-label="Тема оформления">
-          <label class="options-theme-card" data-value="system">
-            <input type="radio" name="optionsTheme" value="system" checked />
-            <div class="options-theme-preview">
-              <div class="options-theme-preview-half options-theme-light">
-                <div class="options-theme-window" data-theme="light">
-                  <div class="options-theme-titlebar"><span class="options-theme-dot"></span><span class="options-theme-dot"></span><span class="options-theme-dot"></span></div>
-                  <div class="options-theme-content"></div>
+        <div class="options-collapsible" id="section-theme">
+          <button type="button" class="options-collapsible-header" aria-expanded="true" aria-controls="section-theme-body">
+            <span class="options-collapsible-title">Тема оформления</span>
+            <span class="options-collapsible-icon">▼</span>
+          </button>
+          <div class="options-collapsible-body" id="section-theme-body">
+            <div class="options-theme-cards" role="radiogroup" aria-label="Тема оформления">
+              <label class="options-theme-card" data-value="system">
+                <input type="radio" name="optionsTheme" value="system" checked />
+                <div class="options-theme-preview">
+                  <div class="options-theme-preview-half options-theme-light">
+                    <div class="options-theme-window" data-theme="light">
+                      <div class="options-theme-titlebar"><span class="options-theme-dot"></span><span class="options-theme-dot"></span><span class="options-theme-dot"></span></div>
+                      <div class="options-theme-content"></div>
+                    </div>
+                  </div>
+                  <div class="options-theme-preview-half options-theme-dark">
+                    <div class="options-theme-window" data-theme="dark">
+                      <div class="options-theme-titlebar"><span class="options-theme-dot"></span><span class="options-theme-dot"></span><span class="options-theme-dot"></span></div>
+                      <div class="options-theme-content"></div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div class="options-theme-preview-half options-theme-dark">
-                <div class="options-theme-window" data-theme="dark">
-                  <div class="options-theme-titlebar"><span class="options-theme-dot"></span><span class="options-theme-dot"></span><span class="options-theme-dot"></span></div>
-                  <div class="options-theme-content"></div>
+                <span class="options-theme-label">Автоматически</span>
+              </label>
+              <label class="options-theme-card" data-value="light">
+                <input type="radio" name="optionsTheme" value="light" />
+                <div class="options-theme-preview options-theme-preview-full">
+                  <div class="options-theme-window" data-theme="light">
+                    <div class="options-theme-titlebar"><span class="options-theme-dot"></span><span class="options-theme-dot"></span><span class="options-theme-dot"></span></div>
+                    <div class="options-theme-content"></div>
+                  </div>
                 </div>
-              </div>
+                <span class="options-theme-label">Светлое</span>
+              </label>
+              <label class="options-theme-card" data-value="dark">
+                <input type="radio" name="optionsTheme" value="dark" />
+                <div class="options-theme-preview options-theme-preview-full">
+                  <div class="options-theme-window" data-theme="dark">
+                    <div class="options-theme-titlebar"><span class="options-theme-dot"></span><span class="options-theme-dot"></span><span class="options-theme-dot"></span></div>
+                    <div class="options-theme-content"></div>
+                  </div>
+                </div>
+                <span class="options-theme-label">Тёмное</span>
+              </label>
             </div>
-            <span class="options-theme-label">Автоматически</span>
-          </label>
-          <label class="options-theme-card" data-value="light">
-            <input type="radio" name="optionsTheme" value="light" />
-            <div class="options-theme-preview options-theme-preview-full">
-              <div class="options-theme-window" data-theme="light">
-                <div class="options-theme-titlebar"><span class="options-theme-dot"></span><span class="options-theme-dot"></span><span class="options-theme-dot"></span></div>
-                <div class="options-theme-content"></div>
-              </div>
-            </div>
-            <span class="options-theme-label">Светлое</span>
-          </label>
-          <label class="options-theme-card" data-value="dark">
-            <input type="radio" name="optionsTheme" value="dark" />
-            <div class="options-theme-preview options-theme-preview-full">
-              <div class="options-theme-window" data-theme="dark">
-                <div class="options-theme-titlebar"><span class="options-theme-dot"></span><span class="options-theme-dot"></span><span class="options-theme-dot"></span></div>
-                <div class="options-theme-content"></div>
-              </div>
-            </div>
-            <span class="options-theme-label">Тёмное</span>
-          </label>
+          </div>
         </div>
 
-        <h2 class="options-extra-title">Активные страницы</h2>
-        <p class="options-extra-desc">Включить расширение на платформах:</p>
-        <div class="options-pages-row" id="options-pages-row">
-          <button type="button" class="options-page-btn options-page-on" data-page="linkedin" aria-pressed="true">
-            <img class="options-page-icon" src="https://www.google.com/s2/favicons?domain=linkedin.com&sz=32" alt="" />
-            LinkedIn
+        <div class="options-collapsible" id="section-pages">
+          <button type="button" class="options-collapsible-header" aria-expanded="true" aria-controls="section-pages-body">
+            <span class="options-collapsible-title">Активные страницы</span>
+            <span class="options-collapsible-icon">▼</span>
           </button>
-          <button type="button" class="options-page-btn options-page-on" data-page="hh_ecosystem" aria-pressed="true">
-            <img class="options-page-icon" src="https://www.google.com/s2/favicons?domain=hh.ru&sz=32" alt="" />
-            HH экосистема
-          </button>
-          <button type="button" class="options-page-btn options-page-on" data-page="huntflow" aria-pressed="true">
-            <img class="options-page-icon" src="https://www.google.com/s2/favicons?domain=huntflow.ru&sz=32" alt="" />
-            Huntflow
-          </button>
-          <button type="button" class="options-page-btn options-page-on" data-page="meet" aria-pressed="true">
-            <img class="options-page-icon" src="https://www.google.com/s2/favicons?domain=meet.google.com&sz=32" alt="" />
-            Google Meet
-          </button>
-          <button type="button" class="options-page-btn options-page-on" data-page="calendar" aria-pressed="true">
-            <svg class="options-page-icon" width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <rect x="3" y="4" width="18" height="18" rx="2" stroke="#4285F4" stroke-width="2"/>
-              <path d="M3 9h18" stroke="#4285F4" stroke-width="2"/>
-              <path d="M9 4V2M15 4V2" stroke="#4285F4" stroke-width="2" stroke-linecap="round"/>
-              <rect x="7" y="12" width="3" height="3" fill="#EA4335"/>
-              <rect x="11" y="12" width="3" height="3" fill="#FBBC05"/>
-              <rect x="7" y="16" width="3" height="3" fill="#34A853"/>
-              <rect x="11" y="16" width="3" height="3" fill="#4285F4"/>
-            </svg>
-            Google Calendar
-          </button>
-          <button type="button" class="options-page-btn options-page-on" data-page="gdrive" aria-pressed="true">
-            <svg class="options-page-icon" width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <path d="M8.5 2L2 12l3.5 6h13L22 12 15.5 2h-7z" fill="#FFC107"/>
-              <path d="M15.5 2L22 12l-3.5 6H8.5" fill="#4CAF50"/>
-              <path d="M2 12l6.5 6h9.5" fill="#2196F3"/>
-              <path d="M8.5 2h7L12 8.5 8.5 2z" fill="#EA4335"/>
-            </svg>
-            Google Drive
-          </button>
+          <div class="options-collapsible-body" id="section-pages-body">
+            <p class="options-extra-desc">Включить расширение на платформах:</p>
+            <div class="options-pages-row" id="options-pages-row">
+              <button type="button" class="options-page-btn options-page-on" data-page="linkedin" aria-pressed="true">
+                <img class="options-page-icon" src="https://www.google.com/s2/favicons?domain=linkedin.com&sz=32" alt="" />
+                LinkedIn
+              </button>
+              <button type="button" class="options-page-btn options-page-on" data-page="hh_ecosystem" aria-pressed="true">
+                <img class="options-page-icon" src="https://www.google.com/s2/favicons?domain=hh.ru&sz=32" alt="" />
+                HH экосистема
+              </button>
+              <button type="button" class="options-page-btn options-page-on" data-page="huntflow" aria-pressed="true">
+                <img class="options-page-icon" src="https://www.google.com/s2/favicons?domain=huntflow.ru&sz=32" alt="" />
+                Huntflow
+              </button>
+              <button type="button" class="options-page-btn options-page-on" data-page="meet" aria-pressed="true">
+                <img class="options-page-icon" src="https://www.google.com/s2/favicons?domain=meet.google.com&sz=32" alt="" />
+                Google Meet
+              </button>
+              <button type="button" class="options-page-btn options-page-on" data-page="calendar" aria-pressed="true">
+                <svg class="options-page-icon" width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <rect x="3" y="4" width="18" height="18" rx="2" stroke="#4285F4" stroke-width="2"/>
+                  <path d="M3 9h18" stroke="#4285F4" stroke-width="2"/>
+                  <path d="M9 4V2M15 4V2" stroke="#4285F4" stroke-width="2" stroke-linecap="round"/>
+                  <rect x="7" y="12" width="3" height="3" fill="#EA4335"/>
+                  <rect x="11" y="12" width="3" height="3" fill="#FBBC05"/>
+                  <rect x="7" y="16" width="3" height="3" fill="#34A853"/>
+                  <rect x="11" y="16" width="3" height="3" fill="#4285F4"/>
+                </svg>
+                Google Calendar
+              </button>
+              <button type="button" class="options-page-btn options-page-on" data-page="gdrive" aria-pressed="true">
+                <svg class="options-page-icon" width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <path d="M8.5 2L2 12l3.5 6h13L22 12 15.5 2h-7z" fill="#FFC107"/>
+                  <path d="M15.5 2L22 12l-3.5 6H8.5" fill="#4CAF50"/>
+                  <path d="M2 12l6.5 6h9.5" fill="#2196F3"/>
+                  <path d="M8.5 2h7L12 8.5 8.5 2z" fill="#EA4335"/>
+                </svg>
+                Google Drive
+              </button>
+            </div>
+          </div>
         </div>
       </section>
     </div>
@@ -143,6 +157,8 @@
             <li><strong>Настройки</strong>: добавлена кнопка включения/отключения Google Drive.</li>
             <li><strong>Настройки</strong>: обновлены иконки Google Calendar и Google Drive на SVG.</li>
             <li><strong>Backend</strong>: эндпоинты для Google Drive интеграции, включая обновление ссылок.</li>
+            <li><strong>HH экосистема</strong>: плавающее окно отображается на всех страницах резюме; кнопки «Пригласить» / «Отказать» показываются только для откликов (hhtmFrom=employer_vacancy_responses) при наличии вакансии со статусом «Новый» или «Отказ».</li>
+            <li><strong>Настройки</strong>: страница настроек стала шире (1280px), секции «Тема оформления» и «Активные страницы» сворачиваются; при загрузке секции сверху отображаются развёрнутыми, а те что не влезли — свёрнутыми; если всё влезает — контент центрируется по вертикали; панель настроек скроллится при раскрытии.</li>
           </ul>
         </li>
         <li class="changelog-item">
@@ -242,7 +258,7 @@
           </ul>
         </li>
         <li class="changelog-item">
-          <div class="changelog-version">1.4.5 <span class="changelog-date">(09.03.2025)</span></div>
+          <div class="changelog-version">1.4.5 <span class="changelog-date">(09.03.2026)</span></div>
           <ul class="changelog-ul">
             <li>Страница настроек: область с настройками центрирована по вертикали, история версий с вертикальной прокруткой при необходимости</li>
             <li>Страница сообщений LinkedIn: блок с кнопками (Huntflow, копирование, редактирование и т.д.) адаптирован под тёмную тему</li>
@@ -252,7 +268,7 @@
           </ul>
         </li>
         <li class="changelog-item">
-          <div class="changelog-version">1.4.4 <span class="changelog-date">(28.02.2025)</span></div>
+          <div class="changelog-version">1.4.4 <span class="changelog-date">(28.02.2026)</span></div>
           <ul class="changelog-ul">
             <li>Исправление: ошибка «Extension context invalidated» при сохранении thread mapping (LinkedIn) больше не логируется в консоль</li>
             <li>Рамка плавающего окна синяя при причине отказа «Закрыли вакансию другим» (единственное исключение среди отказов; LinkedIn и rabota.by)</li>
@@ -261,25 +277,25 @@
           </ul>
         </li>
         <li class="changelog-item">
-          <div class="changelog-version">1.4.3 <span class="changelog-date">(25.02.2025)</span></div>
+          <div class="changelog-version">1.4.3 <span class="changelog-date">(25.02.2026)</span></div>
           <ul class="changelog-ul">
             <li>Улучшение UI: в плавающих окнах (LinkedIn, rabota.by) отключён горизонтальный скролл — содержимое переносится по словам</li>
           </ul>
         </li>
         <li class="changelog-item">
-          <div class="changelog-version">1.4.2 <span class="changelog-date">(20.02.2025)</span></div>
+          <div class="changelog-version">1.4.2 <span class="changelog-date">(20.02.2026)</span></div>
           <ul class="changelog-ul">
             <li>Кнопка с глазом в попапе: включение/выключение плавающего окна на страницах LinkedIn</li>
           </ul>
         </li>
         <li class="changelog-item">
-          <div class="changelog-version">1.4.1 <span class="changelog-date">(15.02.2025)</span></div>
+          <div class="changelog-version">1.4.1 <span class="changelog-date">(15.02.2026)</span></div>
           <ul class="changelog-ul">
             <li>Включение/выключение плавающего окна на страницах Huntflow (кнопка с глазом в попапе)</li>
           </ul>
         </li>
         <li class="changelog-item">
-          <div class="changelog-version">1.4.0 <span class="changelog-date">(10.02.2025)</span></div>
+          <div class="changelog-version">1.4.0 <span class="changelog-date">(10.02.2026)</span></div>
           <ul class="changelog-ul">
             <li>Иконка «чёрный список» (dark-label) при метке черный список в плавающих окнах</li>
             <li>Сохранение состояния плавающего окна на Huntflow (свёрнуто/развёрнуто)</li>
@@ -295,7 +311,7 @@
           </ul>
         </li>
         <li class="changelog-item">
-          <div class="changelog-version">1.3.x <span class="changelog-date">(01.02.2025)</span></div>
+          <div class="changelog-version">1.3.x <span class="changelog-date">(01.02.2026)</span></div>
           <ul class="changelog-ul">
             <li>Плавающее окно на rabota.by/hh.ru: контакты, дополнительные поля, вакансии, причина отказов</li>
             <li>Кнопка скрытия/показа напоминания в Google Meet (глаз в попапе)</li>
