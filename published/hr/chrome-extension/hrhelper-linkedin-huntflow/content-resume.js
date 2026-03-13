@@ -1499,8 +1499,6 @@
 
   function processLink(link) {
     if (link.getAttribute(DATA_ATTR) === 'processed') return;
-    // Не обрабатываем ссылки, если это не страница отклика
-    if (!isResponsePage()) return;
     const url = getHuntflowUrl(link);
     if (!url) return;
     link.setAttribute(DATA_ATTR, 'processed');
@@ -1562,11 +1560,12 @@
     return m ? m[1] : null;
   }
 
-  /** Проверка: является ли текущая страница откликом (из списка откликов на вакансию) */
+  /** Проверка: является ли текущая страница откликом (из списка откликов на вакансию)
+   *  Используется для определения, показывать ли кнопки "Пригласить" / "Отказать"
+   *  Плавающее окно показывается всегда, кнопки — только для откликов */
   function isResponsePage() {
     const urlParams = new URLSearchParams(window.location.search);
     const hhtmFrom = urlParams.get('hhtmFrom');
-    // Показываем виджет только для откликов (employer_vacancy_responses)
     return hhtmFrom === 'employer_vacancy_responses';
   }
 
@@ -1618,13 +1617,6 @@
   /** Показать плавающее окно с данными Huntflow (по сохранённой связи или по API resume-links) */
   function injectSavedLinkBlock() {
     document.querySelectorAll(`[${BY_LINK_ATTR}]`).forEach((el) => el.remove());
-
-    // Показываем виджет только для откликов (hhtmFrom=employer_vacancy_responses)
-    // Для поиска (resume_search_result) или прямого перехода — не показываем
-    if (!isResponsePage()) {
-      hideFloatingWidget();
-      return;
-    }
 
     function showFormInWidget(initialUrl, onRestore) {
       let widget = document.querySelector(`[${FLOATING_ATTR}="1"]`);
@@ -1708,14 +1700,15 @@
         const host = (location.hostname || '').toLowerCase();
         const isRabota = host.includes('rabota.by');
         const portal = isRabota ? 'rabota.by' : 'hh.ru';
-        // Показываем кнопки только если есть хотя бы одна вакансия со статусом "rejected" или "new"
+        // Показываем кнопки только для откликов (hhtmFrom=employer_vacancy_responses)
+        // и только если есть хотя бы одна вакансия со статусом "rejected" или "new"
         const hasRejectedOrNew = (vacancies || []).some((v) => {
           if (!v) return false;
           const statusType = String(v.status_type || '').toLowerCase();
           const statusName = v.status_name || '';
           return statusType === 'rejected' || isNewStatusName(statusName);
         });
-        const showActions = !!(state.huntflowUrl && hasRejectedOrNew);
+        const showActions = !!(state.huntflowUrl && hasRejectedOrNew && isResponsePage());
 
         const options = {
           huntflowUrl: state.huntflowUrl,
@@ -1822,12 +1815,6 @@
   }
 
   function run() {
-    // Показываем виджет только для откликов (hhtmFrom=employer_vacancy_responses)
-    // Для поиска или прямого перехода — не запускаем логику расширения
-    if (!isResponsePage()) {
-      return;
-    }
-
     loadResumeFloatingUIState();
     scan();
     var debouncedProcessLinks = debounce(function () {

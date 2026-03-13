@@ -4920,6 +4920,7 @@ if (interviewsDataElement) {
                 }
                 
                 // Обработчик для кнопки "Да" (отказать кандидата по выбранной причине)
+                // Без подтверждения через confirm — сразу выполняем операцию
                 document.addEventListener('click', function(e) {
                     if (e.target.closest('.reject-candidate-btn')) {
                         e.preventDefault();
@@ -4929,18 +4930,14 @@ if (interviewsDataElement) {
                         const rejectionType = btn.getAttribute('data-rejection-type') || '';
                         
                         if (!hrScreeningId) {
-                            alert('Ошибка: не указан ID скрининга');
+                            console.error('❌ Ошибка: не указан ID скрининга');
                             return;
                         }
                         
-                        var confirmMsg = 'Вы уверены, что хотите отказать кандидату?' + (rejectionType ? ' (причина: ' + (rejectionType === 'office_format' ? 'Офис' : 'Финансы') + ')' : '');
-                        if (!confirm(confirmMsg)) {
-                            return;
-                        }
-                        
+                        // Сразу выполняем операцию без confirm
                         btn.disabled = true;
                         const originalHtml = btn.innerHTML;
-                        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Обработка...';
+                        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
                         
                         const rejectUrl = '{% url "google_oauth:reject_candidate" 999999 %}'.replace('999999', hrScreeningId);
                         const body = { message_id: messageId };
@@ -4965,23 +4962,26 @@ if (interviewsDataElement) {
                                     }
                                     rejectionForm.style.display = 'none';
                                 }
-                                alert('Кандидат успешно отклонен');
-                                setTimeout(function() { window.location.reload(); }, 1000);
+                                // Показываем успех через изменение кнопки, без alert и без перезагрузки
+                                btn.innerHTML = '<i class="fas fa-check"></i>';
+                                btn.classList.remove('btn-danger');
+                                btn.classList.add('btn-success');
                             } else {
-                                alert('Ошибка при отклонении кандидата: ' + (data.error || 'Неизвестная ошибка'));
+                                console.error('❌ Ошибка при отклонении кандидата:', data.error);
                                 btn.disabled = false;
                                 btn.innerHTML = originalHtml;
+                                btn.title = 'Ошибка: ' + (data.error || 'Неизвестная ошибка');
                             }
                         })
                         .catch(error => {
-                            console.error('Ошибка при отправке запроса:', error);
-                            alert('Ошибка при отправке запроса');
+                            console.error('❌ Ошибка при отправке запроса:', error);
                             btn.disabled = false;
                             btn.innerHTML = originalHtml;
                         });
                     }
                     
                     // Обработчик для кнопки "Нет" (скрыть строку причины и сохранить ответ по причине)
+                    // Без подтверждения — сразу выполняем операцию
                     if (e.target.closest('.reject-candidate-no-btn')) {
                         e.preventDefault();
                         const btn = e.target.closest('.reject-candidate-no-btn');
@@ -4992,9 +4992,13 @@ if (interviewsDataElement) {
                         
                         if (!messageId) {
                             console.error('❌ Не найден message_id для сохранения ответа');
-                            alert('Ошибка: не найден ID сообщения');
                             return;
                         }
+                        
+                        // Показываем загрузку
+                        btn.disabled = true;
+                        const originalHtml = btn.innerHTML;
+                        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
                         
                         var body = {
                             action: 'save_rejection_form_answer',
@@ -5014,18 +5018,28 @@ if (interviewsDataElement) {
                         .then(response => response.json())
                         .then(data => {
                             if (data.success) {
-                                if (reasonRow) reasonRow.style.display = 'none';
+                                // Скрываем строку причины без перезагрузки
+                                if (reasonRow) {
+                                    reasonRow.style.opacity = '0';
+                                    reasonRow.style.transition = 'opacity 0.3s';
+                                    setTimeout(() => { reasonRow.style.display = 'none'; }, 300);
+                                }
+                                // Если все ответы получены, скрываем форму без перезагрузки
                                 if (data.all_answered && rejectionForm) {
-                                    rejectionForm.style.display = 'none';
-                                    setTimeout(function() { window.location.reload(); }, 400);
+                                    rejectionForm.style.opacity = '0';
+                                    rejectionForm.style.transition = 'opacity 0.3s';
+                                    setTimeout(() => { rejectionForm.style.display = 'none'; }, 300);
                                 }
                             } else {
-                                alert('Ошибка при сохранении ответа: ' + (data.error || 'Неизвестная ошибка'));
+                                console.error('❌ Ошибка при сохранении ответа:', data.error);
+                                btn.disabled = false;
+                                btn.innerHTML = originalHtml;
                             }
                         })
                         .catch(error => {
                             console.error('❌ Ошибка при сохранении ответа:', error);
-                            alert('Ошибка при сохранении ответа');
+                            btn.disabled = false;
+                            btn.innerHTML = originalHtml;
                         });
                     }
                 });
@@ -5056,6 +5070,75 @@ if (interviewsDataElement) {
                 window.sessionId = {{ chat_session.id }};
             </script>
             <script src="{% static 'js/chat_actions.js' %}?v={{ timestamp }}"></script>
+            
+            <!-- Заглушка для команды /a (answer) -->
+            <script>
+                (function() {
+                    // Перехватываем отправку формы для обработки команды /a
+                    const chatForm = document.getElementById('chat-form');
+                    const messageInput = document.getElementById('id_message');
+                    
+                    if (chatForm && messageInput) {
+                        chatForm.addEventListener('submit', function(e) {
+                            const message = (messageInput.value || '').trim();
+                            
+                            // Проверяем команду /a или /answer
+                            if (message.startsWith('/a ') || message.startsWith('/answer ')) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                
+                                // Извлекаем текст ответа
+                                const answerText = message.replace(/^\/a(nswer)?\s+/, '').trim();
+                                
+                                if (!answerText) {
+                                    console.warn('⚠️ Команда /a: не указан текст ответа');
+                                    return false;
+                                }
+                                
+                                // TODO: Здесь будет отправка на бэкенд
+                                console.log('📝 Команда /a (answer) - заглушка');
+                                console.log('📝 Текст ответа:', answerText);
+                                console.log('📝 Session ID:', window.sessionId);
+                                
+                                // Показываем временное сообщение в чате
+                                const chatMessages = document.getElementById('chat-messages');
+                                if (chatMessages) {
+                                    const tempMessage = document.createElement('div');
+                                    tempMessage.className = 'message-wrapper user-message mb-3';
+                                    tempMessage.innerHTML = `
+                                        <div class="message-bubble user-bubble position-relative">
+                                            <div class="message-content user-content">${answerText.replace(/</g, '&lt;').replace(/\n/g, '<br>')}</div>
+                                            <span class="command-indicator badge bg-secondary" style="position: absolute; bottom: -10px; right: 26px; font-size: 0.7em; z-index: 10; border: 1px solid #6c757d;">#answer</span>
+                                        </div>
+                                        <div class="message-time text-muted small mt-1">Сейчас</div>
+                                    `;
+                                    chatMessages.appendChild(tempMessage);
+                                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                                }
+                                
+                                // Очищаем поле ввода
+                                messageInput.value = '';
+                                messageInput.style.height = '48px';
+                                
+                                // Показываем уведомление о заглушке
+                                const notification = document.createElement('div');
+                                notification.className = 'alert alert-info alert-dismissible fade show position-fixed';
+                                notification.style.cssText = 'bottom: 100px; right: 20px; z-index: 9999; max-width: 350px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);';
+                                notification.innerHTML = `
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>Команда /a</strong><br>
+                                    Функция ответа в разработке. Сообщение сохранено локально.
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                `;
+                                document.body.appendChild(notification);
+                                setTimeout(() => notification.remove(), 4000);
+                                
+                                return false;
+                            }
+                        }, true); // capture phase для перехвата до chat_actions.js
+                    }
+                })();
+            </script>
             
             <!-- Передача истории контактов с бэкенда в JavaScript -->
             <script id="backendContactHistory" type="application/json" style="display: none;">
