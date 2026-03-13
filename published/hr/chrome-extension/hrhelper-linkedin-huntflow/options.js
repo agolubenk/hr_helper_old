@@ -166,3 +166,124 @@ try {
     wikiIcon.src = chrome.runtime.getURL("icons/icon-32.png");
   }
 } catch (_) {}
+
+// Collapsible sections
+(function initCollapsibleSections() {
+  const STORAGE_KEY = 'hrhelper_options_collapsed';
+  const sections = document.querySelectorAll('.options-collapsible');
+  const pageWrap = document.querySelector('.page-wrap');
+  const panel = document.querySelector('.panel-settings');
+  
+  function toggleSection(section, collapsed) {
+    const header = section.querySelector('.options-collapsible-header');
+    if (collapsed) {
+      section.classList.add('collapsed');
+      header?.setAttribute('aria-expanded', 'false');
+    } else {
+      section.classList.remove('collapsed');
+      header?.setAttribute('aria-expanded', 'true');
+    }
+  }
+  
+  function saveCollapsedState() {
+    const state = {};
+    sections.forEach((s) => {
+      if (s.id) state[s.id] = s.classList.contains('collapsed');
+    });
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (_) {}
+  }
+  
+  function loadCollapsedState() {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      return saved ? JSON.parse(saved) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+  
+  function updateLayoutMode() {
+    if (!panel || !pageWrap) return;
+    const viewportHeight = window.innerHeight;
+    const maxHeight = viewportHeight - 48;
+    const panelHeight = panel.scrollHeight;
+    
+    if (panelHeight > maxHeight) {
+      pageWrap.classList.add('page-wrap--overflow');
+    } else {
+      pageWrap.classList.remove('page-wrap--overflow');
+    }
+  }
+  
+  function checkIfFitsAndCollapse() {
+    if (!panel || !pageWrap) return;
+    const viewportHeight = window.innerHeight;
+    const maxHeight = viewportHeight - 48;
+    
+    // Сначала разворачиваем все секции для измерения
+    sections.forEach((s) => toggleSection(s, false));
+    
+    let currentHeight = panel.scrollHeight;
+    
+    // Если всё влезает — центрируем (убираем класс overflow)
+    if (currentHeight <= maxHeight) {
+      pageWrap.classList.remove('page-wrap--overflow');
+      saveCollapsedState();
+      return;
+    }
+    
+    // Если не влезает — добавляем класс overflow и сворачиваем сверху вниз
+    pageWrap.classList.add('page-wrap--overflow');
+    
+    // Идём сверху вниз, сворачиваем пока не влезет
+    for (const section of sections) {
+      if (currentHeight <= maxHeight) break;
+      
+      const body = section.querySelector('.options-collapsible-body');
+      if (!body) continue;
+      
+      // Измеряем высоту тела секции
+      const bodyHeight = body.offsetHeight;
+      toggleSection(section, true);
+      currentHeight = panel.scrollHeight;
+    }
+    
+    saveCollapsedState();
+  }
+  
+  // Инициализация: загружаем сохранённое состояние или проверяем влезает ли
+  const savedState = loadCollapsedState();
+  if (savedState) {
+    sections.forEach((s) => {
+      if (s.id && savedState[s.id] !== undefined) {
+        toggleSection(s, savedState[s.id]);
+      }
+    });
+    // Обновляем режим layout после применения сохранённого состояния
+    requestAnimationFrame(() => updateLayoutMode());
+  }
+  
+  // Добавляем обработчики кликов
+  sections.forEach((section) => {
+    const header = section.querySelector('.options-collapsible-header');
+    if (!header) return;
+    header.addEventListener('click', () => {
+      const isCollapsed = section.classList.contains('collapsed');
+      toggleSection(section, !isCollapsed);
+      saveCollapsedState();
+      updateLayoutMode();
+    });
+  });
+  
+  // При первой загрузке проверяем, влезает ли контент
+  // Если нет сохранённого состояния, автоматически сворачиваем что не влезло
+  if (!savedState) {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        checkIfFitsAndCollapse();
+      });
+    });
+  }
+})();
