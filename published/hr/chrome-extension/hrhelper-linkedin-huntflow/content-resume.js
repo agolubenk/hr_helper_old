@@ -30,8 +30,12 @@
   const FLOATING_POS_KEY = 'hrhelper_resume_floating_pos';
   const RESUME_FLOATING_HIDDEN_KEY = 'hrhelper_resume_floating_hidden';
   const RESUME_FLOATING_UI_STATE_KEY = 'hrhelper_resume_floating_ui_state';
-  const DEFAULT_RESUME_FLOATING_UI_STATE = { widgetCollapsed: false, additionalFieldsOpen: true };
+  const DEFAULT_RESUME_FLOATING_UI_STATE = { widgetCollapsed: false, additionalFieldsOpen: true, commentsOpen: true };
   let resumeFloatingUIState = { ...DEFAULT_RESUME_FLOATING_UI_STATE };
+  let resumeSelectedVacancyId = null;
+  let resumeDefaultVacancyId = null;
+  let resumeVacanciesCache = [];
+  let resumeCandidateInfoCache = null;
 
   function loadResumeFloatingUIState() {
     try {
@@ -97,6 +101,25 @@
       return '#fd7e14'; // оранжевый
     }
 
+    if (!isNewStatusName(statusName)) return '#198754'; // зелёный
+    return '#0a66c2'; // синий
+  }
+
+  /** Цвет рамки для одной вакансии (та же логика, что для всего плавающего окна). */
+  function computeBorderColorForVacancy(v) {
+    if (!v) return null;
+    const statusType = v.status_type;
+    const statusName = v.status_name || '';
+
+    if (statusType === 'rejected') {
+      if (isRejectionReasonClosedByOther(v.rejection_reason_name)) return '#0a66c2'; // синий — исключение
+      const ts = v.last_change_at || v.last_comment_at || null;
+      const dt = ts ? new Date(ts) : null;
+      const ms = dt && !isNaN(dt.getTime()) ? (Date.now() - dt.getTime()) : null;
+      const halfYearMs = 183 * 24 * 60 * 60 * 1000;
+      if (ms != null && ms < halfYearMs) return '#dc3545'; // красный
+      return '#fd7e14'; // оранжевый
+    }
     if (!isNewStatusName(statusName)) return '#198754'; // зелёный
     return '#0a66c2'; // синий
   }
@@ -343,7 +366,12 @@
       .hrhelper-resume-floating-widget .hrhelper-resume-floating-add-vacancy,
       .hrhelper-resume-floating-widget .hrhelper-resume-floating-toggle,
       .hrhelper-resume-floating-widget .hrhelper-resume-floating-switch-service,
-      .hrhelper-resume-floating-widget button[style*="border-radius:4px"] { background: var(--hrhelper-btn-bg) !important; color: var(--hrhelper-muted) !important; border-color: var(--hrhelper-border) !important; }
+      .hrhelper-resume-floating-widget button[style*="border-radius:4px"] { background: var(--hrhelper-btn-bg) !important; color: var(--hrhelper-muted) !important; border-color: var(--hrhelper-border) !important; transition: background .15s ease, opacity .15s ease !important; }
+      .hrhelper-resume-floating-widget .hrhelper-resume-floating-edit:hover,
+      .hrhelper-resume-floating-widget .hrhelper-resume-floating-open-huntflow:hover,
+      .hrhelper-resume-floating-widget .hrhelper-resume-floating-add-vacancy:hover,
+      .hrhelper-resume-floating-widget .hrhelper-resume-floating-toggle:hover,
+      .hrhelper-resume-floating-widget .hrhelper-resume-floating-switch-service:hover { background: var(--hrhelper-border) !important; }
       .hrhelper-resume-floating-widget input,
       .hrhelper-resume-floating-widget .hrhelper-link-form-input { background: var(--hrhelper-input-bg) !important; color: var(--hrhelper-text) !important; border-color: var(--hrhelper-border) !important; }
       .hrhelper-resume-floating-widget .hrhelper-link-form-desc { color: var(--hrhelper-muted) !important; }
@@ -560,6 +588,99 @@
     return false;
   }
 
+  function categorizeVacanciesResume(vacancies) {
+    const active = [];
+    const rejected = [];
+    const archived = [];
+    const hired = [];
+    for (const v of (vacancies || [])) {
+      if (!v) continue;
+      if (v.is_hired) hired.push(v);
+      else if (v.status_type === 'rejected') rejected.push(v);
+      else if (v.is_archived) archived.push(v);
+      else active.push(v);
+    }
+    return { active, rejected, archived, hired };
+  }
+
+  function appendResumeCommentsBlock(fragment, vacancies, selectedId) {
+    const vacancy = (vacancies || []).find((v) => v.vacancy_id === selectedId);
+    const comments = vacancy?.comments || [];
+    if (comments.length === 0) return;
+
+    const isArchived = !!(vacancy && vacancy.is_archived);
+    const vacancyNameForTitle = (vacancy.vacancy_name && String(vacancy.vacancy_name).trim()) || 'вакансии';
+    const commentsTitle = isArchived
+      ? 'Комментарии к ' + vacancyNameForTitle + ' (архив)'
+      : 'Последние комментарии';
+    const expanded = isArchived ? false : !!resumeFloatingUIState.commentsOpen;
+
+    const block = document.createElement('div');
+    block.className = 'hrhelper-resume-comments-block';
+    block.style.cssText = 'margin-top:12px;padding-top:10px;border-top:1px solid var(--hrhelper-border,rgba(0,0,0,.1));';
+
+    const toggleHeader = document.createElement('button');
+    toggleHeader.type = 'button';
+    toggleHeader.className = 'hrhelper-resume-comments-header';
+    toggleHeader.style.cssText = 'width:100%;text-align:left;font-weight:700;font-size:12px;background:none;border:none;padding:4px 0;cursor:pointer;display:flex;align-items:center;gap:6px;color:var(--hrhelper-muted,#6c757d);';
+    toggleHeader.innerHTML = '<span style="flex:1;">' + escapeHtml(commentsTitle) + '</span><span class="hrhelper-toggle-icon">' + (expanded ? '▼' : '▶') + '</span>';
+
+    const commentsBody = document.createElement('div');
+    commentsBody.className = 'hrhelper-resume-comments-body';
+    commentsBody.style.cssText = 'font-size:11px;margin-top:6px;display:' + (expanded ? 'block' : 'none') + ';';
+
+    comments.slice(0, 5).forEach((c) => {
+      const row = document.createElement('div');
+      row.style.cssText = 'margin-bottom:8px;padding:6px;background:var(--hrhelper-btn-bg,rgba(0,0,0,.03));border-radius:6px;';
+      const meta = document.createElement('div');
+      meta.style.cssText = 'display:flex;justify-content:space-between;gap:6px;margin-bottom:4px;';
+      const author = document.createElement('span');
+      author.style.cssText = 'font-weight:600;color:var(--hrhelper-accent,#0a66c2);';
+      author.textContent = c.author || 'Система';
+      const dateSpan = document.createElement('span');
+      dateSpan.style.cssText = 'color:var(--hrhelper-muted,#6c757d);font-size:10px;';
+      dateSpan.textContent = c.datetime ? formatDate(c.datetime) : '';
+      meta.appendChild(author);
+      meta.appendChild(dateSpan);
+      row.appendChild(meta);
+      const text = document.createElement('div');
+      text.style.cssText = 'color:var(--hrhelper-text,#212529);word-break:break-word;';
+      text.textContent = c.text || '';
+      row.appendChild(text);
+      commentsBody.appendChild(row);
+    });
+
+    toggleHeader.addEventListener('click', () => {
+      const next = commentsBody.style.display === 'none';
+      commentsBody.style.display = next ? 'block' : 'none';
+      const icon = toggleHeader.querySelector('.hrhelper-toggle-icon');
+      if (icon) icon.textContent = next ? '▼' : '▶';
+      saveResumeFloatingUIState({ commentsOpen: next });
+    });
+
+    block.appendChild(toggleHeader);
+    block.appendChild(commentsBody);
+    fragment.appendChild(block);
+  }
+
+  function refreshResumeFloatingWidget() {
+    const widget = document.querySelector(`[${FLOATING_ATTR}="1"]`);
+    if (!widget) return;
+    const bodyEl = widget.querySelector('.hrhelper-resume-floating-body');
+    if (!bodyEl) return;
+    bodyEl.innerHTML = '';
+    const options = {
+      huntflowUrl: widget._huntflowUrl || null,
+      resumeUrl: widget._resumeUrl || getBaseUrl(),
+      showActions: widget._showActions || false,
+      portal: widget._portal || 'hh.ru',
+      candidateName: (resumeCandidateInfoCache?.full_name || '').trim(),
+      onAddedToVacancy: refreshResumeFloatingWidget,
+    };
+    bodyEl.appendChild(buildFloatingBodyContent(resumeCandidateInfoCache, resumeVacanciesCache, options));
+    applyFloatingBorder(widget, computeFloatingBorderColorResume(resumeCandidateInfoCache, resumeVacanciesCache));
+  }
+
   function buildFloatingBodyContent(candidateInfo, vacancies, options) {
     const info = candidateInfo || {};
     const fragment = document.createDocumentFragment();
@@ -666,55 +787,102 @@
       fragment.appendChild(labelsWrap);
     }
     const items = vacancies || [];
-    if (items.length > 0) {
-      const vacTitle = document.createElement('div');
-      vacTitle.className = 'hrhelper-resume-vacancy-title';
-      vacTitle.style.cssText = 'font-weight:700;margin-bottom:4px;font-size:13px;';
-      vacTitle.textContent = 'Вакансии';
-      fragment.appendChild(vacTitle);
-      items.forEach((v) => {
-        const name = v.vacancy_name || '—';
-        const status = v.status_name || '—';
-        const date = formatDate(v.last_change_at);
-        const card = document.createElement('div');
-        card.className = 'hrhelper-resume-vacancy-card' + (v.status_type === 'rejected' ? ' hrhelper-resume-vacancy-card-rejected' : '') + (v.is_archived ? ' hrhelper-resume-vacancy-card-archived' : '');
-        const cardLeft = document.createElement('div');
-        cardLeft.style.cssText = 'flex:1;min-width:0;';
-        const line1 = document.createElement('div');
-        line1.className = 'hrhelper-resume-vacancy-line1';
-        line1.textContent = name;
-        cardLeft.appendChild(line1);
-        const line2 = document.createElement('div');
-        line2.className = 'hrhelper-resume-vacancy-line2';
-        line2.textContent = date ? `${status} — ${date}` : status;
-        cardLeft.appendChild(line2);
-        if (v.status_type === 'rejected' && (v.rejection_reason_name || '').trim()) {
-          const reasonLine = document.createElement('div');
-          reasonLine.className = 'hrhelper-resume-vacancy-reason';
-          reasonLine.textContent = (v.rejection_reason_name || '').trim();
-          cardLeft.appendChild(reasonLine);
-        }
-        card.appendChild(cardLeft);
-        if (v.appurl) {
-          const copyBtn = document.createElement('button');
-          copyBtn.type = 'button';
-          copyBtn.className = 'hrhelper-resume-vacancy-btn';
-          copyBtn.title = 'Копировать ссылку на Huntflow';
-          copyBtn.setAttribute('aria-label', 'Копировать ссылку');
-          copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>';
-          copyBtn.addEventListener('click', () => {
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-              navigator.clipboard.writeText(v.appurl).then(() => {
-                copyBtn.title = 'Скопировано';
-                setTimeout(() => { copyBtn.title = 'Копировать ссылку на Huntflow'; }, 1500);
-              });
-            }
-          });
-          card.appendChild(copyBtn);
-        }
-        fragment.appendChild(card);
+    const selId = resumeSelectedVacancyId ?? resumeDefaultVacancyId;
+    const categorized = categorizeVacanciesResume(items);
+    const { active, rejected, archived } = categorized;
+
+    function createVacancyCard(v, isSelected, categoryClass) {
+      const name = v.vacancy_name || '—';
+      const status = v.status_name || '—';
+      const date = formatDate(v.last_change_at);
+      const card = document.createElement('div');
+      card.className = 'hrhelper-resume-vacancy-card' + (categoryClass ? ' ' + categoryClass : '');
+      card.style.cursor = 'pointer';
+      const cardBorderColor = computeBorderColorForVacancy(v);
+      if (cardBorderColor) {
+        card.style.borderColor = cardBorderColor;
+      }
+      if (isSelected) {
+        card.style.boxShadow = '0 0 0 2px var(--hrhelper-accent, #0a66c2) inset';
+      }
+      const cardLeft = document.createElement('div');
+      cardLeft.style.cssText = 'flex:1;min-width:0;';
+      const line1 = document.createElement('div');
+      line1.className = 'hrhelper-resume-vacancy-line1';
+      line1.textContent = (isSelected ? '✓ ' : '') + name;
+      cardLeft.appendChild(line1);
+      const line2 = document.createElement('div');
+      line2.className = 'hrhelper-resume-vacancy-line2';
+      line2.textContent = date ? `${status} — ${date}` : status;
+      cardLeft.appendChild(line2);
+      if (v.status_type === 'rejected' && (v.rejection_reason_name || '').trim()) {
+        const reasonLine = document.createElement('div');
+        reasonLine.className = 'hrhelper-resume-vacancy-reason';
+        reasonLine.textContent = (v.rejection_reason_name || '').trim();
+        cardLeft.appendChild(reasonLine);
+      }
+      card.appendChild(cardLeft);
+      if (v.appurl) {
+        const copyBtn = document.createElement('button');
+        copyBtn.type = 'button';
+        copyBtn.className = 'hrhelper-resume-vacancy-btn';
+        copyBtn.title = 'Копировать ссылку на Huntflow';
+        copyBtn.setAttribute('aria-label', 'Копировать ссылку');
+        copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>';
+        copyBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(v.appurl).then(() => {
+              copyBtn.title = 'Скопировано';
+              setTimeout(() => { copyBtn.title = 'Копировать ссылку на Huntflow'; }, 1500);
+            });
+          }
+        });
+        card.appendChild(copyBtn);
+      }
+      card.dataset.vacancyId = v.vacancy_id;
+      card.addEventListener('click', () => {
+        resumeSelectedVacancyId = v.vacancy_id;
+        refreshResumeFloatingWidget();
+      });
+      return card;
+    }
+
+    if (active.length > 0) {
+      const activeTitle = document.createElement('div');
+      activeTitle.className = 'hrhelper-resume-vacancy-title';
+      activeTitle.style.cssText = 'font-weight:700;margin-bottom:4px;font-size:13px;margin-top:8px;';
+      activeTitle.textContent = 'Активные вакансии';
+      fragment.appendChild(activeTitle);
+      active.forEach((v) => {
+        const isSelected = v.vacancy_id === selId;
+        fragment.appendChild(createVacancyCard(v, isSelected, ''));
       });
     }
+    if (rejected.length > 0) {
+      const rejTitle = document.createElement('div');
+      rejTitle.className = 'hrhelper-resume-vacancy-title';
+      rejTitle.style.cssText = 'font-weight:700;margin-bottom:4px;font-size:13px;margin-top:8px;color:var(--hrhelper-danger,#842029);';
+      rejTitle.textContent = '❌ Отказы';
+      fragment.appendChild(rejTitle);
+      rejected.forEach((v) => {
+        const isSelected = v.vacancy_id === selId;
+        fragment.appendChild(createVacancyCard(v, isSelected, 'hrhelper-resume-vacancy-card-rejected'));
+      });
+    }
+    if (archived.length > 0) {
+      const archTitle = document.createElement('div');
+      archTitle.className = 'hrhelper-resume-vacancy-title';
+      archTitle.style.cssText = 'font-weight:700;margin-bottom:4px;font-size:13px;margin-top:8px;';
+      archTitle.textContent = 'Архивные вакансии';
+      fragment.appendChild(archTitle);
+      archived.forEach((v) => {
+        const isSelected = v.vacancy_id === selId;
+        fragment.appendChild(createVacancyCard(v, isSelected, 'hrhelper-resume-vacancy-card-archived'));
+      });
+    }
+
+    appendResumeCommentsBlock(fragment, items, selId);
     const hasAny = contactRows.length > 0 || additionalFields.length > 0 || (info.labels && info.labels.length > 0) || items.length > 0;
     if (!hasAny) {
       const fallback = document.createElement('div');
@@ -1027,6 +1195,16 @@
   }
 
   function showFloatingWidget(candidateInfo, vacancies, options) {
+    resumeCandidateInfoCache = candidateInfo;
+    resumeVacanciesCache = vacancies || [];
+    if (resumeVacanciesCache.length > 0 && resumeDefaultVacancyId == null) {
+      const categorized = categorizeVacanciesResume(resumeVacanciesCache);
+      const firstActive = categorized.active[0];
+      const firstRejected = categorized.rejected[0];
+      const firstArchived = categorized.archived[0];
+      resumeDefaultVacancyId = (firstActive && firstActive.vacancy_id) || (firstRejected && firstRejected.vacancy_id) || (firstArchived && firstArchived.vacancy_id) || null;
+    }
+
     let widget = document.querySelector(`[${FLOATING_ATTR}="1"]`);
     if (!widget) {
       const { wrapper, body } = createResumeFloatingWidget();
@@ -1036,6 +1214,10 @@
       applyResumeFloatingTheme(widget);
       makeResumeWidgetDraggable(widget);
     }
+    widget._huntflowUrl = options?.huntflowUrl || null;
+    widget._resumeUrl = options?.resumeUrl || getBaseUrl();
+    widget._showActions = options?.showActions || false;
+    widget._portal = options?.portal || 'hh.ru';
     applyFloatingBorder(widget, computeFloatingBorderColorResume(candidateInfo, vacancies));
     const titleIcon = widget.querySelector('.hrhelper-title-icon');
     if (titleIcon) {
