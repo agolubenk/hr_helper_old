@@ -41,7 +41,7 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name', 'full_name',
-            'telegram_username', 'date_joined', 'last_login', 'is_active',
+            'telegram_username', 'linkedin_url', 'date_joined', 'last_login', 'is_active',
             'is_staff', 'is_superuser', 'groups'
         ]
         read_only_fields = ['id', 'date_joined', 'last_login', 'is_staff', 'is_superuser']
@@ -136,7 +136,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name', 'full_name',
-            'telegram_username', 'date_joined', 'last_login'
+            'telegram_username', 'linkedin_url', 'date_joined', 'last_login'
         ]
         read_only_fields = ['id', 'username', 'date_joined', 'last_login']
 

@@ -43,7 +43,7 @@ class VacancySerializer(serializers.ModelSerializer):
             'id', 'name', 'external_id', 'recruiter', 'recruiter_name', 'recruiter_username',
             'invite_title', 'invite_text', 'scorecard_title', 'scorecard_text',
             'vacancy_link_belarus', 'vacancy_link_poland', 'questions_belarus', 'questions_poland',
-            'available_grades', 'available_grades_names', 'is_active',
+            'available_grades', 'available_grades_names', 'is_active', 'review_period_months',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at', 'recruiter_name', 'recruiter_username', 'available_grades_names']
@@ -93,7 +93,7 @@ class VacancyCreateSerializer(serializers.ModelSerializer):
         model = Vacancy
         fields = [
             'name', 'external_id', 'recruiter', 'invite_title', 'invite_text',
-            'scorecard_title', 'scorecard_text', 'available_grades', 'is_active'
+            'scorecard_title', 'scorecard_text', 'available_grades', 'is_active', 'review_period_months'
         ]
     
     def validate_external_id(self, value):
@@ -133,7 +133,7 @@ class VacancyListSerializer(serializers.ModelSerializer):
         model = Vacancy
         fields = [
             'id', 'name', 'external_id', 'recruiter_name',
-            'available_grades_count', 'is_active', 'created_at'
+            'available_grades_count', 'is_active', 'review_period_months', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']
     

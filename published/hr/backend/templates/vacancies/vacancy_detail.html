@@ -108,6 +108,16 @@
                                             {% endif %}
                                         </td>
                                     </tr>
+                                    <tr>
+                                        <td><strong>Срок пересмотра:</strong></td>
+                                        <td>
+                                            {% if vacancy.review_period_months %}
+                                                <i class="fas fa-calendar-alt me-1"></i>{{ vacancy.review_period_months }} мес.
+                                            {% else %}
+                                                <span class="text-muted">Не указан</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
                                 </table>
                             </div>
                         </div>

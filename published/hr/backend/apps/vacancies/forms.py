@@ -171,7 +171,7 @@ class VacancyForm(forms.ModelForm):
             'questions_belarus', 'questions_poland', 'vacancy_link_belarus', 'vacancy_link_poland',
             'candidate_update_prompt', 'use_common_prompt', 'screening_duration',
             'hr_screening_stage', 'tech_screening_stage', 'tech_interview_stage',
-            'available_grades', 'interviewers', 'is_active'
+            'available_grades', 'interviewers', 'is_active', 'review_period_months'
         ]
         widgets = {
             'name': forms.TextInput(attrs={
@@ -270,6 +270,11 @@ class VacancyForm(forms.ModelForm):
             }),
             'is_active': forms.CheckboxInput(attrs={
                 'class': 'form-check-input'
+            }),
+            'review_period_months': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': '1',
+                'placeholder': 'Месяцы'
             })
         }
         labels = {
@@ -295,7 +300,8 @@ class VacancyForm(forms.ModelForm):
             'screening_duration': 'Длительность скринингов',
             'available_grades': 'Доступные грейды',
             'interviewers': 'Интервьюеры',
-            'is_active': 'Активна'
+            'is_active': 'Активна',
+            'review_period_months': 'Срок пересмотра (месяцы)'
         }
         help_texts = {
             'name': 'Название вакансии',
@@ -315,7 +321,8 @@ class VacancyForm(forms.ModelForm):
             'screening_duration': 'Длительность скринингов в минутах (по умолчанию 45 минут)',
             'available_grades': 'Грейды, доступные для данной вакансии',
             'interviewers': 'Интервьюеры, привязанные к вакансии',
-            'is_active': 'Активна ли вакансия'
+            'is_active': 'Активна ли вакансия',
+            'review_period_months': 'Срок пересмотра вакансии в месяцах (целое число)'
         }
 
     def clean(self):

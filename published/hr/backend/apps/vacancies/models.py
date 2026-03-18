@@ -210,6 +210,13 @@ class Vacancy(models.Model):
         help_text='Автоматически определяется на основе активных заявок на найм'
     )
 
+    review_period_months = models.PositiveIntegerField(
+        verbose_name='Срок пересмотра (месяцы)',
+        help_text='Срок пересмотра вакансии в месяцах (число)',
+        null=True,
+        blank=True
+    )
+
     # ID для связи с вакансией в Huntflow / HH.ru (не уникален: у нескольких локальных вакансий может быть один huntflow_id)
     huntflow_id = models.CharField(
         max_length=100,

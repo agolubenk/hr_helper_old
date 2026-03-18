@@ -86,6 +86,26 @@
             <div class="row">
                 <div class="col-md-6">
                     <div class="mb-3">
+                        <label for="{{ form.linkedin_url.id_for_label }}" class="form-label">
+                            <i class="fab fa-linkedin me-1"></i>
+                            LinkedIn
+                        </label>
+                        {{ form.linkedin_url }}
+                        {% if form.linkedin_url.help_text %}
+                            <div class="form-text">{{ form.linkedin_url.help_text }}</div>
+                        {% endif %}
+                        {% if form.linkedin_url.errors %}
+                            <div class="text-danger small mt-1">
+                                {{ form.linkedin_url.errors.0 }}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
                         <label for="{{ form.interview_start_time.id_for_label }}" class="form-label">
                             <i class="fas fa-clock me-1"></i>
                             Начало рабочего времени

@@ -124,6 +124,21 @@
                                 {% endif %}
                             </div>
                         </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.review_period_months.id_for_label }}" class="form-label">
+                                    <i class="fas fa-calendar-alt me-2"></i>
+                                    {{ form.review_period_months.label }}
+                                </label>
+                                {{ form.review_period_months }}
+                                {% if form.review_period_months.help_text %}
+                                    <div class="form-text">{{ form.review_period_months.help_text }}</div>
+                                {% endif %}
+                                {% if form.review_period_months.errors %}
+                                    <div class="text-danger">{{ form.review_period_months.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Блок 2: Этапы для перевода кандидатов -->

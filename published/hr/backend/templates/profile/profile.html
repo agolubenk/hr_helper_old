@@ -38,6 +38,19 @@
                             {% endif %}
                         </td>
                     </tr>
+                    <tr>
+                        <td><strong>LinkedIn:</strong></td>
+                        <td>
+                            {% if user.linkedin_url %}
+                                <a href="{{ user.linkedin_url }}" target="_blank" rel="noopener noreferrer">
+                                    <i class="fab fa-linkedin me-1"></i>
+                                    Профиль
+                                </a>
+                            {% else %}
+                                Не указан
+                            {% endif %}
+                        </td>
+                    </tr>
                 </table>
             </div>
             <div class="col-md-6">

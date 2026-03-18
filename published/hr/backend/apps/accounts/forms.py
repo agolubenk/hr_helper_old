@@ -39,6 +39,7 @@ class ProfileEditForm(UserChangeForm):
             'last_name', 
             'email', 
             'telegram_username',
+            'linkedin_url',
             'interview_start_time',
             'interview_end_time',
             'meeting_interval_minutes'
@@ -59,6 +60,10 @@ class ProfileEditForm(UserChangeForm):
             'telegram_username': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': '@username'
+            }),
+            'linkedin_url': forms.URLInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'https://www.linkedin.com/in/username/'
             }),
             'interview_start_time': forms.TimeInput(attrs={
                 'class': 'form-control',
@@ -103,6 +108,15 @@ class ProfileEditForm(UserChangeForm):
                 telegram_username = telegram_username[5:]
         
         return telegram_username
+
+    def clean_linkedin_url(self):
+        """Нормализуем LinkedIn URL: допускаем пустое значение или валидный URL"""
+        value = (self.cleaned_data.get('linkedin_url') or '').strip()
+        if not value:
+            return ''
+        if not value.startswith(('http://', 'https://')):
+            value = 'https://' + value
+        return value
     
 
     def clean(self):

@@ -21,6 +21,12 @@ class User(AbstractUser):
     """
     # Общие доп.поля
     telegram_username = models.CharField(_("Никнейм Telegram"), max_length=64, blank=True)
+    linkedin_url = models.URLField(
+        _("LinkedIn профиль"),
+        max_length=500,
+        blank=True,
+        help_text="Ссылка на профиль LinkedIn (например: https://www.linkedin.com/in/username/)"
+    )
     profile_photo = models.ImageField(_("Фото профиля"), upload_to='profile_photos/', blank=True, null=True)
 
     # Интеграции

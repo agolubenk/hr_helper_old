@@ -159,6 +159,8 @@ const STATE = {
     defaultVacancyId: null,
     last_comment_datetime: null,
     rejection_reason_name: null,
+    isProfileEmployee: false,
+    isProfileEmployeeCurrentUser: false,
   },
 };
 
@@ -872,6 +874,13 @@ function populateFloatingWidgetBody(body) {
     desc.style.cssText = "font-size:11px;";
     desc.textContent = "Вставьте ссылку и нажмите «Сохранить».";
     body.appendChild(desc);
+    if (STATE.linkedinFull.isProfileEmployee) {
+      const badge = document.createElement("div");
+      badge.className = "hrhelper-body-success";
+      badge.style.cssText = "padding:8px;margin-top:8px;background:var(--hrhelper-success-bg);border:1px solid var(--hrhelper-success-border);border-radius:6px;font-size:12px;font-weight:600;";
+      badge.textContent = "✅ Сотрудник";
+      body.appendChild(badge);
+    }
     return;
   }
 
@@ -980,13 +989,15 @@ function populateFloatingWidgetBody(body) {
     body.appendChild(labelsWrap);
   }
 
-  if (hired.length > 0) {
+  const isProfileEmployee = !!STATE.linkedinFull.isProfileEmployee;
+  if (hired.length > 0 || isProfileEmployee) {
     const badge = document.createElement("div");
     badge.className = "hrhelper-body-success";
     badge.style.cssText = "padding:8px;background:var(--hrhelper-success-bg);border:1px solid var(--hrhelper-success-border);border-radius:6px;font-size:12px;font-weight:600;";
     badge.textContent = "✅ Сотрудник";
     body.appendChild(badge);
-  } else if (active.length > 0 || rejected.length > 0 || archived.length > 0 || STATE.current.vacancy_name) {
+  }
+  if (!(hired.length > 0 || isProfileEmployee) && (active.length > 0 || rejected.length > 0 || archived.length > 0 || STATE.current.vacancy_name)) {
     const selId = STATE.linkedinFull.selectedVacancyId ?? STATE.linkedinFull.defaultVacancyId;
     if (active.length > 0) {
       const activeTitle = document.createElement("div");
@@ -1983,6 +1994,28 @@ async function fetchStatusMulti(linkedinUrl) {
   };
 }
 
+/**
+ * Проверка: является ли LinkedIn-профиль профилем сотрудника (linkedin_url в профиле пользователя).
+ * Результат пишется в STATE.linkedinFull.isProfileEmployee и isProfileEmployeeCurrentUser.
+ */
+async function fetchProfileEmployeeCheck(linkedinUrl) {
+  if (!linkedinUrl) return { is_employee_profile: false, is_current_user: false };
+  try {
+    const qp = new URLSearchParams({ linkedin_url: linkedinUrl });
+    const res = await apiFetch("/api/v1/accounts/users/profile-linkedin-check/?" + qp.toString(), { method: "GET" });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data) return { is_employee_profile: false, is_current_user: false };
+    STATE.linkedinFull.isProfileEmployee = !!data.is_employee_profile;
+    STATE.linkedinFull.isProfileEmployeeCurrentUser = !!data.is_current_user;
+    return { is_employee_profile: !!data.is_employee_profile, is_current_user: !!data.is_current_user };
+  } catch (e) {
+    log(" fetchProfileEmployeeCheck error:", e);
+    STATE.linkedinFull.isProfileEmployee = false;
+    STATE.linkedinFull.isProfileEmployeeCurrentUser = false;
+    return { is_employee_profile: false, is_current_user: false };
+  }
+}
+
 /** GET candidate-info: ФИО, контакты */
 async function fetchCandidateInfo(huntflowUrl) {
   if (!huntflowUrl) return null;
@@ -2163,6 +2196,7 @@ async function refreshButtonForCurrentProfile() {
           }
           const info = await fetchCandidateInfo(multi.huntflowUrl || cached.app_url);
           STATE.linkedinFull.candidateInfo = info;
+          await fetchProfileEmployeeCheck(canonical);
           if (IS_LINKEDIN) { repopulateFloatingWidgetBody(); updateFloatingWidget(); }
         }
       })();
@@ -2173,6 +2207,10 @@ async function refreshButtonForCurrentProfile() {
       STATE.linkedinFull.vacancies = [];
       STATE.linkedinFull.candidateInfo = null;
       setButtonState({ text: "Huntflow", disabled: false, title: "Укажи ссылку на кандидата", color: "#0a66c2", vacancy_name: null, vacanciesCount: 0 });
+      (async () => {
+        await fetchProfileEmployeeCheck(canonical);
+        if (IS_LINKEDIN) { repopulateFloatingWidgetBody(); updateFloatingWidget(); }
+      })();
     }
     ensureButtons();
     if (IS_LINKEDIN) insertFloatingWidget();
@@ -2259,6 +2297,7 @@ async function refreshButtonForCurrentProfile() {
         }
         const info = await fetchCandidateInfo(multi.huntflowUrl || status.app_url);
         STATE.linkedinFull.candidateInfo = info;
+        await fetchProfileEmployeeCheck(canonical);
         if (IS_LINKEDIN) { repopulateFloatingWidgetBody(); updateFloatingWidget(); }
       }
     })();
@@ -2271,6 +2310,10 @@ async function refreshButtonForCurrentProfile() {
     STATE.linkedinFull.candidateInfo = null;
     STATE.linkedinFull.selectedVacancyId = null;
     setButtonState({ text: "Huntflow", disabled: false, title: "Укажи ссылку на кандидата", color: "#0a66c2", vacancy_name: null, vacanciesCount: 0 });
+    (async () => {
+      await fetchProfileEmployeeCheck(canonical);
+      if (IS_LINKEDIN) { repopulateFloatingWidgetBody(); updateFloatingWidget(); }
+    })();
   }
   ensureButtons();
   if (IS_LINKEDIN) insertFloatingWidget();
@@ -2434,6 +2477,7 @@ async function onSaveLinkClick() {
         }
         const info = await fetchCandidateInfo(multi.huntflowUrl || finalUrl);
         STATE.linkedinFull.candidateInfo = info;
+        await fetchProfileEmployeeCheck(canonical);
         if (IS_LINKEDIN) { repopulateFloatingWidgetBody(); updateFloatingWidget(); }
       }
     })();

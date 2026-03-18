@@ -144,6 +144,14 @@ class UserService:
             'configured': bool(user.telegram_username),
             'username': user.telegram_username,
         }
+
+        # LinkedIn
+        integrations['linkedin'] = {
+            'name': 'LinkedIn',
+            'enabled': True,
+            'configured': bool(getattr(user, 'linkedin_url', '')),
+            'url': getattr(user, 'linkedin_url', '') or None,
+        }
         
         # Google OAuth
         try:

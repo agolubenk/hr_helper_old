@@ -1,4 +1,5 @@
 """API views для Accounts приложения - расширенные версии"""
+from urllib.parse import urlparse
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -99,7 +100,70 @@ class UserViewSet(LogicUserViewSet):
         except Exception as e:
             response_data = UnifiedResponseHandler.error_response(str(e))
             return Response(response_data, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
+
+    @action(detail=False, methods=['get'], url_path='profile-linkedin-check')
+    def profile_linkedin_check(self, request):
+        """
+        Проверка: является ли переданный LinkedIn URL профилем сотрудника
+        (указан в linkedin_url у любого пользователя системы).
+        Используется расширением для отображения бейджа «Сотрудник» на страницах LinkedIn.
+        GET ?linkedin_url=https://www.linkedin.com/in/username/
+        Ответ: { is_employee_profile: bool, is_current_user: bool }
+        """
+        raw = (request.GET.get('linkedin_url') or '').strip()
+        if not raw:
+            return Response({
+                'is_employee_profile': False,
+                'is_current_user': False,
+                'message': 'Требуется параметр linkedin_url',
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        normalized = self._normalize_linkedin_url(raw)
+        if not normalized:
+            return Response({
+                'is_employee_profile': False,
+                'is_current_user': False,
+            })
+
+        match = None
+        for u in User.objects.exclude(linkedin_url='').exclude(linkedin_url__isnull=True):
+            if u.linkedin_url and self._normalize_linkedin_url(u.linkedin_url) == normalized:
+                match = u
+                break
+
+        if not match:
+            return Response({
+                'is_employee_profile': False,
+                'is_current_user': False,
+            })
+
+        return Response({
+            'is_employee_profile': True,
+            'is_current_user': match.pk == request.user.pk,
+        })
+
+    @staticmethod
+    def _normalize_linkedin_url(raw_url):
+        if not raw_url:
+            return None
+        raw_url = raw_url.strip()
+        if raw_url.startswith('www.linkedin.com/') or raw_url.startswith('linkedin.com/'):
+            raw_url = 'https://' + raw_url
+        parsed = urlparse(raw_url)
+        if not parsed.netloc or not parsed.netloc.lower().endswith('linkedin.com'):
+            return None
+        parts = [p for p in parsed.path.split('/') if p]
+        if 'in' not in parts:
+            return None
+        try:
+            idx = parts.index('in')
+            slug = parts[idx + 1]
+        except (IndexError, ValueError):
+            return None
+        if not slug:
+            return None
+        return f'https://www.linkedin.com/in/{slug}/'
+
     @action(detail=False, methods=['post'])
     def update_api_keys(self, request):
         """
