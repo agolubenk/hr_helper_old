@@ -1106,6 +1106,17 @@
         labels: infoData.labels || [],
         extra_fields: infoData.extra_fields || {}
       };
+      // Сохраняем "последние увиденные" метки для страницы гибких настроек
+      try {
+        const labelsArr = Array.isArray(candidateInfo.labels) ? candidateInfo.labels : [];
+        const names = labelsArr
+          .map((l) => (typeof l === 'string' ? l : (l && (l.name || l.title)) || ''))
+          .map((s) => String(s || '').trim())
+          .filter(Boolean);
+        if (names.length && chrome?.storage?.local) {
+          chrome.storage.local.set({ hrhelper_last_seen_label_names: names.slice(0, 50) });
+        }
+      } catch (_) {}
     }
     if (multiData?.success && multiData.items) {
       vacancies = multiData.items;

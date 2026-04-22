@@ -118,3 +118,28 @@ class AnswerLibraryMessage(models.Model):
 
     def __str__(self):
         return f'{self.get_role_display()}: {self.content[:50]}...'
+
+
+class PromptTableRow(models.Model):
+    """Строка простой таблицы для ручного наполнения промпт-контекста."""
+    topic = models.CharField('Тема', max_length=255)
+    trigger_words = models.TextField(
+        'Слова-триггеры',
+        blank=True,
+        help_text='Слова или фразы через запятую',
+    )
+    clarification_points = models.TextField(
+        'Примеры вопросов/моментов для уточнения',
+        blank=True,
+    )
+    order = models.PositiveSmallIntegerField('Порядок', default=0)
+    updated_at = models.DateTimeField('Обновлено', auto_now=True)
+    created_at = models.DateTimeField('Создано', auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Строка таблицы для промпта'
+        verbose_name_plural = 'Таблица для промпта'
+        ordering = ['order', 'id']
+
+    def __str__(self):
+        return self.topic

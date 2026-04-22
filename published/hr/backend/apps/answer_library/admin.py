@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import TriggerTopic, AnswerLibrarySession, AnswerLibraryMessage
+from .models import TriggerTopic, AnswerLibrarySession, AnswerLibraryMessage, PromptTableRow
 
 
 @admin.register(TriggerTopic)
@@ -24,3 +24,10 @@ class AnswerLibraryMessageAdmin(admin.ModelAdmin):
     def content_short(self, obj):
         return (obj.content or '')[:80] + ('...' if len(obj.content or '') > 80 else '')
     content_short.short_description = 'Текст'
+
+
+@admin.register(PromptTableRow)
+class PromptTableRowAdmin(admin.ModelAdmin):
+    list_display = ('topic', 'order', 'updated_at')
+    list_editable = ('order',)
+    search_fields = ('topic', 'trigger_words', 'clarification_points')

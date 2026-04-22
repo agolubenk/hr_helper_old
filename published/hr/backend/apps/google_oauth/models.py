@@ -4554,6 +4554,108 @@ class HRScreening(models.Model):
                 
         except Exception as e:
             return False, f"Ошибка при анализе с Gemini: {str(e)}"
+
+    # Локальная (для HR-скрининга) логика матчинга prompt-table.
+    # Отделена от apps.answer_library.services, чтобы изменения в чате не влияли на HR-процесс.
+    PROMPT_TABLE_STEM_MIN_LEN = 4
+    PROMPT_TABLE_STEM_PREFIX_LEN = 5
+
+    @classmethod
+    def _normalize_text_for_prompt_table(cls, text: str) -> str:
+        """Нормализует текст для поиска триггеров."""
+        import re
+        if not text:
+            return ''
+        normalized = (text or '').lower().strip()
+        normalized = re.sub(r'[^\w\s\u0400-\u04ff]', ' ', normalized)
+        normalized = re.sub(r'\s+', ' ', normalized)
+        return normalized
+
+    @classmethod
+    def _prompt_trigger_matches_text(cls, trigger: str, normalized_text: str, words: list) -> bool:
+        """Проверяет совпадение триггера с текстом (подстрока/мягкий stem-матч)."""
+        trigger = (trigger or '').strip().lower()
+        if not trigger or not normalized_text:
+            return False
+        if trigger in normalized_text:
+            return True
+
+        if len(trigger) >= cls.PROMPT_TABLE_STEM_MIN_LEN:
+            for word in words:
+                if len(word) < cls.PROMPT_TABLE_STEM_MIN_LEN:
+                    continue
+                prefix_len = min(cls.PROMPT_TABLE_STEM_PREFIX_LEN, len(trigger), len(word))
+                if trigger[:prefix_len] == word[:prefix_len]:
+                    return True
+                if trigger in word or word in trigger:
+                    return True
+        return False
+
+    @staticmethod
+    def _parse_trigger_words(trigger_words: str) -> list:
+        """Парсит слова-триггеры из строки (через запятую/новую строку)."""
+        if not trigger_words:
+            return []
+        parsed = []
+        for token in (trigger_words or '').replace(',', '\n').splitlines():
+            token = token.strip().lower()
+            if token:
+                parsed.append(token)
+        return list(dict.fromkeys(parsed))
+
+    def _get_matching_prompt_table_rows(self, input_text: str = None):
+        """
+        Возвращает все строки PromptTableRow, где совпал хотя бы один триггер.
+        Если совпадений нет — возвращает пустой список.
+        """
+        from apps.answer_library.models import PromptTableRow
+
+        text = input_text if input_text is not None else self.input_data
+        normalized = self._normalize_text_for_prompt_table(text)
+        if not normalized:
+            return []
+
+        words = normalized.split()
+        matched = []
+
+        for row in PromptTableRow.objects.all().order_by('order', 'id'):
+            triggers = self._parse_trigger_words(row.trigger_words)
+            if not triggers:
+                continue
+            if any(self._prompt_trigger_matches_text(trigger, normalized, words) for trigger in triggers):
+                matched.append(row)
+
+        return matched
+
+    @staticmethod
+    def _build_prompt_table_context(rows) -> str:
+        """Собирает секцию prompt-table для промпта HR-скрининга."""
+        if not rows:
+            return ''
+
+        lines = ["СПРАВОЧНИК PROMPT-TABLE (ТОЛЬКО РЕЛЕВАНТНЫЕ СТРОКИ ПО ТРИГГЕРАМ):"]
+        for row in rows:
+            topic = (row.topic or '').strip() or 'Без темы'
+            points = (row.clarification_points or '').strip()
+            lines.append(f"- Тема: {topic}")
+            if points:
+                lines.append(f"  Вопросы/моменты для уточнения: {points}")
+            else:
+                lines.append("  Вопросы/моменты для уточнения: не указаны")
+        return "\n".join(lines)
+
+    @staticmethod
+    def _inject_prompt_table_context(prompt: str, context_block: str) -> str:
+        """
+        Вставляет prompt-table контекст:
+        - если есть плейсхолдер {prompt_table_context}, заменяет его;
+        - иначе дописывает блок в конец промпта.
+        """
+        if not context_block:
+            return prompt.replace('{prompt_table_context}', '')
+        if '{prompt_table_context}' in prompt:
+            return prompt.replace('{prompt_table_context}', context_block)
+        return f"{prompt}\n\n{context_block}"
     
     def _get_user_account_id(self):
         """Получает реальный account_id пользователя из Huntflow"""
@@ -4657,6 +4759,12 @@ class HRScreening(models.Model):
             
             # Формируем финальный промпт, заменяя плейсхолдеры
             prompt = base_prompt.replace('{answers}', self.input_data)
+
+            # Добавляем релевантные строки из prompt-table по словам-триггерам.
+            # Если совпадений нет, блок не добавляем.
+            prompt_table_rows = self._get_matching_prompt_table_rows(self.input_data)
+            prompt_table_context = self._build_prompt_table_context(prompt_table_rows)
+            prompt = self._inject_prompt_table_context(prompt, prompt_table_context)
             
             # Подставляем вопросы для Беларуси
             if belarus_template:
@@ -5449,12 +5557,43 @@ class HRScreening(models.Model):
             # ВАЖНО: ВСЕГДА устанавливаем статус HR Screening
             # Отказ теперь обрабатывается через форму на фронте по запросу пользователя
             if hr_screening_status_id:
+                scorecard_link_for_comment = ""
+                try:
+                    scorecard_questionary = huntflow_service.get_applicant_questionary(account_id, int(self.candidate_id))
+                    scorecard_questionary_schema = huntflow_service.get_applicant_questionary_schema(account_id)
+
+                    if scorecard_questionary and scorecard_questionary_schema:
+                        for field_id, field_info in scorecard_questionary_schema.items():
+                            field_title = str(field_info.get('title', '')).strip().lower()
+                            if field_title == 'scorecard':
+                                scorecard_raw_value = scorecard_questionary.get(field_id)
+                                if isinstance(scorecard_raw_value, str):
+                                    scorecard_raw_value = scorecard_raw_value.strip()
+                                if scorecard_raw_value:
+                                    scorecard_link_for_comment = str(scorecard_raw_value).strip()
+                                    print(
+                                        f"✅ HR_SCREENING_UPDATE_CANDIDATE: Найден заполненный Scorecard для комментария: {scorecard_link_for_comment}"
+                                    )
+                                else:
+                                    print(
+                                        "ℹ️ HR_SCREENING_UPDATE_CANDIDATE: Поле Scorecard найдено, но пустое — комментарий не меняем"
+                                    )
+                                break
+                except Exception as e:
+                    print(f"⚠️ HR_SCREENING_UPDATE_CANDIDATE: Не удалось получить поле Scorecard: {e}")
+
                 # Формируем комментарий из поля comment
                 comment_text = ""
                 if 'comment' in parsed_analysis and parsed_analysis['comment']:
                     comment_text = f"Доп. инфо: {parsed_analysis['comment']}"
                 else:
                     comment_text = ""
+
+                if scorecard_link_for_comment:
+                    if comment_text:
+                        comment_text += f"\nOld Scorecard: {scorecard_link_for_comment}"
+                    else:
+                        comment_text = f"Old Scorecard: {scorecard_link_for_comment}"
                 
                 # Обновляем статус на "HR Screening"
                 status_result = huntflow_service.update_applicant_status(

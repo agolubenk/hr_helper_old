@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HR Helper — Гибкие настройки</title>
+  <link rel="stylesheet" href="options.css" />
+  <style>
+    .flex-panel { max-width: 720px; }
+    .flex-header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom: 14px; }
+    .flex-header h1 { margin: 0; }
+    .pill-btn {
+      background: rgba(0,0,0,.04);
+      color: #333;
+      border: 1px solid rgba(0,0,0,.18);
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .pill-btn:hover { background: rgba(0,0,0,.08); }
+    body.options-theme-dark .pill-btn,
+    body.options-theme-system .pill-btn {
+      background: rgba(255,255,255,.08);
+      color: #e8eaed;
+      border-color: rgba(255,255,255,.2);
+    }
+    body.options-theme-dark .pill-btn:hover,
+    body.options-theme-system .pill-btn:hover { background: rgba(255,255,255,.12); }
+
+    .chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+    .chip { display:inline-flex; align-items:center; gap:8px; padding: 6px 10px; border-radius:999px; border:1px solid rgba(0,0,0,.16); background: rgba(0,0,0,.04); font-size:13px; }
+    body.options-theme-dark .chip, body.options-theme-system .chip { border-color: rgba(255,255,255,.18); background: rgba(255,255,255,.08); }
+    .chip button { background: transparent; border:none; color: inherit; padding: 0; width: 18px; height: 18px; border-radius: 50%; cursor:pointer; }
+    .chip button:hover { background: rgba(0,0,0,.08); }
+    body.options-theme-dark .chip button:hover, body.options-theme-system .chip button:hover { background: rgba(255,255,255,.12); }
+
+    .row { display:flex; gap:10px; align-items:center; }
+    .row input, .row select { flex:1; }
+
+    .secondary-btn { background: rgba(0,0,0,.04); color:#333; border:1px solid rgba(0,0,0,.18); }
+    .secondary-btn:hover { background: rgba(0,0,0,.08); }
+    body.options-theme-dark .secondary-btn, body.options-theme-system .secondary-btn { background: rgba(255,255,255,.08); color:#e8eaed; border-color: rgba(255,255,255,.2); }
+    body.options-theme-dark .secondary-btn:hover, body.options-theme-system .secondary-btn:hover { background: rgba(255,255,255,.12); }
+
+    .small { font-size: 12px; color: #666; margin-top: 8px; line-height: 1.4; }
+    body.options-theme-dark .small, body.options-theme-system .small { color: #b0b0b0; }
+    .divider { border:none; border-top:1px solid #e0e0e0; margin: 18px 0; }
+    body.options-theme-dark .divider, body.options-theme-system .divider { border-top-color:#404040; }
+    .seen { margin-top: 10px; display:flex; flex-wrap:wrap; gap:8px; }
+    .seen button { padding: 8px 10px; border-radius: 999px; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="page-wrap page-wrap--overflow">
+    <div class="panel panel-settings flex-panel">
+      <div class="flex-header">
+        <h1>Гибкие настройки</h1>
+        <button type="button" class="pill-btn" id="backToOptions">← Настройки</button>
+      </div>
+
+      <div class="options-collapsible" id="section-black">
+        <button type="button" class="options-collapsible-header" aria-expanded="true" aria-controls="section-black-body">
+          <span class="options-collapsible-title">Чёрная рамка (метки)</span>
+          <span class="options-collapsible-icon">▼</span>
+        </button>
+        <div class="options-collapsible-body" id="section-black-body">
+          <p class="options-extra-desc" style="margin-top:0;">
+            Выберите метки Huntflow, при наличии которых у кандидата плавающее окно получает <b>чёрную рамку</b>.
+          </p>
+
+          <div class="form-group">
+            <label for="labelsSelect">Доступные метки (из Huntflow)</label>
+            <div class="row">
+              <select id="labelsSelect" disabled>
+                <option value="">— Загрузка меток… —</option>
+              </select>
+              <button type="button" id="addSelected" class="secondary-btn">Добавить</button>
+            </div>
+            <div class="small" id="labelsLoadStatus"></div>
+          </div>
+
+          <div class="form-group">
+            <label for="labelInput">Добавить вручную</label>
+            <div class="row">
+              <input id="labelInput" type="text" placeholder="Например: Черный список / No come back" />
+              <button type="button" id="addLabel">Добавить</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Выбранные метки</label>
+            <div class="chips" id="labelsChips"></div>
+            <div class="small" id="saveStatus"></div>
+          </div>
+
+          <hr class="divider" />
+
+          <div class="row" style="justify-content:space-between;">
+            <button type="button" class="secondary-btn" id="useDefaults">Сбросить на значения по умолчанию</button>
+            <button type="button" class="secondary-btn" id="clearAll">Очистить список</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="shared/constants.js"></script>
+  <script src="shared/utils/token.js"></script>
+  <script src="flexible-settings.js"></script>
+</body>
+</html>
+

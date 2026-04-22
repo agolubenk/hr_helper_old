@@ -1,0 +1,224 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block title %}Таблица для промпта — Библиотека ответов{% endblock %}
+
+{% block content %}
+<style>
+    #prompt-table td { vertical-align: top; }
+    #prompt-table .form-control-sm { font-size: 0.875rem; }
+    #prompt-table .js-points { min-height: 78px; }
+    #prompt-table .js-trigger-words { min-height: 64px; }
+    .table-hint { font-size: 0.8rem; color: #6c757d; }
+</style>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <div>
+            <h2 class="mb-1"><i class="fas fa-table me-2"></i>Таблица для промпта</h2>
+            <p class="text-muted mb-0">
+                Простая таблица с инлайн-редактированием. Пока не подключена к генерации промпта.
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'answer_library:index' %}" class="btn btn-outline-secondary">К библиотеке</a>
+            <button id="add-row-btn" type="button" class="btn btn-primary">
+                <i class="fas fa-plus me-1"></i>Добавить строку
+            </button>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered align-middle" id="prompt-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 90px;">Порядок</th>
+                            <th style="width: 220px;">Тема</th>
+                            <th style="width: 280px;">
+                                Слова-триггеры
+                                <div class="table-hint">Через запятую</div>
+                            </th>
+                            <th>Примеры вопросов/моменты для уточнения</th>
+                            <th style="width: 100px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in rows %}
+                        <tr data-row-id="{{ row.id }}">
+                            <td>
+                                <input type="number" min="0" class="form-control form-control-sm js-order"
+                                       value="{{ row.order }}">
+                            </td>
+                            <td>
+                                <input type="text" class="form-control form-control-sm js-topic"
+                                       value="{{ row.topic }}" maxlength="255">
+                            </td>
+                            <td>
+                                <textarea class="form-control form-control-sm js-trigger-words" rows="2"
+                                          placeholder="например: b2b, uop, релокация">{{ row.trigger_words }}</textarea>
+                            </td>
+                            <td>
+                                <textarea class="form-control form-control-sm js-points" rows="2">{{ row.clarification_points }}</textarea>
+                            </td>
+                            <td class="text-center">
+                                <button type="button" class="btn btn-sm btn-outline-danger js-delete-row" title="Удалить">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr class="js-empty-row">
+                            <td colspan="5" class="text-muted text-center py-4">
+                                Пока нет строк. Нажмите «Добавить строку».
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div id="save-status" class="small text-muted mt-2"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        const tableBody = document.querySelector('#prompt-table tbody');
+        const addBtn = document.getElementById('add-row-btn');
+        const statusEl = document.getElementById('save-status');
+
+        function getCookie(name) {
+            const cookieValue = document.cookie
+                .split('; ')
+                .find(row => row.startsWith(name + '='));
+            return cookieValue ? decodeURIComponent(cookieValue.split('=')[1]) : '';
+        }
+
+        const csrfToken = getCookie('csrftoken');
+
+        function setStatus(text, isError) {
+            statusEl.textContent = text || '';
+            statusEl.classList.toggle('text-danger', !!isError);
+            statusEl.classList.toggle('text-success', !isError && !!text);
+            if (text) {
+                window.clearTimeout(setStatus._timer);
+                setStatus._timer = window.setTimeout(() => {
+                    statusEl.textContent = '';
+                    statusEl.classList.remove('text-danger', 'text-success');
+                }, 2500);
+            }
+        }
+
+        async function postJson(url, payload) {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify(payload || {})
+            });
+            let data = {};
+            try {
+                data = await response.json();
+            } catch (e) {
+                // ignore JSON parsing error; response will be handled by status
+            }
+            if (!response.ok || data.success === false) {
+                const err = (data && data.error) ? data.error : 'Ошибка запроса';
+                throw new Error(err);
+            }
+            return data;
+        }
+
+        function removeEmptyPlaceholder() {
+            const empty = tableBody.querySelector('.js-empty-row');
+            if (empty) empty.remove();
+        }
+
+        function buildRow(row) {
+            const tr = document.createElement('tr');
+            tr.dataset.rowId = row.id;
+            tr.innerHTML = `
+                <td><input type="number" min="0" class="form-control form-control-sm js-order" value="${row.order || 0}"></td>
+                <td><input type="text" class="form-control form-control-sm js-topic" maxlength="255" value="${(row.topic || '').replace(/"/g, '&quot;')}"></td>
+                <td><textarea class="form-control form-control-sm js-trigger-words" rows="2" placeholder="например: b2b, uop, релокация">${row.trigger_words || ''}</textarea></td>
+                <td><textarea class="form-control form-control-sm js-points" rows="2">${row.clarification_points || ''}</textarea></td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-sm btn-outline-danger js-delete-row" title="Удалить">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            `;
+            return tr;
+        }
+
+        async function saveRow(tr) {
+            const rowId = tr.dataset.rowId;
+            if (!rowId) return;
+            const payload = {
+                order: tr.querySelector('.js-order').value,
+                topic: tr.querySelector('.js-topic').value,
+                trigger_words: tr.querySelector('.js-trigger-words').value,
+                clarification_points: tr.querySelector('.js-points').value
+            };
+            try {
+                await postJson(`/answer-library/prompt-table/api/${rowId}/update/`, payload);
+                setStatus('Сохранено');
+            } catch (err) {
+                setStatus(err.message || 'Ошибка сохранения', true);
+            }
+        }
+
+        addBtn.addEventListener('click', async function () {
+            try {
+                const data = await postJson('/answer-library/prompt-table/api/create/', {});
+                removeEmptyPlaceholder();
+                const tr = buildRow(data.row);
+                tableBody.appendChild(tr);
+                tr.querySelector('.js-topic').focus();
+                setStatus('Строка добавлена');
+            } catch (err) {
+                setStatus(err.message || 'Не удалось добавить строку', true);
+            }
+        });
+
+        tableBody.addEventListener('change', function (e) {
+            const tr = e.target.closest('tr[data-row-id]');
+            if (!tr) return;
+            if (
+                e.target.classList.contains('js-order') ||
+                e.target.classList.contains('js-topic') ||
+                e.target.classList.contains('js-trigger-words') ||
+                e.target.classList.contains('js-points')
+            ) {
+                saveRow(tr);
+            }
+        });
+
+        tableBody.addEventListener('click', async function (e) {
+            const btn = e.target.closest('.js-delete-row');
+            if (!btn) return;
+            const tr = btn.closest('tr[data-row-id]');
+            if (!tr) return;
+            const rowId = tr.dataset.rowId;
+            if (!confirm('Удалить строку?')) return;
+            try {
+                await postJson(`/answer-library/prompt-table/api/${rowId}/delete/`, {});
+                tr.remove();
+                if (!tableBody.querySelector('tr[data-row-id]')) {
+                    const emptyTr = document.createElement('tr');
+                    emptyTr.className = 'js-empty-row';
+                    emptyTr.innerHTML = '<td colspan="5" class="text-muted text-center py-4">Пока нет строк. Нажмите «Добавить строку».</td>';
+                    tableBody.appendChild(emptyTr);
+                }
+                setStatus('Строка удалена');
+            } catch (err) {
+                setStatus(err.message || 'Не удалось удалить строку', true);
+            }
+        });
+    })();
+</script>
+{% endblock %}

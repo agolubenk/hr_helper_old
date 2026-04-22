@@ -15,6 +15,18 @@
   function hasBlacklistLabel(candidateInfo) {
     var labels = candidateInfo && candidateInfo.labels;
     if (!Array.isArray(labels)) return false;
+    var configured = null;
+    try {
+      configured = g.__HRH__ && Array.isArray(g.__HRH__.blackFrameLabels) ? g.__HRH__.blackFrameLabels : null;
+    } catch (_) {
+      configured = null;
+    }
+    var defaults = null;
+    try {
+      defaults = g.__HRH__ && Array.isArray(g.__HRH__.DEFAULT_BLACKLIST_LABELS) ? g.__HRH__.DEFAULT_BLACKLIST_LABELS : null;
+    } catch (_) {
+      defaults = null;
+    }
     var norm = function (s) {
       return (s || "")
         .toString()
@@ -23,13 +35,28 @@
         .replace(/ё/g, "е")
         .replace(/\s+/g, " ");
     };
+    var configuredNorm = null;
+    try {
+      var list = (configured && configured.length ? configured : defaults) || [];
+      configuredNorm = list
+        .map(function (x) { return norm(x); })
+        .filter(function (x) { return !!x; })
+        .map(function (x) { return { spaced: x, nospaces: x.replace(/\s/g, "") }; });
+    } catch (_) {
+      configuredNorm = null;
+    }
     return labels.some(function (l) {
       var name =
         (typeof l === "string" ? l : l && (l.name || l.title)) || "";
       var n = norm(name);
-      if (n === "черный список" || n === "black list" || n === "blacklist")
-        return true;
       var noSpaces = n.replace(/\s/g, "");
+      if (configuredNorm && configuredNorm.length) {
+        return configuredNorm.some(function (x) {
+          return x.spaced === n || x.nospaces === noSpaces;
+        });
+      }
+      // fallback (legacy hardcoded)
+      if (n === "черный список" || n === "black list" || n === "blacklist") return true;
       return (
         noSpaces === "nocomeback" ||
         noSpaces === "no-come-back" ||
@@ -80,5 +107,32 @@
   g.__HRH__.isNewStatusName = isNewStatusName;
   g.__HRH__.hasBlacklistLabel = hasBlacklistLabel;
   g.__HRH__.isRejectionStatus = isRejectionStatus;
+
+  // Инициализация гибких настроек "чёрной рамки" (sync storage → g.__HRH__.blackFrameLabels)
+  (function initBlackFrameLabels() {
+    try {
+      if (!chrome || !chrome.storage || !chrome.storage.sync) return;
+    } catch (_) {
+      return;
+    }
+    var KEY = (g.__HRH__ && g.__HRH__.BLACKLIST_LABELS_KEY) || "hrhelper_black_frame_labels";
+    try {
+      chrome.storage.sync.get({ [KEY]: null }, function (data) {
+        try {
+          var v = data && data[KEY];
+          if (Array.isArray(v)) g.__HRH__.blackFrameLabels = v;
+        } catch (_) {}
+      });
+      chrome.storage.onChanged.addListener(function (changes, areaName) {
+        if (areaName !== "sync") return;
+        if (!changes || !changes[KEY]) return;
+        try {
+          var nv = changes[KEY].newValue;
+          if (Array.isArray(nv)) g.__HRH__.blackFrameLabels = nv;
+          else g.__HRH__.blackFrameLabels = null;
+        } catch (_) {}
+      });
+    } catch (_) {}
+  })();
 })();
 

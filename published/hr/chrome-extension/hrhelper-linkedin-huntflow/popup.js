@@ -2076,6 +2076,53 @@ function editLinkedInLink() {
 /** Данные статусов/причин для блока «Изменение статуса» */
 let linkedinStatusOptions = { statuses: [], rejection_reasons: [] };
 
+function findRejectionStatusId() {
+  const statuses = linkedinStatusOptions?.statuses || [];
+  if (!Array.isArray(statuses) || statuses.length === 0) return null;
+  // Сначала ищем по type (наиболее надёжно)
+  const byType = statuses.find((s) => {
+    const t = String(s?.type || '').toLowerCase();
+    return t === 'rejected' || t === 'rejection' || t === 'trash';
+  });
+  if (byType?.id != null) return String(byType.id);
+  // Фолбэк: по имени
+  const byName = statuses.find((s) => {
+    const n = String(s?.name || '').toLowerCase();
+    return n.includes('отказ') || n.includes('reject') || n.includes('rejected') || n.includes('trash') || n.includes('отклон');
+  });
+  if (byName?.id != null) return String(byName.id);
+  return null;
+}
+
+function syncLinkedInStatusActionButtons() {
+  const statusSelect = document.getElementById('ctx-linkedin-status');
+  const nextBtn = document.getElementById('ctx-linkedin-status-next');
+  const rejectBtn = document.getElementById('ctx-linkedin-status-reject');
+  if (!statusSelect) return;
+  const sel = statusSelect.options[statusSelect.selectedIndex];
+  const isRej = !!(sel && sel.value && isRejectionStatus(sel));
+  if (isRej) {
+    if (nextBtn) nextBtn.style.display = 'none';
+    if (rejectBtn) rejectBtn.style.display = 'none';
+    return;
+  }
+
+  // Если следующий по циклу статус — отказ, прячем кнопку "следующий статус"
+  let hideNext = false;
+  try {
+    const options = Array.from(statusSelect.options).filter((o) => o.value !== '');
+    if (options.length > 0) {
+      const currentIdx = options.findIndex((o) => o.value === statusSelect.value);
+      const nextIdx = currentIdx < 0 ? 0 : (currentIdx + 1) % options.length;
+      const nextOpt = options[nextIdx];
+      hideNext = !!(nextOpt && nextOpt.value && isRejectionStatus(nextOpt));
+    }
+  } catch (_) {}
+
+  if (nextBtn) nextBtn.style.display = hideNext ? 'none' : '';
+  if (rejectBtn) rejectBtn.style.display = '';
+}
+
 /** Загрузить опции статусов и причин отказа (по linkedin_url или по huntflow_url для страниц резюме) */
 async function loadLinkedInStatusOptions() {
   const statusSelect = document.getElementById('ctx-linkedin-status');
@@ -2131,9 +2178,10 @@ async function loadLinkedInStatusOptions() {
       if (reasonRowEl) reasonRowEl.style.display = show ? 'block' : 'none';
     }
     toggleReasonRow();
+    syncLinkedInStatusActionButtons();
     updateHuntflowButtonRejectionClass();
     statusSelect.removeEventListener('change', statusSelect._hrhelperReasonToggle);
-    statusSelect._hrhelperReasonToggle = () => { toggleReasonRow(); updateHuntflowButtonRejectionClass(); };
+    statusSelect._hrhelperReasonToggle = () => { toggleReasonRow(); syncLinkedInStatusActionButtons(); updateHuntflowButtonRejectionClass(); };
     statusSelect.addEventListener('change', statusSelect._hrhelperReasonToggle);
     if (reasonSelect) {
       rejectionReasons.forEach((r) => {
@@ -2159,6 +2207,7 @@ async function loadLinkedInStatusOptions() {
     }
   }
   updateHuntflowButtonRejectionClass();
+  syncLinkedInStatusActionButtons();
 }
 
 /** Переключить статус на следующий по порядку */
@@ -2170,6 +2219,19 @@ function advanceToNextStatus() {
   const currentIdx = options.findIndex((o) => o.value === statusSelect.value);
   const nextIdx = currentIdx < 0 ? 0 : (currentIdx + 1) % options.length;
   statusSelect.value = options[nextIdx].value;
+  if (statusSelect._hrhelperReasonToggle) statusSelect._hrhelperReasonToggle();
+  updateHuntflowButtonRejectionClass();
+}
+
+/** Быстрый переход к отказу */
+function jumpToRejectionStatus() {
+  const statusSelect = document.getElementById('ctx-linkedin-status');
+  if (!statusSelect) return;
+  const rejId = findRejectionStatusId();
+  if (!rejId) return;
+  const hasOpt = Array.from(statusSelect.options).some((o) => o.value === String(rejId));
+  if (!hasOpt) return;
+  statusSelect.value = String(rejId);
   if (statusSelect._hrhelperReasonToggle) statusSelect._hrhelperReasonToggle();
   updateHuntflowButtonRejectionClass();
 }
@@ -2435,6 +2497,7 @@ document.getElementById('ctx-linkedin-apply').addEventListener('click', applyLin
 document.getElementById('ctx-linkedin-save').addEventListener('click', () => saveLinkedInToHuntflow());
 document.getElementById('ctx-linkedin-edit').addEventListener('click', editLinkedInLink);
 document.getElementById('ctx-linkedin-apply-status').addEventListener('click', applyLinkedInStatus);
+document.getElementById('ctx-linkedin-status-reject')?.addEventListener('click', jumpToRejectionStatus);
 document.getElementById('ctx-linkedin-status-next')?.addEventListener('click', advanceToNextStatus);
 document.getElementById('ctx-linkedin-candidate-toggle').addEventListener('click', () => {
   const body = document.getElementById('ctx-linkedin-candidate-body');

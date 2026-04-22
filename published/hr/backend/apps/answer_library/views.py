@@ -14,7 +14,7 @@ import logging
 
 from django.db.models import Q
 
-from .models import TriggerTopic, AnswerLibrarySession, AnswerLibraryMessage
+from .models import TriggerTopic, AnswerLibrarySession, AnswerLibraryMessage, PromptTableRow
 from .services import (
     get_matching_topics,
     build_context_blocks,
@@ -312,3 +312,76 @@ def send_message(request):
 def library_index(request):
     """Главная библиотеки: ссылки на справочник и чат."""
     return render(request, 'answer_library/index.html')
+
+
+@login_required
+def prompt_table(request):
+    """Страница простой таблицы для последующей вставки в промпт."""
+    rows = PromptTableRow.objects.all().order_by('order', 'id')
+    return render(request, 'answer_library/prompt_table.html', {'rows': rows})
+
+
+@login_required
+@require_http_methods(["POST"])
+def prompt_table_create_row(request):
+    """Создает новую строку таблицы."""
+    try:
+        payload = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        payload = {}
+
+    topic = (payload.get('topic') or 'Новая тема').strip()[:255]
+    trigger_words = (payload.get('trigger_words') or '').strip()
+    clarification_points = (payload.get('clarification_points') or '').strip()
+    max_order = PromptTableRow.objects.order_by('-order').values_list('order', flat=True).first() or 0
+    row = PromptTableRow.objects.create(
+        topic=topic or 'Новая тема',
+        trigger_words=trigger_words,
+        clarification_points=clarification_points,
+        order=max_order + 1,
+    )
+    return JsonResponse({
+        'success': True,
+        'row': {
+            'id': row.id,
+            'topic': row.topic,
+            'trigger_words': row.trigger_words,
+            'clarification_points': row.clarification_points,
+            'order': row.order,
+        }
+    })
+
+
+@login_required
+@require_http_methods(["POST"])
+def prompt_table_update_row(request, pk):
+    """Инлайн-обновление строки таблицы."""
+    row = get_object_or_404(PromptTableRow, pk=pk)
+    try:
+        payload = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Неверный JSON'}, status=400)
+
+    if 'topic' in payload:
+        row.topic = (payload.get('topic') or '').strip()[:255] or 'Без названия'
+    if 'trigger_words' in payload:
+        row.trigger_words = (payload.get('trigger_words') or '').strip()
+    if 'clarification_points' in payload:
+        row.clarification_points = (payload.get('clarification_points') or '').strip()
+    if 'order' in payload:
+        try:
+            row.order = max(0, int(payload.get('order')))
+        except (TypeError, ValueError):
+            return JsonResponse({'success': False, 'error': 'Поле order должно быть числом'}, status=400)
+
+    row.save()
+    return JsonResponse({'success': True})
+
+
+@login_required
+@require_POST
+def prompt_table_delete_row(request, pk):
+    """Удаляет строку таблицы."""
+    row = get_object_or_404(PromptTableRow, pk=pk)
+    row.delete()
+    return JsonResponse({'success': True})

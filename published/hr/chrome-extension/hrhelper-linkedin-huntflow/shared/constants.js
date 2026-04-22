@@ -38,6 +38,18 @@
   g.__HRH__.OPTIONS_THEME_KEY = "hrhelper_options_theme";
   g.__HRH__.DEFAULT_THEME = "system";
 
+  /** Гибкие настройки: метки для "чёрной рамки" */
+  g.__HRH__.BLACKLIST_LABELS_KEY = "hrhelper_black_frame_labels";
+  g.__HRH__.DEFAULT_BLACKLIST_LABELS = [
+    "черный список",
+    "black list",
+    "blacklist",
+    "no come back",
+    "no-come-back",
+    "no_come_back",
+    "nocomeback",
+  ];
+
   /** Ширина плавающего виджета (LinkedIn и HH экосистема — единая), 350px */
   g.__HRH__.FLOATING_WIDGET_WIDTH = 350;
 

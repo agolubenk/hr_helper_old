@@ -131,6 +131,11 @@ function applyTheme(theme) {
 }
 
 document.getElementById("save").addEventListener("click", saveOptions);
+document.getElementById("openFlexibleSettings")?.addEventListener("click", () => {
+  try {
+    location.href = "flexible-settings.html";
+  } catch (_) {}
+});
 document.querySelectorAll('input[name="optionsTheme"]').forEach((el) => {
   el.addEventListener("change", () => {
     const theme = document.querySelector('input[name="optionsTheme"]:checked')?.value || "system";

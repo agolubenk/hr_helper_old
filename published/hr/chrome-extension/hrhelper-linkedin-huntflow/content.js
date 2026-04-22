@@ -142,6 +142,10 @@ const STATE = {
   },
   busy: false,
   suppressObserver: false,
+  // Чтобы не "дёргать" UI при вводе (LinkedIn часто мутирует DOM),
+  // ререндерим плавающее окно только когда данные реально изменились.
+  floatingBodyDirty: true,
+  floatingEditing: false,
   scheduled: false,
   lastScanAt: 0,
   apiCallsThisProfile: 0,
@@ -159,8 +163,6 @@ const STATE = {
     defaultVacancyId: null,
     last_comment_datetime: null,
     rejection_reason_name: null,
-    isProfileEmployee: false,
-    isProfileEmployeeCurrentUser: false,
   },
 };
 
@@ -779,6 +781,7 @@ function repopulateFloatingWidgetBody() {
   if (!floatingWidgetData?.body) return;
   updateFloatingWidgetHeader();
   populateFloatingWidgetBody(floatingWidgetData.body);
+  STATE.floatingBodyDirty = false;
 }
 
 function updateFloatingWidgetHeader() {
@@ -874,13 +877,6 @@ function populateFloatingWidgetBody(body) {
     desc.style.cssText = "font-size:11px;";
     desc.textContent = "Вставьте ссылку и нажмите «Сохранить».";
     body.appendChild(desc);
-    if (STATE.linkedinFull.isProfileEmployee) {
-      const badge = document.createElement("div");
-      badge.className = "hrhelper-body-success";
-      badge.style.cssText = "padding:8px;margin-top:8px;background:var(--hrhelper-success-bg);border:1px solid var(--hrhelper-success-border);border-radius:6px;font-size:12px;font-weight:600;";
-      badge.textContent = "✅ Сотрудник";
-      body.appendChild(badge);
-    }
     return;
   }
 
@@ -989,15 +985,13 @@ function populateFloatingWidgetBody(body) {
     body.appendChild(labelsWrap);
   }
 
-  const isProfileEmployee = !!STATE.linkedinFull.isProfileEmployee;
-  if (hired.length > 0 || isProfileEmployee) {
+  if (hired.length > 0) {
     const badge = document.createElement("div");
     badge.className = "hrhelper-body-success";
     badge.style.cssText = "padding:8px;background:var(--hrhelper-success-bg);border:1px solid var(--hrhelper-success-border);border-radius:6px;font-size:12px;font-weight:600;";
     badge.textContent = "✅ Сотрудник";
     body.appendChild(badge);
-  }
-  if (!(hired.length > 0 || isProfileEmployee) && (active.length > 0 || rejected.length > 0 || archived.length > 0 || STATE.current.vacancy_name)) {
+  } else if (active.length > 0 || rejected.length > 0 || archived.length > 0 || STATE.current.vacancy_name) {
     const selId = STATE.linkedinFull.selectedVacancyId ?? STATE.linkedinFull.defaultVacancyId;
     if (active.length > 0) {
       const activeTitle = document.createElement("div");
@@ -1184,6 +1178,30 @@ function isRejectionStatusOption(opt) {
   return HRH.isRejectionStatus ? HRH.isRejectionStatus(opt) : false;
 }
 
+function syncFloatingStatusActionButtons(statusSelect, nextBtn, rejectBtn) {
+  if (!statusSelect) return;
+  const sel = statusSelect.options[statusSelect.selectedIndex];
+  const isRej = !!(sel && sel.value && isRejectionStatusOption(sel));
+  if (isRej) {
+    if (nextBtn) nextBtn.style.display = "none";
+    if (rejectBtn) rejectBtn.style.display = "none";
+    return;
+  }
+  // Если следующий по циклу статус — отказ, прячем кнопку "следующий статус"
+  let hideNext = false;
+  try {
+    const opts = Array.from(statusSelect.options).filter((o) => o.value !== "");
+    if (opts.length > 0) {
+      const idx = opts.findIndex((o) => o.value === statusSelect.value);
+      const nextIdx = idx < 0 ? 0 : (idx + 1) % opts.length;
+      const nextOpt = opts[nextIdx];
+      hideNext = !!(nextOpt && nextOpt.value && isRejectionStatusOption(nextOpt));
+    }
+  } catch (_) {}
+  if (nextBtn) nextBtn.style.display = hideNext ? "none" : "";
+  if (rejectBtn) rejectBtn.style.display = "";
+}
+
 function appendFloatingStatusBlock(body, btnStyle) {
   const block = document.createElement("div");
   block.className = "hrhelper-ctx-status-block";
@@ -1212,8 +1230,15 @@ function appendFloatingStatusBlock(body, btnStyle) {
   nextBtn.title = "Следующий статус";
   nextBtn.style.cssText = "width:36px;height:36px;padding:0;border:1px solid var(--hrhelper-border);border-radius:6px;background:var(--hrhelper-input-bg);color:var(--hrhelper-accent);cursor:pointer;flex-shrink:0;";
   nextBtn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>';
+  const rejectBtn = document.createElement("button");
+  rejectBtn.type = "button";
+  rejectBtn.className = "hrhelper-ctx-status-reject";
+  rejectBtn.title = "Отказ";
+  rejectBtn.style.cssText = "width:36px;height:36px;padding:0;border:1px solid var(--hrhelper-border);border-radius:6px;background:var(--hrhelper-input-bg);color:var(--hrhelper-accent);cursor:pointer;flex-shrink:0;";
+  rejectBtn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M18.3 5.71 12 12.01l-6.3-6.3-1.41 1.41 6.3 6.3-6.3 6.3 1.41 1.41 6.3-6.3 6.3 6.3 1.41-1.41-6.3-6.3 6.3-6.3z"/></svg>';
   statusRow.appendChild(statusSelect);
   statusRow.appendChild(nextBtn);
+  statusRow.appendChild(rejectBtn);
   block.appendChild(statusRow);
 
   const reasonRow = document.createElement("div");
@@ -1280,6 +1305,7 @@ function appendFloatingStatusBlock(body, btnStyle) {
   const toggleReasonRow = () => {
     const sel = statusSelect.options[statusSelect.selectedIndex];
     reasonRow.style.display = (sel && sel.value && isRejectionStatusOption(sel)) ? "block" : "none";
+    syncFloatingStatusActionButtons(statusSelect, nextBtn, rejectBtn);
   };
   statusSelect.addEventListener("change", toggleReasonRow);
 
@@ -1289,6 +1315,13 @@ function appendFloatingStatusBlock(body, btnStyle) {
     const idx = opts.findIndex((o) => o.value === statusSelect.value);
     const nextIdx = idx < 0 ? 0 : (idx + 1) % opts.length;
     statusSelect.value = opts[nextIdx].value;
+    toggleReasonRow();
+  });
+
+  rejectBtn.addEventListener("click", () => {
+    const rejOpt = Array.from(statusSelect.options).find((o) => o.value && isRejectionStatusOption(o));
+    if (!rejOpt) return;
+    statusSelect.value = String(rejOpt.value);
     toggleReasonRow();
   });
 
@@ -1383,6 +1416,13 @@ async function loadFloatingStatusOptions(statusSelect, reasonSelect, loadMsg) {
       if (hasOpt) reasonSelect.value = String(STATE.current.rejection_reason_id);
     }
     loadMsg.style.display = "none";
+    // После загрузки опций синхронизируем видимость кнопок (next/reject)
+    try {
+      const row = statusSelect && statusSelect.parentElement;
+      const nextBtn = row ? row.querySelector(".hrhelper-ctx-status-next") : null;
+      const rejectBtn = row ? row.querySelector(".hrhelper-ctx-status-reject") : null;
+      syncFloatingStatusActionButtons(statusSelect, nextBtn, rejectBtn);
+    } catch (_) {}
   } catch (e) {
     loadMsg.textContent = "Ошибка загрузки статусов.";
     loadMsg.style.color = "#842029";
@@ -1475,6 +1515,29 @@ function insertFloatingWidget() {
       floatingWidgetData = { wrapper: created.wrapper, body: created.body, statusDropdown: created.statusDropdown, addVacancyDropdown: created.addVacancyDropdown, toggleBtn: created.toggleBtn, titleText: created.titleText, titleIcon: created.titleIcon, actionGroup: created.actionGroup, addVacancyBtn: created.addVacancyBtn, huntflowBtn: created.huntflowBtn, floatingEditBtn: created.floatingEditBtn };
       const wrapper = created.wrapper;
       const body = created.body;
+
+      const isEditableTarget = (t) => {
+        if (!t) return false;
+        try {
+          if (t.isContentEditable) return true;
+          const tag = (t.tagName || "").toLowerCase();
+          return tag === "input" || tag === "textarea" || tag === "select";
+        } catch (_) {
+          return false;
+        }
+      };
+      wrapper.addEventListener("focusin", (e) => {
+        if (isEditableTarget(e.target)) STATE.floatingEditing = true;
+      });
+      wrapper.addEventListener("focusout", () => {
+        setTimeout(() => {
+          const w = document.querySelector("[data-hrhelper-floating='true']");
+          const a = document.activeElement;
+          const stillInside = !!(w && a && w.contains(a));
+          STATE.floatingEditing = stillInside && isEditableTarget(a);
+        }, 0);
+      });
+
       updateResolvedWidgetTheme().then(() => {
         try {
           if (!chrome.runtime?.id) return;
@@ -1484,6 +1547,7 @@ function insertFloatingWidget() {
           updateFloatingWidgetHeader();
           populateFloatingWidgetBody(body);
           document.body.appendChild(wrapper);
+          STATE.floatingBodyDirty = false;
           makeWidgetDraggable(wrapper, "hrhelper_linkedin_floating_pos", ".hrhelper-widget-header");
           startFloatingWidgetThemeObserver(wrapper);
           log(" Floating widget inserted");
@@ -1518,7 +1582,7 @@ function updateFloatingWidget() {
     applyFloatingBorder(w, computeFloatingBorderColorLinkedIn());
     updateFloatingWidgetTitleIcon(w);
     updateFloatingWidgetHeader();
-    if (floatingWidgetData.body) {
+    if (floatingWidgetData.body && STATE.floatingBodyDirty && !STATE.floatingEditing) {
       repopulateFloatingWidgetBody();
     }
   } catch (e) {
@@ -1880,6 +1944,7 @@ function setButtonState(obj) {
   if (obj.rejection_reason_id !== undefined) STATE.current.rejection_reason_id = obj.rejection_reason_id;
   if (obj.vacancy_name !== undefined) STATE.current.vacancy_name = obj.vacancy_name;
   if (obj.vacanciesCount !== undefined) STATE.current.vacanciesCount = obj.vacanciesCount;
+  STATE.floatingBodyDirty = true;
   applyStateToAllButtons();
 }
 
@@ -1994,28 +2059,6 @@ async function fetchStatusMulti(linkedinUrl) {
   };
 }
 
-/**
- * Проверка: является ли LinkedIn-профиль профилем сотрудника (linkedin_url в профиле пользователя).
- * Результат пишется в STATE.linkedinFull.isProfileEmployee и isProfileEmployeeCurrentUser.
- */
-async function fetchProfileEmployeeCheck(linkedinUrl) {
-  if (!linkedinUrl) return { is_employee_profile: false, is_current_user: false };
-  try {
-    const qp = new URLSearchParams({ linkedin_url: linkedinUrl });
-    const res = await apiFetch("/api/v1/accounts/users/profile-linkedin-check/?" + qp.toString(), { method: "GET" });
-    const data = await res.json().catch(() => null);
-    if (!res.ok || !data) return { is_employee_profile: false, is_current_user: false };
-    STATE.linkedinFull.isProfileEmployee = !!data.is_employee_profile;
-    STATE.linkedinFull.isProfileEmployeeCurrentUser = !!data.is_current_user;
-    return { is_employee_profile: !!data.is_employee_profile, is_current_user: !!data.is_current_user };
-  } catch (e) {
-    log(" fetchProfileEmployeeCheck error:", e);
-    STATE.linkedinFull.isProfileEmployee = false;
-    STATE.linkedinFull.isProfileEmployeeCurrentUser = false;
-    return { is_employee_profile: false, is_current_user: false };
-  }
-}
-
 /** GET candidate-info: ФИО, контакты */
 async function fetchCandidateInfo(huntflowUrl) {
   if (!huntflowUrl) return null;
@@ -2025,6 +2068,16 @@ async function fetchCandidateInfo(huntflowUrl) {
   if (!res.ok || !data?.success) return null;
   // Метки: для цвета границы/текста в UI ожидаются объекты с полем color (или background_color, bg_color, border_color, hex)
   const labels = Array.isArray(data.labels) ? data.labels : [];
+  // Сохраняем "последние увиденные" метки для страницы гибких настроек
+  try {
+    const names = labels
+      .map((l) => (typeof l === "string" ? l : (l && (l.name || l.title)) || ""))
+      .map((s) => String(s || "").trim())
+      .filter(Boolean);
+    if (names.length && chrome?.storage?.local) {
+      chrome.storage.local.set({ hrhelper_last_seen_label_names: names.slice(0, 50) });
+    }
+  } catch (_) {}
   return {
     full_name: data.full_name ?? null,
     phone: data.phone ?? null,
@@ -2196,7 +2249,6 @@ async function refreshButtonForCurrentProfile() {
           }
           const info = await fetchCandidateInfo(multi.huntflowUrl || cached.app_url);
           STATE.linkedinFull.candidateInfo = info;
-          await fetchProfileEmployeeCheck(canonical);
           if (IS_LINKEDIN) { repopulateFloatingWidgetBody(); updateFloatingWidget(); }
         }
       })();
@@ -2207,10 +2259,6 @@ async function refreshButtonForCurrentProfile() {
       STATE.linkedinFull.vacancies = [];
       STATE.linkedinFull.candidateInfo = null;
       setButtonState({ text: "Huntflow", disabled: false, title: "Укажи ссылку на кандидата", color: "#0a66c2", vacancy_name: null, vacanciesCount: 0 });
-      (async () => {
-        await fetchProfileEmployeeCheck(canonical);
-        if (IS_LINKEDIN) { repopulateFloatingWidgetBody(); updateFloatingWidget(); }
-      })();
     }
     ensureButtons();
     if (IS_LINKEDIN) insertFloatingWidget();
@@ -2297,7 +2345,6 @@ async function refreshButtonForCurrentProfile() {
         }
         const info = await fetchCandidateInfo(multi.huntflowUrl || status.app_url);
         STATE.linkedinFull.candidateInfo = info;
-        await fetchProfileEmployeeCheck(canonical);
         if (IS_LINKEDIN) { repopulateFloatingWidgetBody(); updateFloatingWidget(); }
       }
     })();
@@ -2310,10 +2357,6 @@ async function refreshButtonForCurrentProfile() {
     STATE.linkedinFull.candidateInfo = null;
     STATE.linkedinFull.selectedVacancyId = null;
     setButtonState({ text: "Huntflow", disabled: false, title: "Укажи ссылку на кандидата", color: "#0a66c2", vacancy_name: null, vacanciesCount: 0 });
-    (async () => {
-      await fetchProfileEmployeeCheck(canonical);
-      if (IS_LINKEDIN) { repopulateFloatingWidgetBody(); updateFloatingWidget(); }
-    })();
   }
   ensureButtons();
   if (IS_LINKEDIN) insertFloatingWidget();
@@ -2477,7 +2520,6 @@ async function onSaveLinkClick() {
         }
         const info = await fetchCandidateInfo(multi.huntflowUrl || finalUrl);
         STATE.linkedinFull.candidateInfo = info;
-        await fetchProfileEmployeeCheck(canonical);
         if (IS_LINKEDIN) { repopulateFloatingWidgetBody(); updateFloatingWidget(); }
       }
     })();

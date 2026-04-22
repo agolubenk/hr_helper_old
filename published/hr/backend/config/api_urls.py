@@ -16,6 +16,7 @@ from apps.huntflow.views_api import (
     HHResponsesViewSet, LinkedInApplicantsViewSet, LinkedInThreadMappingViewSet,
     ResumeHuntflowLinkViewSet
 )
+from apps.huntflow.views_labels_api import huntflow_labels
 from apps.huntflow.views_gdrive import (
     get_active_vacancies, parse_gdrive_resume, create_candidate_from_gdrive,
     parse_and_create_candidate, get_gdrive_link, update_gdrive_link
@@ -100,6 +101,7 @@ urlpatterns = [
     # API v1
     path('v1/', include(router.urls)),
     path('v1/hh/', include('apps.hhru.urls_api')),
+    path('v1/huntflow/labels/', huntflow_labels, name='api_huntflow_labels'),
     
     # Google Drive Integration
     path('vacancies/active/', get_active_vacancies, name='api_vacancies_active'),
