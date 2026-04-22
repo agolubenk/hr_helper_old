@@ -12,6 +12,14 @@ class SystemChoice(models.TextChoices):
     SANDBOX = "sandbox", _("Песочница")
 
 
+class AIModelChoice(models.TextChoices):
+    GEMINI_2_FLASH      = "gemini-2.0-flash",      _("Gemini 2.0 Flash")
+    GEMINI_2_FLASH_LITE = "gemini-2.0-flash-lite", _("Gemini 2.0 Flash Lite")
+    GEMINI_15_PRO       = "gemini-1.5-pro",        _("Gemini 1.5 Pro")
+    GEMINI_15_FLASH     = "gemini-1.5-flash",      _("Gemini 1.5 Flash")
+    GEMINI_10_PRO       = "gemini-1.0-pro",        _("Gemini 1.0 Pro")
+
+
 class User(AbstractUser):
     """
     Минимально расширяем AbstractUser, чтобы не плодить профиль.
@@ -46,17 +54,26 @@ class User(AbstractUser):
         default=SystemChoice.SANDBOX,
     )
 
+    # Выбор предпочтительной AI-модели
+    preferred_ai_model = models.CharField(
+        _("Предпочтительная AI модель"),
+        max_length=64,
+        choices=AIModelChoice.choices,
+        default=AIModelChoice.GEMINI_2_FLASH,
+        help_text="Базовая модель Gemini для генерации ответов"
+    )
+
     # Поля для ролей
     # email для интервьюера используем стандартное поле `email`
 
     # Настройки рабочего времени для интервью
     interview_start_time = models.TimeField(
-        _("Начало рабочего времени для интервью"), 
+        _("Начало рабочего времени для интервью"),
         default="09:00",
         help_text="Время начала рабочего дня для планирования интервью"
     )
     interview_end_time = models.TimeField(
-        _("Конец рабочего времени для интервью"), 
+        _("Конец рабочего времени для интервью"),
         default="18:00",
         help_text="Время окончания рабочего дня для планирования интервью"
     )
@@ -74,10 +91,9 @@ class User(AbstractUser):
 
     class Meta(AbstractUser.Meta):
         swappable = "AUTH_USER_MODEL"
-    
+
     def clean(self):
         super().clean()
-        # Валидация времени между встречами
         if self.meeting_interval_minutes is not None:
             if self.meeting_interval_minutes < 0 or self.meeting_interval_minutes > 60:
                 raise ValidationError({
@@ -87,7 +103,6 @@ class User(AbstractUser):
                 raise ValidationError({
                     'meeting_interval_minutes': 'Время между встречами должно быть кратно 5 минутам'
                 })
-
 
     @property
     def is_admin(self) -> bool:
@@ -111,18 +126,18 @@ class User(AbstractUser):
         if not self.huntflow_access_token or not self.huntflow_token_expires_at:
             return False
         return timezone.now() < self.huntflow_token_expires_at
-    
+
     @property
     def is_huntflow_refresh_valid(self):
         """Проверяет валидность refresh token"""
         if not self.huntflow_refresh_token or not self.huntflow_refresh_expires_at:
             return False
         return timezone.now() < self.huntflow_refresh_expires_at
-    
+
     def set_huntflow_tokens(self, access_token, refresh_token, expires_in=604800, refresh_expires_in=1209600):
         """
         Устанавливает токены Huntflow
-        
+
         Args:
             access_token: Access token
             refresh_token: Refresh token
@@ -134,31 +149,30 @@ class User(AbstractUser):
         self.huntflow_token_expires_at = timezone.now() + timedelta(seconds=expires_in)
         self.huntflow_refresh_expires_at = timezone.now() + timedelta(seconds=refresh_expires_in)
         self.save(update_fields=[
-            'huntflow_access_token', 
-            'huntflow_refresh_token', 
-            'huntflow_token_expires_at', 
+            'huntflow_access_token',
+            'huntflow_refresh_token',
+            'huntflow_token_expires_at',
             'huntflow_refresh_expires_at'
         ])
-    
+
     def get_profile_photo_url(self):
         """Получить URL фото профиля (локальное или из Google OAuth)"""
         if self.profile_photo:
             return self.profile_photo.url
-        
-        # Проверяем Google OAuth фото
+
         try:
             if hasattr(self, 'google_oauth_account') and self.google_oauth_account.picture_url:
                 return self.google_oauth_account.picture_url
         except:
             pass
-        
+
         return None
-    
+
     @staticmethod
     def get_meeting_interval_choices():
         """Получить список доступных значений для времени между встречами"""
         return [(i, f"{i} минут") for i in range(0, 61, 5)]
-    
+
     def get_meeting_interval_display(self):
         """Получить отображаемое значение времени между встречами"""
         return f"{self.meeting_interval_minutes} минут"
@@ -230,18 +244,15 @@ class QuickButton(models.Model):
         """Валидация данных"""
         super().clean()
         if self.button_type == QuickButtonType.LINK:
-            # Проверяем, что значение похоже на URL
-            if not (self.value.startswith('http://') or self.value.startswith('https://') or 
+            if not (self.value.startswith('http://') or self.value.startswith('https://') or
                     self.value.startswith('/') or self.value.startswith('mailto:') or
                     self.value.startswith('tel:')):
                 raise ValidationError({
                     'value': 'Для типа "Ссылка" значение должно быть URL (начинаться с http://, https://, /, mailto: или tel:)'
                 })
         elif self.button_type == QuickButtonType.DATETIME:
-            # Проверяем, что значение можно распарсить как дату/время
             from datetime import datetime
             try:
-                # Пробуем разные форматы
                 datetime.strptime(self.value, '%Y-%m-%d %H:%M:%S')
             except ValueError:
                 try:
