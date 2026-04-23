@@ -1,0 +1,9 @@
+{
+  "name": "hrhelper-linkedin-huntflow-extension",
+  "version": "1.4.11",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  }
+}
