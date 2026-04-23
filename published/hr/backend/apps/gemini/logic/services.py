@@ -12,31 +12,30 @@ class GeminiService:
     """
     
     BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
-    # Используем gemini-2.0-flash (доступна в v1beta)
-    MODEL = "gemini-2.0-flash"
-    # В v1beta доступны только gemini-2.0-flash и gemini-2.0-flash-exp
-    # Другие модели не поддерживаются в этой версии API
-    FALLBACK_MODELS = []  # Нет доступных fallback моделей в v1beta
-    
-    def __init__(self, api_key: str):
+    DEFAULT_MODEL = "gemini-flash-latest"
+    FALLBACK_MODELS = []
+
+    def __init__(self, api_key: str, model: str = None):
         """
-        Инициализация сервиса с API ключом
-        
+        Инициализация сервиса с API ключом и опциональным выбором модели.
+
         Args:
             api_key: API ключ для доступа к Gemini API
+            model: Название модели (если None, используется DEFAULT_MODEL)
         """
         if not api_key:
             raise ValidationError("API ключ не может быть пустым")
-        
-        self.api_key = api_key.strip()  # Убираем пробелы
+
+        self.api_key = api_key.strip()
+        self.MODEL = model if model else self.DEFAULT_MODEL
         self.session = requests.Session()
         self.session.headers.update({
             'Content-Type': 'application/json',
+            'X-goog-api-key': self.api_key,
         })
-        
-        # Логируем информацию о ключе (первые и последние символы для безопасности)
+
         api_key_preview = f"{self.api_key[:10]}...{self.api_key[-5:]}" if len(self.api_key) > 15 else "***"
-        print(f"🔑 GEMINI_SERVICE: Инициализация с ключом: {api_key_preview} (длина: {len(self.api_key)})")
+        print(f"🔑 GEMINI_SERVICE: Инициализация с ключом: {api_key_preview} (длина: {len(self.api_key)}), модель: {self.MODEL}")
     
     def _make_request(self, endpoint: str, data: Dict, max_retries: int = 2) -> Tuple[bool, Dict, Optional[str]]:
         """
@@ -50,13 +49,12 @@ class GeminiService:
         Returns:
             Tuple[bool, Dict, Optional[str]]: (успех, ответ, ошибка)
         """
-        url = f"{self.BASE_URL}/{endpoint}?key={self.api_key}"
-        
-        # Логируем информацию о запросе (без полного ключа)
+        url = f"{self.BASE_URL}/{endpoint}"
+
         api_key_preview = f"{self.api_key[:10]}...{self.api_key[-5:]}" if len(self.api_key) > 15 else "***"
         print(f"🌐 GEMINI_API: Запрос к {endpoint}")
         print(f"🌐 GEMINI_API: Используется ключ: {api_key_preview} (длина: {len(self.api_key)})")
-        print(f"🌐 GEMINI_API: URL: {self.BASE_URL}/{endpoint}?key={api_key_preview}")
+        print(f"🌐 GEMINI_API: URL: {url}")
         
         for attempt in range(max_retries + 1):
             try:
@@ -170,7 +168,7 @@ class GeminiService:
         # Если все попытки исчерпаны
         return False, {}, "Превышено максимальное количество попыток"
     
-    def generate_content(self, prompt: str, history: List[Dict] = None, model: str = None) -> Tuple[bool, str, Dict]:
+    def generate_content(self, prompt: str, history: List[Dict] = None, model: str = None, max_tokens: int = 8192) -> Tuple[bool, str, Dict]:
         """
         Генерирует контент с помощью Gemini API
         
@@ -213,7 +211,7 @@ class GeminiService:
                 "temperature": 0.7,
                 "topK": 40,
                 "topP": 0.95,
-                "maxOutputTokens": 2048,
+                "maxOutputTokens": max_tokens,
             },
             "safetySettings": [
                 {

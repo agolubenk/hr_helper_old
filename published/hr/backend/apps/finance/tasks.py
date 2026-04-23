@@ -719,7 +719,10 @@ def analyze_hh_vacancy_with_ai(vacancy_data: dict):
         
         # Создаем сервис Gemini
         from apps.gemini.logic.services import GeminiService
-        gemini_service = GeminiService(api_key)
+        gemini_service = GeminiService(
+            api_key,
+            model=getattr(default_user, 'preferred_ai_model', None)
+        )
         
         # Отправляем запрос в Gemini
         success, response, metadata = gemini_service.generate_content(prompt)

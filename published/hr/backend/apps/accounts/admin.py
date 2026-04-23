@@ -31,6 +31,7 @@ class UserAdmin(BaseUserAdmin):
         (_("Интеграции"), {
             "fields": (
                 "gemini_api_key",
+                "preferred_ai_model",
                 "clickup_api_key",
                 "telegram_username",
             )

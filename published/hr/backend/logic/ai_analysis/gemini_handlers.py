@@ -79,7 +79,10 @@ class MessageApiHandler:
                 })
             
             # Отправляем запрос к Gemini
-            gemini_service = GeminiService(request.user.gemini_api_key)
+            gemini_service = GeminiService(
+                request.user.gemini_api_key,
+                model=getattr(request.user, 'preferred_ai_model', None)
+            )
             result = gemini_service.chat_completion(messages_data)
             
             if result['success']:
@@ -155,7 +158,10 @@ class MessageApiHandler:
                 })
             
             # Отправляем запрос к Gemini
-            gemini_service = GeminiService(user.gemini_api_key)
+            gemini_service = GeminiService(
+                user.gemini_api_key,
+                model=getattr(user, 'preferred_ai_model', None)
+            )
             result = gemini_service.chat_completion(messages_data)
             
             if result['success']:
@@ -225,7 +231,10 @@ class ApiKeyApiHandler:
                 }
             
             # Тестируем API ключ
-            gemini_service = GeminiService(api_key)
+            gemini_service = GeminiService(
+                api_key,
+                model=getattr(request.user, 'preferred_ai_model', None)
+            )
             success, message = gemini_service.test_connection()
             
             if success:

@@ -127,7 +127,11 @@
     if (system) {
         data['system'] = system;
     }
-    
+    if (provider === 'gemini') {
+        const modelSel = document.getElementById('preferred_ai_model');
+        if (modelSel) data['model'] = modelSel.value;
+    }
+
     fetch(`/accounts/test-${provider}/`, {
         method: 'POST',
         body: JSON.stringify(data),
@@ -341,6 +345,63 @@ document.addEventListener('DOMContentLoaded', function() {
                     Получите API ключ в <a href="https://makersuite.google.com/app/apikey" target="_blank">Google AI Studio</a>
                 </div>
             </div>
+
+            <!-- ─── Выбор базовой AI-модели ─────────────────────────────── -->
+            <div class="mt-3 p-3" style="background:var(--bs-body-bg,#f8f9fa);
+                 border:1px solid var(--bs-border-color,#dee2e6);border-radius:.5rem;">
+
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <label for="preferred_ai_model" class="form-label mb-0 fw-semibold">
+                        <i class="fas fa-microchip me-1"></i>
+                        Базовая модель
+                        <span id="current-model-badge"
+                              style="font-size:.7rem;font-weight:600;padding:2px 8px;
+                                     border-radius:4px;background:rgba(52,168,83,.15);
+                                     color:#34a853;margin-left:6px;vertical-align:middle;">
+                            {{ user.preferred_ai_model|default:"gemini-flash-latest" }}
+                        </span>
+                    </label>
+                    <a href="https://ai.google.dev/gemini-api/docs/models"
+                       target="_blank" class="text-muted small">
+                        <i class="fas fa-external-link-alt me-1"></i>Сравнить модели
+                    </a>
+                </div>
+
+                <select class="form-select" id="preferred_ai_model" name="preferred_ai_model"
+                        onchange="document.getElementById('current-model-badge').textContent = this.value">
+                    <option value="gemini-flash-latest"
+                        {% if user.preferred_ai_model == 'gemini-flash-latest' or not user.preferred_ai_model %}selected{% endif %}>
+                        Gemini Flash Latest — всегда актуальная версия (рекомендуется)
+                    </option>
+                    <option value="gemini-2.0-flash"
+                        {% if user.preferred_ai_model == 'gemini-2.0-flash' %}selected{% endif %}>
+                        Gemini 2.0 Flash — быстрый, баланс скорости/качества
+                    </option>
+                    <option value="gemini-2.0-flash-lite"
+                        {% if user.preferred_ai_model == 'gemini-2.0-flash-lite' %}selected{% endif %}>
+                        Gemini 2.0 Flash Lite — максимально лёгкий и дешёвый
+                    </option>
+                    <option value="gemini-1.5-pro"
+                        {% if user.preferred_ai_model == 'gemini-1.5-pro' %}selected{% endif %}>
+                        Gemini 1.5 Pro — мощный, контекст 2M токенов
+                    </option>
+                    <option value="gemini-1.5-flash"
+                        {% if user.preferred_ai_model == 'gemini-1.5-flash' %}selected{% endif %}>
+                        Gemini 1.5 Flash — компактный 1.5 поколения
+                    </option>
+                    <option value="gemini-1.0-pro"
+                        {% if user.preferred_ai_model == 'gemini-1.0-pro' %}selected{% endif %}>
+                        Gemini 1.0 Pro — классическая версия
+                    </option>
+                </select>
+
+                <div class="form-text mt-2">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Модель используется для всех AI-операций (анализ резюме, генерация писем, чат).
+                    «Тестировать» выше проверяет ключ именно на этой модели.
+                </div>
+            </div>
+            <!-- ──────────────────────────────────────────────────────────── -->
         </div>
     </div>
     

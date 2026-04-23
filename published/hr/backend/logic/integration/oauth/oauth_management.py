@@ -234,7 +234,10 @@ def google_ai_analysis(request):
         # Используем Gemini для анализа
         if request.user.gemini_api_key:
             from logic.ai_analysis.gemini_services import GeminiService
-            gemini_service = GeminiService(request.user.gemini_api_key)
+            gemini_service = GeminiService(
+                request.user.gemini_api_key,
+                model=getattr(request.user, 'preferred_ai_model', None)
+            )
             
             # Формируем промпт в зависимости от типа действия
             if action_type == "interview_scheduling":

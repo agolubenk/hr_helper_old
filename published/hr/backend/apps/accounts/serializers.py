@@ -214,6 +214,6 @@ class ApiKeyTestSerializer(serializers.Serializer):
     model = serializers.CharField(
         max_length=64,
         required=False,
-        default='gemini-2.0-flash',
+        default='gemini-flash-latest',
         help_text="Модель Gemini для тестирования (только для integration_type=gemini)"
     )

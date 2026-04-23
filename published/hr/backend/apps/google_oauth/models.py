@@ -3060,7 +3060,10 @@ class Invite(models.Model):
             print(f"🤖 GEMINI_PROMPT: Конец промпта")
             
             # Отправляем запрос к Gemini
-            gemini_service = GeminiService(self.user.gemini_api_key)
+            gemini_service = GeminiService(
+                self.user.gemini_api_key,
+                model=getattr(self.user, 'preferred_ai_model', None)
+            )
             success, response, metadata = gemini_service.generate_content(system_prompt)
             
             if not success:
@@ -4506,8 +4509,11 @@ class HRScreening(models.Model):
                 return False, f"API ключ слишком короткий ({len(self.user.gemini_api_key)} символов). Проверьте правильность ключа."
             
             # Создаем сервис Gemini
-            gemini_service = GeminiService(self.user.gemini_api_key)
-            
+            gemini_service = GeminiService(
+                self.user.gemini_api_key,
+                model=getattr(self.user, 'preferred_ai_model', None)
+            )
+
             # Подготавливаем промпт
             prompt_success, prompt = self._prepare_gemini_prompt()
             if not prompt_success:

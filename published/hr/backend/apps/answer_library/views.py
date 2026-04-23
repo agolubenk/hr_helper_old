@@ -286,7 +286,10 @@ def send_message(request):
     # Вызов Gemini (один запрос без истории, т.к. контекст уже в промпте)
     try:
         from apps.gemini.logic.services import GeminiService
-        gemini = GeminiService(request.user.gemini_api_key)
+        gemini = GeminiService(
+            request.user.gemini_api_key,
+            model=getattr(request.user, 'preferred_ai_model', None)
+        )
         success, response_text, metadata = gemini.generate_content(prompt, history=None)
     except Exception as e:
         logger.exception('Answer library Gemini call failed')

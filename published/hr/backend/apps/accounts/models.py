@@ -13,6 +13,7 @@ class SystemChoice(models.TextChoices):
 
 
 class AIModelChoice(models.TextChoices):
+    GEMINI_FLASH_LATEST = "gemini-flash-latest",   _("Gemini Flash Latest")
     GEMINI_2_FLASH      = "gemini-2.0-flash",      _("Gemini 2.0 Flash")
     GEMINI_2_FLASH_LITE = "gemini-2.0-flash-lite", _("Gemini 2.0 Flash Lite")
     GEMINI_15_PRO       = "gemini-1.5-pro",        _("Gemini 1.5 Pro")
@@ -59,7 +60,7 @@ class User(AbstractUser):
         _("Предпочтительная AI модель"),
         max_length=64,
         choices=AIModelChoice.choices,
-        default=AIModelChoice.GEMINI_2_FLASH,
+        default=AIModelChoice.GEMINI_FLASH_LATEST,
         help_text="Базовая модель Gemini для генерации ответов"
     )
 

@@ -113,19 +113,20 @@ class MessageHandler:
         return history
     
     @staticmethod
-    def send_to_gemini(message: str, history: list, api_key: str) -> Tuple[bool, str, Dict[str, Any]]:
+    def send_to_gemini(message: str, history: list, api_key: str, model: str = None) -> Tuple[bool, str, Dict[str, Any]]:
         """
         Отправка сообщения в Gemini API
-        
+
         Args:
             message: Текст сообщения
             history: История сообщений
             api_key: API ключ Gemini
-            
+            model: Название модели Gemini (опционально)
+
         Returns:
             Tuple[bool, str, Dict[str, Any]]: (успех, ответ, метаданные)
         """
-        gemini_service = GeminiService(api_key)
+        gemini_service = GeminiService(api_key, model=model)
         return gemini_service.generate_content(message, history)
     
     @staticmethod
@@ -198,7 +199,8 @@ class MessageHandler:
             
             # Отправка к Gemini
             success, response, metadata = MessageHandler.send_to_gemini(
-                message, history, user.gemini_api_key
+                message, history, user.gemini_api_key,
+                model=getattr(user, 'preferred_ai_model', None)
             )
             
             if success:

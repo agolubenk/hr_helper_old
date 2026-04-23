@@ -229,7 +229,10 @@ class HRScreeningViewSet(BaseAPIViewSet):
             
             # Используем Gemini для анализа
             from logic.ai_analysis.gemini_services import GeminiService
-            gemini_service = GeminiService(request.user.gemini_api_key)
+            gemini_service = GeminiService(
+                request.user.gemini_api_key,
+                model=getattr(request.user, 'preferred_ai_model', None)
+            )
             
             prompt = f"""
             Проанализируй следующий текст HR скрининга и извлеки:

@@ -324,7 +324,10 @@ class GeminiApiViewSet(BaseAPIViewSet):
                     )
                     return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
                 
-                gemini_service = GeminiService(request.user.gemini_api_key)
+                gemini_service = GeminiService(
+                    request.user.gemini_api_key,
+                    model=getattr(request.user, 'preferred_ai_model', None)
+                )
                 result = gemini_service.analyze_text(
                     serializer.validated_data['text'],
                     serializer.validated_data.get('analysis_type', 'general'),
@@ -378,7 +381,10 @@ class GeminiApiViewSet(BaseAPIViewSet):
                     )
                     return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
                 
-                gemini_service = GeminiService(request.user.gemini_api_key)
+                gemini_service = GeminiService(
+                    request.user.gemini_api_key,
+                    model=getattr(request.user, 'preferred_ai_model', None)
+                )
                 result = gemini_service.generate_response(
                     serializer.validated_data['text'],
                     serializer.validated_data.get('context', ''),

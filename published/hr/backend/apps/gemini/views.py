@@ -171,7 +171,10 @@ def settings(request):
             
             # Тестируем API ключ
             try:
-                gemini_service = GeminiService(api_key)
+                gemini_service = GeminiService(
+                    api_key,
+                    model=getattr(request.user, 'preferred_ai_model', None)
+                )
                 success, message = gemini_service.test_connection()
                 
                 if success:

@@ -22,9 +22,10 @@ class GeminiService(BaseAPIClient):
     """
 
     BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
-    DEFAULT_MODEL = "gemini-2.0-flash"
+    DEFAULT_MODEL = "gemini-flash-latest"
 
     AVAILABLE_MODELS = [
+        {"value": "gemini-flash-latest",   "label": "Gemini Flash Latest (рекомендуется)"},
         {"value": "gemini-2.0-flash",      "label": "Gemini 2.0 Flash"},
         {"value": "gemini-2.0-flash-lite", "label": "Gemini 2.0 Flash Lite"},
         {"value": "gemini-1.5-pro",        "label": "Gemini 1.5 Pro"},
@@ -53,18 +54,9 @@ class GeminiService(BaseAPIClient):
 
     def _setup_auth(self):
         """
-        Настройка аутентификации для Gemini API
-
-        ВХОДЯЩИЕ ДАННЫЕ: Нет (использует self.api_key)
-        ИСТОЧНИКИ ДАННЫХ: self.api_key
-        ОБРАБОТКА: Настройка аутентификации через API ключ в URL
-        ВЫХОДЯЩИЕ ДАННЫЕ: Настроенная аутентификация
-        СВЯЗИ: requests.Session
-        ФОРМАТ: Нет (настройка заголовков сессии)
+        Настройка аутентификации для Gemini API через заголовок X-goog-api-key
         """
-        # Для Gemini API аутентификация происходит через API ключ в URL
-        # Дополнительные заголовки не нужны
-        pass
+        self.session.headers.update({'X-goog-api-key': self.api_key})
 
     def _make_request(self, endpoint: str, data: Dict, max_retries: int = 2) -> Tuple[bool, Dict, Optional[str]]:
         """
@@ -77,7 +69,7 @@ class GeminiService(BaseAPIClient):
         СВЯЗИ: Google Gemini API
         ФОРМАТ: Tuple[bool, Dict, Optional[str]]
         """
-        url = f"{self.BASE_URL}/{endpoint}?key={self.api_key}"
+        url = f"{self.BASE_URL}/{endpoint}"
 
         for attempt in range(max_retries + 1):
             try:
@@ -167,7 +159,7 @@ class GeminiService(BaseAPIClient):
                 data={"error": f"Ошибка тестирования: {str(e)}"}
             )
 
-    def generate_response(self, prompt: str, context: str = "", max_tokens: int = 1000) -> Dict:
+    def generate_response(self, prompt: str, context: str = "", max_tokens: int = 4096) -> Dict:
         """
         Генерация ответа на основе промпта
 
@@ -240,7 +232,7 @@ class GeminiService(BaseAPIClient):
                 'error': f'Ошибка генерации: {str(e)}'
             }
 
-    def analyze_text(self, text: str, analysis_type: str = "general", max_tokens: int = 1000) -> Dict:
+    def analyze_text(self, text: str, analysis_type: str = "general", max_tokens: int = 4096) -> Dict:
         """
         Анализ текста с помощью Gemini
 
@@ -271,7 +263,7 @@ class GeminiService(BaseAPIClient):
                 'error': f'Ошибка анализа: {str(e)}'
             }
 
-    def chat_completion(self, messages: List[Dict], max_tokens: int = 1000) -> Dict:
+    def chat_completion(self, messages: List[Dict], max_tokens: int = 4096) -> Dict:
         """
         Завершение чата на основе истории сообщений
 
